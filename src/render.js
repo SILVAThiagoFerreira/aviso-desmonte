@@ -94,7 +94,7 @@ function drawScale(ctx, box, transform, bounds) {
 }
 
 function drawLegend(ctx, model, box, colors) {
-  const x = box.x + 28; const y = box.y + box.height - 380; const width = 450; const height = 380;
+  const stringRows = Math.ceil((model.strings || []).length / 2); const height = Math.max(380, Math.min(box.height - 30, 190 + stringRows * 18)); const x = box.x + 28; const y = box.y + box.height - height; const width = 450;
   ctx.fillStyle = '#ffffff'; ctx.fillRect(x, y, width, height); ctx.strokeStyle = colors.rule; ctx.lineWidth = 2; ctx.strokeRect(x, y, width, height);
   ctx.fillStyle = colors.ink; ctx.font = '700 18px Arial'; ctx.textAlign = 'left'; ctx.fillText('LEGENDA', x + 16, y + 30);
   let rowY = y + 62;
@@ -102,7 +102,8 @@ function drawLegend(ctx, model, box, colors) {
   model.radiusContours.forEach((contour) => line(Number(contour.radius) === Number(model.radii.people) ? colors.cyan : colors.greenLight, `Raio contínuo ${formatNumber(contour.radius, 0)} m`, false));
   line(colors.orange, 'String(s) de desmonte DXF');
   ctx.fillStyle = colors.ink; ctx.font = '700 13px Arial'; ctx.fillText('REGIÕES DE DESMONTE:', x + 16, rowY + 6); rowY += 27;
-  (model.strings || []).slice(0, 8).forEach((item, index) => { ctx.fillStyle = colors.orange; ctx.font = '12px Arial'; ctx.fillText(`${String(index + 1).padStart(2, '0')}  ${String(item.label || item.name).slice(0, 42)}`, x + 16, rowY); rowY += 18; });
+  const rowsPerColumn = Math.max(1, Math.ceil((model.strings || []).length / 2));
+  (model.strings || []).forEach((item, index) => { const column = Math.floor(index / rowsPerColumn); const row = index % rowsPerColumn; ctx.fillStyle = colors.orange; ctx.font = '11px Arial'; ctx.fillText(`${String(index + 1).padStart(2, '0')}  ${String(item.label || item.name).slice(0, 25)}`, x + 16 + column * 220, rowY + row * 18); });
 }
 
 function drawAreaGroup(ctx, areas, title, color, panel, colors, startY) {
@@ -115,8 +116,8 @@ function drawAreaGroup(ctx, areas, title, color, panel, colors, startY) {
 
 function drawPanel(ctx, model, panel, colors) {
   ctx.fillStyle = colors.paper; ctx.fillRect(panel.x, panel.y, panel.width, panel.height); ctx.strokeStyle = colors.rule; ctx.lineWidth = 2; ctx.strokeRect(panel.x, panel.y, panel.width, panel.height);
-  if (model.logoImage) { const logoWidth = panel.width - 26; const logoHeight = logoWidth * model.logoImage.height / model.logoImage.width; ctx.drawImage(model.logoImage, panel.x + 13, panel.y + 8, logoWidth, Math.min(logoHeight, 70)); }
-  const titleY = panel.y + 86; ctx.fillStyle = colors.green; ctx.fillRect(panel.x + 10, titleY, panel.width - 20, 54); ctx.fillStyle = '#ffffff'; ctx.textAlign = 'center'; ctx.font = '700 18px Arial'; ctx.fillText('ÁREA DE INFLUÊNCIA', panel.x + panel.width / 2, titleY + 22); ctx.font = '700 15px Arial'; ctx.fillText(`DESMONTE - ${model.meta.dateLabel}`, panel.x + panel.width / 2, titleY + 44);
+  if (model.logoImage) { const maxWidth = panel.width - 26; const maxHeight = 68; const ratio = Math.min(maxWidth / model.logoImage.width, maxHeight / model.logoImage.height); const logoWidth = model.logoImage.width * ratio; const logoHeight = model.logoImage.height * ratio; ctx.drawImage(model.logoImage, panel.x + (panel.width - logoWidth) / 2, panel.y + 8, logoWidth, logoHeight); }
+  const titleY = panel.y + 98; ctx.fillStyle = colors.green; ctx.fillRect(panel.x + 10, titleY, panel.width - 20, 54); ctx.fillStyle = '#ffffff'; ctx.textAlign = 'center'; ctx.font = '700 18px Arial'; ctx.fillText('ÁREA DE INFLUÊNCIA', panel.x + panel.width / 2, titleY + 22); ctx.font = '700 15px Arial'; ctx.fillText(`DESMONTE - ${model.meta.dateLabel}`, panel.x + panel.width / 2, titleY + 44);
   ctx.fillStyle = colors.ink; ctx.textAlign = 'left'; ctx.font = '700 14px Arial'; ctx.fillText(model.meta.company || 'EMPRESA / OPERAÇÃO', panel.x + 12, titleY - 10);
   let y = titleY + 68; y = drawAreaGroup(ctx, model.areas.filter((area) => area.status === 'evacuar'), 'EVACUAR', colors.red, panel, colors, y); y += 16; drawAreaGroup(ctx, model.areas.filter((area) => area.status === 'liberado'), 'LIBERADO', colors.blue, panel, colors, y);
 }
@@ -125,8 +126,7 @@ export function drawReport(canvas, model, config) {
   const width = config.report.canvasWidth; const height = config.report.canvasHeight; canvas.width = width; canvas.height = height;
   const ctx = canvas.getContext('2d'); const colors = config.report.colors; const map = config.report.map; const panel = config.report.panel; const stringEntities = flattenStringEntities(model.strings || []);
   const geometryBounds = mergeBounds([boundsOf(stringEntities), ...model.areas.map((area) => boundsOf(area.entities || []))]);
-  const combinedBounds = mergeBounds([model.baseImage?.bounds, geometryBounds]);
-  const bounds = model.boundsMode === 'manual' ? model.manualBounds : model.baseImage?.bounds ? combinedBounds : paddedBounds(geometryBounds);
+  const bounds = model.boundsMode === 'manual' ? model.manualBounds : model.baseImage?.bounds ? model.baseImage.bounds : paddedBounds(geometryBounds);
   const transform = makeTransform(bounds, map);
   ctx.fillStyle = colors.paper; ctx.fillRect(0, 0, width, height); ctx.strokeStyle = colors.rule; ctx.lineWidth = 2; ctx.strokeRect(16, 16, width - 32, height - 32);
   ctx.save(); ctx.beginPath(); ctx.rect(map.x, map.y, map.width, map.height); ctx.clip(); ctx.fillStyle = '#dde6e4'; ctx.fillRect(map.x, map.y, map.width, map.height); if (model.baseImage?.bounds) drawGeoImage(ctx, model.baseImage, transform); else drawCoverImage(ctx, model.baseImage?.image || model.baseImage, map); ctx.restore();

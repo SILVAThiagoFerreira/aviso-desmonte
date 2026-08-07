@@ -1,16 +1,30 @@
 {
   "app": {
-    "name": "Aviso de Desmonte",
+    "name": "Gerador de área de influência",
     "eyebrow": "Gerador de área de influência",
-    "version": "1.1.0"
+    "version": "1.2.0"
   },
+  "ortomosaicos": [
+    { "id": "mina-20260730", "label": "Mina reduzida · 30/07/2026", "path": "GEOTIFF/20260730_Mina_Reduzida.tif" },
+    { "id": "estoque-20251119", "label": "Estoque reduzido · 19/11/2025", "path": "ORTOMOSAICO/20251119_Estoque_Reduzido.tif" },
+    { "id": "pilha-esteril-20251124", "label": "Pilha de estéril reduzida · 24/11/2025", "path": "ORTOMOSAICO/20251124_Pilha_Esteril_Reduzida.tif" },
+    { "id": "mina-20251126", "label": "Mina reduzida · 26/11/2025", "path": "ORTOMOSAICO/20251126_Mina_Reduzida.tif" }
+  ],
+  "poligonaisProjeto": [
+    { "id": "r030826", "label": "r030826 · 3 entidades", "path": "POLIGONAIS/r030826.dxf" },
+    { "id": "holes-pp440826", "label": "holes-string-PP440826", "path": "POLIGONAIS/holes-string-PP440826.dxf" }
+  ],
+  "areasProjeto": [
+    { "id": "evacuar", "label": "Áreas de evacuação", "path": "ÁREA DE INFLUÊNCIA/DXF/EVACUAR.dxf" },
+    { "id": "liberado", "label": "Áreas liberadas", "path": "ÁREA DE INFLUÊNCIA/DXF/LIBERADO.dxf" }
+  ],
   "report": {
     "canvasWidth": 1600,
-    "canvasHeight": 1500,
+    "canvasHeight": 1512,
     "pageWidthPt": 1191,
     "pageHeightPt": 1126,
-    "map": { "x": 28, "y": 35, "width": 1280, "height": 1410 },
-    "panel": { "x": 1330, "y": 35, "width": 240, "height": 1410 },
+    "map": { "x": 28, "y": 35, "width": 1280, "height": 1422 },
+    "panel": { "x": 1330, "y": 35, "width": 240, "height": 1422 },
     "colors": {
       "paper": "#ffffff",
       "ink": "#1f2f35",

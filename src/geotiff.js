@@ -36,6 +36,6 @@ export async function decodeGeoTiff(source) {
     bounds: { minX: bbox[0], minY: bbox[1], maxX: bbox[2], maxY: bbox[3] },
     width,
     height,
-    name: source instanceof File ? source.name : '20260730_Mina_Reduzida.tif'
+    name: source instanceof File ? source.name : decodeURIComponent(String(source).split('/').pop() || 'ortomosaico.tif')
   };
 }
