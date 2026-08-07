@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import vm from 'node:vm';
 import { parseDxf, parseGeoJson } from '../src/dxf.js';
-import { areaIntersectsContours, boundsOf, boundsOfContours, buildRadiusContours, flattenStringEntities, getStringEndpoints, paddedBounds } from '../src/geometry.js';
+import { areaIntersectsContours, boundsOf, boundsOfContours, buildRadiusContours, flattenStringEntities, getStringEndpoints, paddedBounds, pointIntersectsContours } from '../src/geometry.js';
 import { safeFileName } from '../src/pdf.js';
 
 const dxf = await fs.readFile(new URL('../POLIGONAIS/r030826.dxf', import.meta.url), 'latin1');
@@ -26,6 +26,12 @@ const areaDxf = await fs.readFile(new URL('../ÁREA DE INFLUÊNCIA/DXF/EVACUAR.d
 const parsedArea = parseDxf(areaDxf);
 assert.ok(parsedArea.entities.length >= 10, 'o DXF de áreas de referência precisa ler os HATCHs');
 assert.ok(parsedArea.entities.every((entity) => entity.closed), 'as áreas HATCH precisam ser fechadas');
+const structureCatalog = JSON.parse(await fs.readFile(new URL('../data/structures.json', import.meta.url), 'utf8'));
+assert.equal(structureCatalog.structures.length, 54, 'o catálogo do PDF deve conter as 54 estruturas numeradas');
+assert.equal(new Set(structureCatalog.structures.map((structure) => structure.id)).size, 54, 'os identificadores das estruturas devem ser únicos');
+assert.equal(structureCatalog.structures.filter((structure) => structure.statusFromPdf === 'evacuar').length, 29, 'o PDF deve conter 29 estruturas de evacuação');
+assert.equal(structureCatalog.structures.filter((structure) => structure.statusFromPdf === 'liberado').length, 25, 'o PDF deve conter 25 estruturas liberadas');
+assert.ok(structureCatalog.pageMap.width > 0 && structureCatalog.pageMap.height > 0, 'o catálogo deve guardar a extensão cartográfica da página fonte');
 
 const geo = parseGeoJson(JSON.stringify({ type: 'FeatureCollection', features: [{ type: 'Feature', properties: { name: 'EVACUAR' }, geometry: { type: 'Polygon', coordinates: [[[0, 0], [10, 0], [10, 10], [0, 0]]] } }] }));
 assert.equal(geo.entities.length, 1);
@@ -36,5 +42,7 @@ assert.equal(areaIntersectsContours([{ type: 'point', points: [{ x: 5, y: 5 }] }
 const contour = [{ polygons: [[[[0, 0], [10, 0], [10, 10], [0, 10], [0, 0]]]], radius: 5 }];
 assert.equal(areaIntersectsContours([{ type: 'polyline', closed: true, points: [{ x: 4, y: 4 }, { x: 6, y: 4 }, { x: 6, y: 6 }, { x: 4, y: 4 }] }], contour), true);
 assert.equal(areaIntersectsContours([{ type: 'polyline', closed: true, points: [{ x: 20, y: 20 }, { x: 22, y: 20 }, { x: 22, y: 22 }, { x: 20, y: 20 }] }], contour), false);
+assert.equal(pointIntersectsContours({ x: 5, y: 5 }, contour), true, 'um ponto dentro do contorno deve ser evacuado');
+assert.equal(pointIntersectsContours({ x: 15, y: 15 }, contour), false, 'um ponto fora do contorno deve ser liberado');
 assert.equal(safeFileName('Aviso de Detonação 04/08/2026'), 'aviso-de-detonacao-04-08-2026');
 console.log(`PASS: DXF ${parsed.entities.length} entidades, ${getStringEndpoints(parsed.entities).length} extremidades, GeoJSON e nome de arquivo validados.`);

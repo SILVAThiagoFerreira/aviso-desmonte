@@ -167,6 +167,16 @@ function pointInRing(point, ring) {
   return inside;
 }
 
+function pointInPolygon(point, polygon) {
+  const outer = polygon?.[0] || [];
+  if (!pointInRing(point, outer)) return false;
+  return (polygon || []).slice(1).every((hole) => !pointInRing(point, hole));
+}
+
+export function pointIntersectsContours(point, contours = []) {
+  return contours.some((contour) => (contour.polygons || []).some((polygon) => pointInPolygon(point, polygon)));
+}
+
 function orientation(a, b, c) { return (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x); }
 function onSegment(a, b, point) { return Math.min(a.x, b.x) - 1e-9 <= point.x && point.x <= Math.max(a.x, b.x) + 1e-9 && Math.min(a.y, b.y) - 1e-9 <= point.y && point.y <= Math.max(a.y, b.y) + 1e-9; }
 function segmentsCross(a, b, c, d) {

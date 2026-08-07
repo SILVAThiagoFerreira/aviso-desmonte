@@ -2,7 +2,7 @@
   "app": {
     "name": "Aviso de Desmonte",
     "eyebrow": "AVISO DE DESMONTE",
-    "version": "1.3.0"
+    "version": "1.4.0"
   },
   "defaultPreset": {
     "loadAllOrthomosaics": true,
@@ -10,7 +10,8 @@
     "loadProjectAreas": true,
     "loadSatelliteBackground": true,
     "peopleRadius": 700,
-    "machineRadius": 300
+    "machineRadius": 300,
+    "structureCatalog": "data/structures.json"
   },
   "ortomosaicos": [
     { "id": "mina-20260730", "label": "Mina reduzida · 30/07/2026", "path": "GEOTIFF/20260730_Mina_Reduzida.tif" },

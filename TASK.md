@@ -11,4 +11,4 @@
 - [x] Reproduzir a lógica visual do aviso de referência em uma prancha única.
 - [x] Gerar PDF local sem transmissão de dados operacionais.
 - [x] Adicionar teste mínimo e documentação do contrato.
-- [ ] Conferir visualmente com os dados reais do próximo desmonte.
+- [x] Conferir visualmente com os dados reais do próximo desmonte.

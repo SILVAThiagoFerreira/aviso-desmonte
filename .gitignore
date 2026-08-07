@@ -18,6 +18,8 @@
 !/src/**
 !/tests/
 !/tests/**
+!/data/
+!/data/**
 !/assets/
 !/assets/**
 !/vendor/
