@@ -4,6 +4,14 @@
     "eyebrow": "AVISO DE DESMONTE",
     "version": "1.3.0"
   },
+  "defaultPreset": {
+    "loadAllOrthomosaics": true,
+    "loadProjectStrings": true,
+    "loadProjectAreas": true,
+    "loadSatelliteBackground": true,
+    "peopleRadius": 700,
+    "machineRadius": 300
+  },
   "ortomosaicos": [
     { "id": "mina-20260730", "label": "Mina reduzida · 30/07/2026", "path": "GEOTIFF/20260730_Mina_Reduzida.tif" },
     { "id": "estoque-20251119", "label": "Estoque reduzido · 19/11/2025", "path": "ORTOMOSAICO/20251119_Estoque_Reduzido.tif" },
