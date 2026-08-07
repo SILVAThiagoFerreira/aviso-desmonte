@@ -100,6 +100,17 @@ function roundedBoundsPolygon(entities, radius) {
   return [[ring]];
 }
 
+function unionInBatches(pieces, batchSize = 24) {
+  let pending = pieces;
+  while (pending.length > 1) {
+    const next = [];
+    for (let index = 0; index < pending.length; index += batchSize) next.push(...globalThis.polygonClipping.union(...pending.slice(index, index + batchSize)));
+    if (next.length >= pending.length) return next;
+    pending = next;
+  }
+  return pending;
+}
+
 function bufferPieces(entities, radius) {
   const pieces = [];
   const seen = new Set();
@@ -140,8 +151,8 @@ export function buildRadiusContours(entities = [], radii = []) {
     const pieces = bufferPieces(entities, radius);
     if (!pieces.length) return { radius, polygons: [] };
     let polygons = [];
-    if (pieces.length > 120) return { radius, polygons: pieces, outline: roundedBoundsPolygon(entities, radius) };
-    try { polygons = globalThis.polygonClipping.union(...pieces); } catch { polygons = pieces; }
+    try { polygons = pieces.length > 120 ? unionInBatches(pieces) : globalThis.polygonClipping.union(...pieces); } catch { polygons = pieces; }
+    if (!polygons.length) return { radius, polygons: pieces, outline: roundedBoundsPolygon(entities, radius) };
     return { radius, polygons };
   }).filter((item) => item.polygons.length);
 }
