@@ -110,3 +110,67 @@ button { cursor: pointer; }
 @media (max-width: 840px) { .topbar { min-height: 76px; height: auto; flex-wrap: wrap; gap: 8px; padding: 12px 18px; } .brand-lockup { min-width: 0; flex: 1 1 auto; } .enaex-logo { width: 116px; } .topbar-meta { font-size: 0; } .version { font-size: 10px; } .workspace { grid-template-columns: 1fr; } .control-panel { order: 2; } .preview-panel { order: 1; } .preview-toolbar { align-items: start; gap: 12px; flex-direction: column; } .preview-metrics { flex-wrap: wrap; text-align: left; } }
 @media (max-width: 560px) { .brand-divider, .brand-lockup .eyebrow { display: none; } .brand-lockup h1 { font-size: 20px; } .enaex-logo { width: 102px; } .catalog-row, .google-key-row { grid-template-columns: 1fr; } .catalog-button { width: 100%; } .area-item { grid-template-columns: 1fr auto; } .area-status { grid-column: 1; justify-self: start; } .area-item .remove-button { grid-column: 2; grid-row: 1 / span 2; } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; } }
+
+/* Mesa de mapa: uma leitura mais próxima de um QGIS simples, sem esconder a prancha final. */
+:root { --map-ink: #dce8e5; --map-muted: #91a7a5; --map-bg: #172126; --map-panel: #223137; --map-line: #34464b; --map-accent: #f04b43; }
+html, body { background: var(--map-bg); }
+body { color: var(--map-ink); }
+.topbar { height: 58px; padding: 0 22px; border-bottom: 1px solid #3b4b50; background: #111a1e; }
+.brand-lockup { gap: 11px; min-width: 290px; }
+.enaex-logo { width: 104px; max-height: 34px; }
+.topbar h1 { font-size: 20px; }
+.topbar-center { font-size: 18px; color: #b9cbc8; }
+.topbar-meta { color: #9fb3b0; }
+.status-dot { width: 6px; height: 6px; background: #58d59b; box-shadow: 0 0 0 4px rgba(88,213,155,.12); }
+.workspace { grid-template-columns: 332px minmax(0, 1fr); gap: 0; max-width: none; min-height: calc(100vh - 58px); padding: 0; }
+.control-panel { overflow-y: auto; max-height: calc(100vh - 58px); padding: 18px 16px 24px; border: 0; border-right: 1px solid var(--map-line); border-top: 0; border-radius: 0; background: var(--map-panel); box-shadow: none; scrollbar-color: #53686c transparent; }
+.panel-intro { padding: 3px 2px 15px; border-bottom-color: var(--map-line); }
+.panel-intro h2 { margin: 8px 0 0; color: #f4f8f7; font: 600 24px/1 'Barlow Condensed', sans-serif; }
+.panel-intro p { color: var(--map-muted); font-size: 11px; }
+.panel-title-row { display: flex; align-items: center; justify-content: space-between; }
+.map-live { color: #68d6a5; font: 600 9px 'IBM Plex Mono', monospace; text-transform: uppercase; }
+.map-live i { display: inline-block; width: 6px; height: 6px; margin-right: 4px; border-radius: 50%; background: currentColor; }
+.layer-summary { display: grid; grid-template-columns: 30px minmax(0,1fr) auto; gap: 9px; align-items: center; margin: 14px 0 2px; padding: 10px; border: 1px solid #3c5256; background: #1a282d; }
+.layer-glyph { display: grid; place-items: center; width: 27px; height: 27px; color: #94eee0; border: 1px solid #52777a; font-size: 16px; }
+.layer-summary strong, .layer-summary small { display: block; }
+.layer-summary strong { color: #edf6f4; font-size: 11px; }
+.layer-summary small { margin-top: 3px; color: var(--map-muted); font: 9px 'IBM Plex Mono', monospace; }
+.layer-count { color: #94eee0; font: 700 12px 'IBM Plex Mono', monospace; }
+.form-section { padding: 17px 0; border-bottom-color: var(--map-line); }
+.section-heading { margin-bottom: 12px; }
+.section-heading h2 { color: #f0f5f3; font-size: 20px; }
+.section-heading > span, .section-kicker { color: #f06a60; }
+.field > span, .helper, .dropzone small, .switch-row small { color: var(--map-muted); }
+.field input, .field select, .google-key-row input { min-height: 36px; border-color: #40565b; border-radius: 3px; color: #eff6f4; background: #1b292e; }
+.field input:focus, .field select:focus, .google-key-row input:focus { border-color: #7cdace; background: #19272b; box-shadow: 0 0 0 2px rgba(124,218,206,.16); }
+.dropzone { min-height: 55px; border-color: #4a666a; border-radius: 3px; background: #1d2c31; }
+.dropzone:hover, .dropzone:focus-within { border-color: #8bded3; background: #22363a; transform: none; }
+.dropzone strong { color: #e9f2f0; font-size: 11px; }
+.drop-icon { border-color: #4d7475; border-radius: 3px; color: #8ee2d5; background: #26383c; }
+.text-button { color: #ff8178; }
+.catalog-button { min-height: 36px; border-color: var(--map-accent); border-radius: 3px; background: var(--map-accent); }
+.google-basemap, .empty-state, .file-state { border-color: #40565b; border-radius: 3px; background: #1b292e; }
+.google-basemap-heading, .area-item, .string-item, .point-item { color: #e8f2f0; }
+.area-item, .string-item, .point-item { border-color: #40565b; border-radius: 3px; background: #1b292e; }
+.area-item input, .string-item input { color: #e8f2f0; }
+.remove-button { border-color: #40565b; color: #a9b9b7; background: #24363a; }
+.button-secondary { color: #d7e4e1; border-color: #52696d; background: #26383c; }
+.button-primary { background: var(--map-accent); box-shadow: none; }
+.button-primary:hover { background: #d9413b; box-shadow: none; }
+.preview-panel { min-width: 0; display: flex; flex-direction: column; min-height: calc(100vh - 58px); background: #cbd6d2; }
+.map-toolbar { display: flex; align-items: center; gap: 15px; min-height: 54px; padding: 8px 15px; color: #203238; border-bottom: 1px solid #aebdb9; background: #e3ebe8; }
+.tool-group { display: flex; gap: 3px; }
+.map-tool { width: 30px; height: 30px; border: 1px solid #b4c5c0; color: #52696b; background: #f5f8f6; font-size: 17px; }
+.map-tool.active, .map-tool:hover { color: #fff; border-color: var(--map-accent); background: var(--map-accent); }
+.map-context { display: grid; gap: 2px; margin-right: auto; }
+.map-context .section-kicker { color: #617b7c; font-size: 8px; }
+.map-context strong { font-size: 12px; letter-spacing: .02em; }
+.map-tools-right { display: flex; align-items: center; gap: 12px; color: #61777a; font: 9px 'IBM Plex Mono', monospace; }
+.map-tools-right b { color: #22383d; font-size: 12px; }
+.map-separator { width: 1px; height: 16px; background: #b4c4c0; }
+.preview-stage { flex: 1; overflow: auto; display: grid; place-items: center; min-height: 0; padding: 22px; border: 0; border-radius: 0; background: #bbc8c4; box-shadow: inset 0 0 35px rgba(28,47,50,.12); }
+#reportCanvas { width: min(100%, 920px); border: 1px solid #879a98; box-shadow: 0 12px 30px rgba(20,36,40,.22); }
+.preview-footer { display: flex; justify-content: space-between; gap: 16px; padding: 8px 15px; color: #61777a; background: #e3ebe8; font: 9px 'IBM Plex Mono', monospace; }
+.preview-footer p { margin: 0; }
+.preview-note { display: none; }
+@media (max-width: 840px) { .workspace { grid-template-columns: 1fr; } .control-panel { order: 2; max-height: none; } .preview-panel { order: 1; min-height: 70vh; } .map-tools-right { display: none; } }
