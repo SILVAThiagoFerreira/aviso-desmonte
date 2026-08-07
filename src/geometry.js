@@ -38,6 +38,20 @@ export function paddedBounds(bounds, ratio = 0.08) {
   return { minX: bounds.minX - pad, minY: bounds.minY - pad, maxX: bounds.maxX + pad, maxY: bounds.maxY + pad };
 }
 
+export function fitBoundsToAspect(bounds, aspect = 1) {
+  if (!bounds || !Number.isFinite(aspect) || aspect <= 0) return bounds;
+  const width = Math.max(bounds.maxX - bounds.minX, 1);
+  const height = Math.max(bounds.maxY - bounds.minY, 1);
+  const currentAspect = width / height;
+  if (Math.abs(currentAspect - aspect) < 1e-9) return bounds;
+  if (currentAspect < aspect) {
+    const extra = (height * aspect - width) / 2;
+    return { minX: bounds.minX - extra, minY: bounds.minY, maxX: bounds.maxX + extra, maxY: bounds.maxY };
+  }
+  const extra = (width / aspect - height) / 2;
+  return { minX: bounds.minX, minY: bounds.minY - extra, maxX: bounds.maxX, maxY: bounds.maxY + extra };
+}
+
 export function getStringEndpoints(entities = []) {
   const endpoints = [];
   entities.forEach((entity) => {
@@ -161,6 +175,9 @@ function pointInRing(point, ring) {
   let inside = false;
   for (let index = 0, previous = ring.length - 1; index < ring.length; previous = index, index += 1) {
     const a = ring[index]; const b = ring[previous];
+    const cross = (b[0] - a[0]) * (point.y - a[1]) - (b[1] - a[1]) * (point.x - a[0]);
+    const within = point.x >= Math.min(a[0], b[0]) - 1e-9 && point.x <= Math.max(a[0], b[0]) + 1e-9 && point.y >= Math.min(a[1], b[1]) - 1e-9 && point.y <= Math.max(a[1], b[1]) + 1e-9;
+    if (Math.abs(cross) <= 1e-9 && within) return true;
     const crosses = ((a[1] > point.y) !== (b[1] > point.y)) && (point.x < (b[0] - a[0]) * (point.y - a[1]) / ((b[1] - a[1]) || Number.EPSILON) + a[0]);
     if (crosses) inside = !inside;
   }
@@ -175,6 +192,23 @@ function pointInPolygon(point, polygon) {
 
 export function pointIntersectsContours(point, contours = []) {
   return contours.some((contour) => (contour.polygons || []).some((polygon) => pointInPolygon(point, polygon)));
+}
+
+export function intersectEntityWithContours(entity, contours = []) {
+  if (!entity?.closed || entity.type === 'circle' || (entity.points || []).length < 3 || !globalThis.polygonClipping?.intersection) return [];
+  const ring = entity.points.map((point) => [point.x, point.y]);
+  if (ring.length && (ring[0][0] !== ring[ring.length - 1][0] || ring[0][1] !== ring[ring.length - 1][1])) ring.push(ring[0]);
+  const subject = [[ring]];
+  const intersections = [];
+  contours.forEach((contour) => (contour.polygons || []).forEach((polygon) => {
+    try {
+      const pieces = globalThis.polygonClipping.intersection(subject, [polygon]);
+      if (pieces?.length) intersections.push(...pieces);
+    } catch {
+      // Uma geometria opcional inválida não pode impedir a renderização da prancha.
+    }
+  }));
+  return intersections;
 }
 
 function orientation(a, b, c) { return (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x); }

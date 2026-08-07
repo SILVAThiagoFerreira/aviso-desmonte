@@ -12,3 +12,6 @@
 - [x] Gerar PDF local sem transmissão de dados operacionais.
 - [x] Adicionar teste mínimo e documentação do contrato.
 - [x] Conferir visualmente com os dados reais do próximo desmonte.
+- [x] Recortar sólidos pela interseção real com os raios, preservando azul fora do cerco.
+- [x] Cobrir todo o quadro cartográfico com o fundo satelital automático.
+- [x] Revisar cabeçalho do painel e posicionar a legenda sem sobreposição geométrica.

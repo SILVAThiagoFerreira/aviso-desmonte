@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import vm from 'node:vm';
 import { parseDxf, parseGeoJson } from '../src/dxf.js';
-import { areaIntersectsContours, boundsOf, boundsOfContours, buildRadiusContours, flattenStringEntities, getStringEndpoints, paddedBounds, pointIntersectsContours } from '../src/geometry.js';
+import { areaIntersectsContours, boundsOf, boundsOfContours, buildRadiusContours, fitBoundsToAspect, flattenStringEntities, getStringEndpoints, intersectEntityWithContours, paddedBounds, pointIntersectsContours } from '../src/geometry.js';
 import { safeFileName } from '../src/pdf.js';
 
 const dxf = await fs.readFile(new URL('../POLIGONAIS/r030826.dxf', import.meta.url), 'latin1');
@@ -44,5 +44,10 @@ assert.equal(areaIntersectsContours([{ type: 'polyline', closed: true, points: [
 assert.equal(areaIntersectsContours([{ type: 'polyline', closed: true, points: [{ x: 20, y: 20 }, { x: 22, y: 20 }, { x: 22, y: 22 }, { x: 20, y: 20 }] }], contour), false);
 assert.equal(pointIntersectsContours({ x: 5, y: 5 }, contour), true, 'um ponto dentro do contorno deve ser evacuado');
 assert.equal(pointIntersectsContours({ x: 15, y: 15 }, contour), false, 'um ponto fora do contorno deve ser liberado');
+assert.equal(pointIntersectsContours({ x: 0, y: 5 }, contour), true, 'um ponto sobre o limite do contorno deve ser evacuado');
+const aspectBounds = fitBoundsToAspect({ minX: 0, minY: 0, maxX: 10, maxY: 10 }, 2);
+assert.equal(aspectBounds.maxX - aspectBounds.minX, 20, 'a extensão deve cobrir a proporção horizontal do mapa');
+globalThis.polygonClipping = { intersection: () => [[[[0, 0], [1, 0], [1, 1], [0, 0]]]] };
+assert.equal(intersectEntityWithContours({ closed: true, points: [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 10 }, { x: 0, y: 0 }] }, contour).length, 1, 'um sólido fechado precisa retornar a interseção para a hachura vermelha');
 assert.equal(safeFileName('Aviso de Detonação 04/08/2026'), 'aviso-de-detonacao-04-08-2026');
 console.log(`PASS: DXF ${parsed.entities.length} entidades, ${getStringEndpoints(parsed.entities).length} extremidades, GeoJSON e nome de arquivo validados.`);

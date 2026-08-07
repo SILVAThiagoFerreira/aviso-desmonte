@@ -1,4 +1,4 @@
-import { areaIntersectsContours, boundsOf, boundsOfContours, flattenStringEntities, formatNumber, getStringEndpoints, mergeBounds, paddedBounds, pointIntersectsContours } from './geometry.js';
+import { areaIntersectsContours, boundsOf, boundsOfContours, fitBoundsToAspect, flattenStringEntities, formatNumber, getStringEndpoints, intersectEntityWithContours, mergeBounds, paddedBounds, pointIntersectsContours } from './geometry.js';
 
 function drawCoverImage(ctx, image, box) {
   if (!image) return;
@@ -61,6 +61,26 @@ function drawHatchedEntity(ctx, entity, transform, color, fill) {
   ctx.restore(); entityPath(ctx, entity, transform); ctx.strokeStyle = color; ctx.lineWidth = 3; ctx.stroke();
 }
 
+function drawHatchedPolygon(ctx, polygon, transform, color, fill) {
+  if (!polygon?.length) return;
+  ctx.save(); ctx.beginPath();
+  polygon.forEach((ring) => {
+    if (!ring?.length) return;
+    ring.forEach(([x, y], index) => { const point = transform.x({ x, y }); const screenY = transform.y({ x, y }); if (index) ctx.lineTo(point, screenY); else ctx.moveTo(point, screenY); });
+    ctx.closePath();
+  });
+  ctx.fillStyle = fill; ctx.fill('evenodd'); ctx.clip('evenodd');
+  const points = polygon.flatMap((ring) => ring.map(([x, y]) => ({ x, y })));
+  const xs = points.map((point) => transform.x(point)); const ys = points.map((point) => transform.y(point));
+  const minX = Math.min(...xs) - 80; const maxX = Math.max(...xs) + 80; const minY = Math.min(...ys) - 80; const maxY = Math.max(...ys) + 80;
+  ctx.strokeStyle = color; ctx.lineWidth = 2;
+  for (let x = minX - (maxY - minY); x < maxX + (maxY - minY); x += 18) { ctx.beginPath(); ctx.moveTo(x, maxY); ctx.lineTo(x + (maxY - minY), minY); ctx.stroke(); }
+  ctx.restore();
+  ctx.save(); ctx.beginPath();
+  polygon.forEach((ring) => { ring.forEach(([x, y], index) => { const point = transform.x({ x, y }); const screenY = transform.y({ x, y }); if (index) ctx.lineTo(point, screenY); else ctx.moveTo(point, screenY); }); ctx.closePath(); });
+  ctx.strokeStyle = color; ctx.lineWidth = 3; ctx.stroke(); ctx.restore();
+}
+
 function drawEntity(ctx, entity, transform, color) {
   if (entity.type === 'circle') { const center = entity.points[0]; ctx.beginPath(); ctx.arc(transform.x(center), transform.y(center), entity.radius * transform.scale, 0, Math.PI * 2); ctx.strokeStyle = color; ctx.lineWidth = 3; ctx.stroke(); return; }
   if (!entityPath(ctx, entity, transform)) return;
@@ -118,16 +138,64 @@ function fitCanvasText(ctx, value, maxWidth) {
   return `${result.trimEnd()}…`;
 }
 
+function wrapCanvasText(ctx, value, maxWidth, maxLines = 2) {
+  const words = String(value || '').trim().split(/\s+/).filter(Boolean);
+  if (!words.length) return [''];
+  const lines = [];
+  let current = '';
+  words.forEach((word) => {
+    const candidate = current ? `${current} ${word}` : word;
+    if (current && ctx.measureText(candidate).width > maxWidth && lines.length < maxLines - 1) { lines.push(current); current = word; } else current = candidate;
+  });
+  if (current) lines.push(current);
+  if (lines.length > maxLines) { const kept = lines.slice(0, maxLines); kept[maxLines - 1] = fitCanvasText(ctx, `${kept[maxLines - 1]} ${lines.slice(maxLines).join(' ')}`, maxWidth); return kept; }
+  return lines.map((line) => fitCanvasText(ctx, line, maxWidth));
+}
+
 function pointInRect(point, rect) { return point.x >= rect.x && point.x <= rect.x + rect.width && point.y >= rect.y && point.y <= rect.y + rect.height; }
 function rectOverlap(a, b) { return Math.max(0, Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x)) * Math.max(0, Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y)); }
+
+function orientation(a, b, c) { return (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x); }
+function segmentsCross(a, b, c, d) {
+  const ab1 = orientation(a, b, c); const ab2 = orientation(a, b, d); const cd1 = orientation(c, d, a); const cd2 = orientation(c, d, b);
+  return ((ab1 > 0) !== (ab2 > 0)) && ((cd1 > 0) !== (cd2 > 0));
+}
+function pointInScreenPolygon(point, points) {
+  let inside = false;
+  for (let index = 0, previous = points.length - 1; index < points.length; previous = index, index += 1) {
+    const a = points[index]; const b = points[previous];
+    if (((a.y > point.y) !== (b.y > point.y)) && point.x < (b.x - a.x) * (point.y - a.y) / ((b.y - a.y) || Number.EPSILON) + a.x) inside = !inside;
+  }
+  return inside;
+}
+function entityOverlapsRect(entity, rect, transform) {
+  const points = (entity.points || []).map((point) => ({ x: transform.x(point), y: transform.y(point) }));
+  if (!points.length) return false;
+  if (entity.type === 'circle') {
+    const center = points[0]; const radius = Math.max(Number(entity.radius) || 0, 0) * transform.scale;
+    const nearestX = Math.max(rect.x, Math.min(center.x, rect.x + rect.width)); const nearestY = Math.max(rect.y, Math.min(center.y, rect.y + rect.height));
+    return Math.hypot(center.x - nearestX, center.y - nearestY) <= radius;
+  }
+  if (points.some((point) => pointInRect(point, rect))) return true;
+  const corners = [{ x: rect.x, y: rect.y }, { x: rect.x + rect.width, y: rect.y }, { x: rect.x + rect.width, y: rect.y + rect.height }, { x: rect.x, y: rect.y + rect.height }];
+  if (entity.closed && corners.some((corner) => pointInScreenPolygon(corner, points))) return true;
+  const edges = [[corners[0], corners[1]], [corners[1], corners[2]], [corners[2], corners[3]], [corners[3], corners[0]]];
+  const segmentCount = entity.closed ? points.length : points.length - 1;
+  for (let index = 0; index < segmentCount; index += 1) { const start = points[index]; const end = points[(index + 1) % points.length]; if (edges.some(([a, b]) => segmentsCross(start, end, a, b))) return true; }
+  return false;
+}
 
 function chooseLegendPlacement(ctx, model, box, width, height, transform) {
   const margin = 24;
   const candidates = [
-    { name: 'bottom-left', x: box.x + margin, y: box.y + box.height - height - margin },
-    { name: 'top-left', x: box.x + margin, y: box.y + margin },
-    { name: 'top-right', x: box.x + box.width - width - margin, y: box.y + margin },
-    { name: 'bottom-right', x: box.x + box.width - width - margin, y: box.y + box.height - height - margin }
+    { name: 'bottom-left', x: box.x + margin, y: box.y + box.height - height - margin, preference: -100 },
+    { name: 'bottom-center', x: box.x + (box.width - width) / 2, y: box.y + box.height - height - margin, preference: -50 },
+    { name: 'bottom-right', x: box.x + box.width - width - margin, y: box.y + box.height - height - margin, preference: -20 },
+    { name: 'middle-left', x: box.x + margin, y: box.y + (box.height - height) / 2, preference: 0 },
+    { name: 'middle-right', x: box.x + box.width - width - margin, y: box.y + (box.height - height) / 2, preference: 0 },
+    { name: 'top-left', x: box.x + margin, y: box.y + margin, preference: 10 },
+    { name: 'top-center', x: box.x + (box.width - width) / 2, y: box.y + margin, preference: 20 },
+    { name: 'top-right', x: box.x + box.width - width - margin, y: box.y + margin, preference: 30 }
   ].map((item) => ({ ...item, width, height }));
   const protectedRects = [
     { x: box.x + 20, y: box.y + 18, width: 140, height: 120 },
@@ -138,25 +206,28 @@ function chooseLegendPlacement(ctx, model, box, width, height, transform) {
   const operationalPoints = (model.firingPoints || []).concat(model.blockingPoints || [], model.cardPoints || []).map((point) => ({ x: transform.x(point), y: transform.y(point) }));
   return candidates.map((candidate) => {
     let score = protectedRects.reduce((total, rect) => total + rectOverlap(candidate, rect) / 1000, 0);
+    const areaEntities = (model.areas || []).flatMap((area) => area.entities || []);
+    areaEntities.forEach((entity) => { if (entityOverlapsRect(entity, candidate, transform)) score += 100000; });
     projectedPoints.forEach((point) => { if (pointInRect(point, candidate)) score += 4; });
     operationalPoints.forEach((point) => { if (pointInRect(point, candidate)) score += 20; });
-    score += Math.abs(candidate.x - (box.x + box.width / 2)) * 0.0001;
+    score += candidate.preference;
     return { ...candidate, score };
   }).sort((a, b) => a.score - b.score)[0];
 }
 
 function drawLegend(ctx, model, box, colors, transform) {
   const strings = model.strings || [];
+  const statusAreas = model.statusAreas || model.areas || [];
   const radiusRows = (model.radiusContours || []).map((contour) => ({ color: Number(contour.radius) === Number(model.radii?.people) ? colors.cyan : colors.greenLight, dashed: Number(contour.radius) !== Number(model.radii?.people), label: `Cx(r)=${formatNumber(contour.radius, 0)} m · RAIO DE SEGURANÇA · ${Number(contour.radius) === Number(model.radii?.people) ? 'PESSOAS' : 'MÁQUINAS E EQUIPAMENTOS'}` }));
   const rows = [...radiusRows];
   if (strings.length) rows.push({ color: colors.orange, label: 'POLIGONAIS / STRINGS DE DESMONTE' });
-  if (model.areas?.some((area) => area.status === 'evacuar')) rows.push({ swatch: 'evacuar', label: 'EVACUAR' });
-  if (model.areas?.some((area) => area.status === 'liberado')) rows.push({ swatch: 'liberado', label: 'LIBERADO' });
+  if (statusAreas.some((area) => area.status === 'evacuar')) rows.push({ swatch: 'evacuar', label: 'EVACUAR' });
+  if (statusAreas.some((area) => area.status === 'liberado')) rows.push({ swatch: 'liberado', label: 'LIBERADO' });
   if (model.firingPoints?.length) rows.push({ icon: 'firing', label: 'PONTOS DE DISPARO' });
   if (model.blockingPoints?.length) rows.push({ icon: 'blocking', label: 'PONTOS DE BLOQUEIO' });
   if (model.cardPoints?.length) rows.push({ icon: 'card', label: 'ENTREGA DE CARTÕES DE BLOQUEIO' });
   const shown = strings.slice(0, 24); const nameRows = strings.length ? Math.ceil(shown.length / 2) : 0; const overflow = Math.max(strings.length - shown.length, 0);
-  const width = strings.length ? 560 : 440; const height = 54 + rows.length * 24 + (strings.length ? 34 + nameRows * 18 + (overflow ? 18 : 0) : 0);
+  const width = strings.length ? 470 : 430; const height = 54 + rows.length * 24 + (strings.length ? 34 + nameRows * 18 + (overflow ? 18 : 0) : 0);
   const placement = chooseLegendPlacement(ctx, model, box, width, height, transform); const { x, y } = placement;
   ctx.save(); ctx.globalAlpha = .96; ctx.fillStyle = '#ffffff'; ctx.fillRect(x, y, width, height); ctx.strokeStyle = colors.rule; ctx.lineWidth = 2; ctx.strokeRect(x, y, width, height); ctx.strokeStyle = '#aeb9b7'; ctx.lineWidth = 1; ctx.strokeRect(x + 7, y + 7, width - 14, height - 14);
   ctx.fillStyle = colors.ink; ctx.font = '700 18px Arial'; ctx.textAlign = 'left'; ctx.fillText('LEGENDA:', x + 18, y + 31);
@@ -201,25 +272,44 @@ function projectStructurePoint(structure, bounds, pageMap = {}, transform, mapBo
   return { x: bounds.minX + (screenX - transform.offsetX) / transform.scale, y: bounds.maxY - (screenY - transform.offsetY) / transform.scale };
 }
 
-function drawStructureMarker(ctx, structure, transform, colors) {
-  const point = structure.point; const x = transform.x(point); const y = transform.y(point); const color = structure.status === 'evacuar' ? colors.red : colors.blue;
-  ctx.save(); ctx.fillStyle = color; ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(x, y, 14, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); ctx.fillStyle = '#ffffff'; ctx.font = '700 10px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(String(structure.id).replace('structure-', ''), x, y + 1); ctx.restore();
+function drawStructureMarker(ctx, structure, transform, colors, displayPoint = null) {
+  const point = structure.point; const actualX = transform.x(point); const actualY = transform.y(point); const x = displayPoint?.x ?? actualX; const y = displayPoint?.y ?? actualY; const color = structure.status === 'evacuar' ? colors.red : colors.blue;
+  ctx.save();
+  if (displayPoint && Math.hypot(x - actualX, y - actualY) > 2) { ctx.strokeStyle = color; ctx.globalAlpha = .65; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(actualX, actualY); ctx.lineTo(x, y); ctx.stroke(); }
+  ctx.globalAlpha = 1; ctx.fillStyle = color; ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(x, y, 14, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); ctx.fillStyle = '#ffffff'; ctx.font = '700 10px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(String(structure.id).replace('structure-', ''), x, y + 1); ctx.restore();
 }
 
-function drawAreaGroup(ctx, areas, title, color, panel, colors, startY) {
+function placeStructureMarkers(structures, transform) {
+  const offsets = [[0, 0]];
+  for (let radius = 28; radius <= 112; radius += 28) {
+    for (let step = 0; step < 8; step += 1) { const angle = Math.PI * 2 * step / 8; offsets.push([Math.cos(angle) * radius, Math.sin(angle) * radius]); }
+  }
+  const placed = [];
+  return structures.map((structure) => {
+    const actual = { x: transform.x(structure.point), y: transform.y(structure.point) };
+    const chosen = offsets.map(([dx, dy]) => ({ x: actual.x + dx, y: actual.y + dy })).sort((a, b) => {
+      const score = (candidate) => placed.reduce((total, point) => total + Math.max(0, 30 - Math.hypot(candidate.x - point.x, candidate.y - point.y)), 0);
+      return score(a) - score(b);
+    })[0];
+    placed.push(chosen); return { structure, displayPoint: chosen };
+  });
+}
+
+function drawAreaGroup(ctx, areas, title, color, panel, colors, startY, groupHeight = null) {
   const x = panel.x + 10; const width = panel.width - 20; let y = startY; ctx.fillStyle = color; ctx.fillRect(x, y, width, 30); ctx.fillStyle = '#ffffff'; ctx.font = '700 17px Arial'; ctx.textAlign = 'center'; ctx.fillText(title, x + width / 2, y + 21); y += 34;
-  const height = Math.max(70, panel.y + panel.height - y - 10); ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.strokeRect(x, y, width, height); ctx.textAlign = 'left';
-  if (!areas.length) { ctx.font = '12px Arial'; ctx.fillStyle = colors.muted; ctx.fillText('Nenhuma área', x + 10, y + 25); return y + 48; }
-  areas.forEach((area, index) => { const number = String(area.id || '').replace('structure-', '') || String(index + 1).padStart(2, '0'); const label = String(area.label || area.name).slice(0, 32); ctx.fillStyle = colors.ink; ctx.font = '700 11px Arial'; ctx.fillText(`${number}  ${label}`, x + 9, y + 22 + index * 18); });
-  return y + areas.length * 18 + 22;
+  const height = groupHeight ?? Math.max(70, areas.length * 18 + 24); ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.strokeRect(x, y, width, height); ctx.textAlign = 'left';
+  if (!areas.length) { ctx.font = '12px Arial'; ctx.fillStyle = colors.muted; ctx.fillText('Nenhuma área', x + 10, y + 25); return y + height; }
+  areas.forEach((area, index) => { const number = String(area.id || '').replace('structure-', '') || String(index + 1).padStart(2, '0'); const label = String(area.label || area.name); ctx.fillStyle = colors.ink; ctx.font = '700 11px Arial'; ctx.fillText(fitCanvasText(ctx, `${number}  ${label}`, width - 18), x + 9, y + 22 + index * 18); });
+  return y + height;
 }
 
 function drawPanel(ctx, model, panel, colors) {
   ctx.fillStyle = colors.paper; ctx.fillRect(panel.x, panel.y, panel.width, panel.height); ctx.strokeStyle = colors.rule; ctx.lineWidth = 2; ctx.strokeRect(panel.x, panel.y, panel.width, panel.height);
-  if (model.logoImage) { const maxWidth = panel.width - 26; const maxHeight = 68; const ratio = Math.min(maxWidth / model.logoImage.width, maxHeight / model.logoImage.height); const logoWidth = model.logoImage.width * ratio; const logoHeight = model.logoImage.height * ratio; ctx.drawImage(model.logoImage, panel.x + (panel.width - logoWidth) / 2, panel.y + 8, logoWidth, logoHeight); }
-  const titleY = panel.y + 98; ctx.fillStyle = colors.green; ctx.fillRect(panel.x + 10, titleY, panel.width - 20, 54); ctx.fillStyle = '#ffffff'; ctx.textAlign = 'center'; ctx.font = '700 18px Arial'; ctx.fillText('ÁREA DE INFLUÊNCIA', panel.x + panel.width / 2, titleY + 22); ctx.font = '700 15px Arial'; ctx.fillText(`DESMONTE - ${model.meta.dateLabel}`, panel.x + panel.width / 2, titleY + 44);
-  ctx.fillStyle = colors.ink; ctx.textAlign = 'left'; ctx.font = '700 14px Arial'; ctx.fillText(model.meta.company || 'EMPRESA / OPERAÇÃO', panel.x + 12, titleY - 10);
-  const panelAreas = model.structures?.length ? model.structures : model.areas; let y = titleY + 68; y = drawAreaGroup(ctx, panelAreas.filter((area) => area.status === 'evacuar'), 'EVACUAR', colors.red, panel, colors, y); y += 16; drawAreaGroup(ctx, panelAreas.filter((area) => area.status === 'liberado'), 'LIBERADO', colors.blue, panel, colors, y);
+  const headerX = panel.x + 10; const headerWidth = panel.width - 20;
+  if (model.logoImage) { const maxWidth = headerWidth - 12; const maxHeight = 58; const ratio = Math.min(maxWidth / model.logoImage.width, maxHeight / model.logoImage.height); const logoWidth = model.logoImage.width * ratio; const logoHeight = model.logoImage.height * ratio; ctx.drawImage(model.logoImage, panel.x + (panel.width - logoWidth) / 2, panel.y + 8, logoWidth, logoHeight); }
+  ctx.fillStyle = colors.muted; ctx.textAlign = 'center'; ctx.font = '700 10px Arial'; wrapCanvasText(ctx, model.meta.company || 'EMPRESA / OPERAÇÃO', headerWidth - 8, 2).forEach((line, index) => ctx.fillText(line, panel.x + panel.width / 2, panel.y + 75 + index * 12));
+  const titleY = panel.y + 99; const titleHeight = 62; const titleDate = model.meta.date ? `DESMONTE - ${model.meta.dateLabel}` : 'DATA NÃO INFORMADA'; ctx.fillStyle = colors.green; ctx.fillRect(headerX, titleY, headerWidth, titleHeight); ctx.fillStyle = '#ffffff'; ctx.textAlign = 'center'; ctx.font = '700 15px Arial'; ctx.fillText(fitCanvasText(ctx, 'ÁREA DE INFLUÊNCIA', headerWidth - 12), panel.x + panel.width / 2, titleY + 23); ctx.font = '700 12px Arial'; ctx.fillText(fitCanvasText(ctx, titleDate, headerWidth - 12), panel.x + panel.width / 2, titleY + 46);
+  const panelAreas = model.structures?.length ? model.structures : model.areas; const evacuarAreas = panelAreas.filter((area) => area.status === 'evacuar'); const liberadoAreas = panelAreas.filter((area) => area.status === 'liberado'); const startY = titleY + titleHeight + 12; const groupGap = 16; const available = panel.y + panel.height - 10 - startY - groupGap; const evacuarHeight = Math.max(70, evacuarAreas.length * 18 + 24); const liberadoHeight = Math.max(70, liberadoAreas.length * 18 + 24); const scale = Math.min(1, available / (evacuarHeight + liberadoHeight)); let y = startY; y = drawAreaGroup(ctx, evacuarAreas, 'EVACUAR', colors.red, panel, colors, y, Math.max(70, evacuarHeight * scale)); y += groupGap; drawAreaGroup(ctx, liberadoAreas, 'LIBERADO', colors.blue, panel, colors, y, Math.max(70, liberadoHeight * scale));
 }
 
 export function drawReport(canvas, model, config) {
@@ -230,21 +320,29 @@ export function drawReport(canvas, model, config) {
   const operationalBounds = mergeBounds([geometryBounds, contourBounds]);
   const baseImages = model.baseImages?.length ? model.baseImages : model.baseImage ? [model.baseImage] : [];
   const imageBounds = mergeBounds(baseImages.map((image) => image?.bounds));
-  const bounds = model.boundsMode === 'manual' ? model.manualBounds : paddedBounds(operationalBounds || imageBounds);
+  const satelliteBounds = baseImages.find((image) => image.name === 'Esri World Imagery')?.bounds;
+  const rawBounds = mergeBounds([operationalBounds, satelliteBounds || imageBounds]);
+  const bounds = model.boundsMode === 'manual' ? model.manualBounds : fitBoundsToAspect(satelliteBounds ? rawBounds : paddedBounds(rawBounds), map.width / map.height);
   const extentSource = model.boundsMode === 'manual' ? 'manual' : operationalBounds ? (imageBounds ? 'georreferenciado' : 'geometria-e-raios') : 'imagem';
   const transform = makeTransform(bounds, map);
   ctx.fillStyle = colors.paper; ctx.fillRect(0, 0, width, height); ctx.strokeStyle = colors.rule; ctx.lineWidth = 2; ctx.strokeRect(16, 16, width - 32, height - 32);
   ctx.save(); ctx.beginPath(); ctx.rect(map.x, map.y, map.width, map.height); ctx.clip(); ctx.fillStyle = '#dde6e4'; ctx.fillRect(map.x, map.y, map.width, map.height);
   const georeferencedImages = baseImages.filter((image) => image?.bounds);
-  if (georeferencedImages.length) georeferencedImages.forEach((image) => drawGeoImage(ctx, image, transform));
-  else drawCoverImage(ctx, baseImages[0]?.image || baseImages[0], map);
+  const satelliteImage = georeferencedImages.find((image) => image.name === 'Esri World Imagery');
+  if (satelliteImage?.image) drawCoverImage(ctx, satelliteImage.image, map);
+  else if (!georeferencedImages.length) drawCoverImage(ctx, baseImages[0]?.image || baseImages[0], map);
+  georeferencedImages.filter((image) => image !== satelliteImage).forEach((image) => drawGeoImage(ctx, image, transform));
   ctx.restore();
   drawGrid(ctx, map, colors);
   if (transform) {
     ctx.save(); ctx.beginPath(); ctx.rect(map.x, map.y, map.width, map.height); ctx.clip();
-    model.areas.forEach((area) => { area.status = areaIntersectsContours(area.entities || [], model.radiusContours) ? 'evacuar' : 'liberado'; (area.entities || []).forEach((entity) => drawHatchedEntity(ctx, entity, transform, area.status === 'evacuar' ? colors.red : colors.blue, area.status === 'evacuar' ? colors.redSoft : colors.blueSoft)); });
+    const areaEntities = model.areas.flatMap((area) => area.entities || []);
+    model.areas.forEach((area) => { area.status = areaIntersectsContours(area.entities || [], model.radiusContours) ? 'evacuar' : 'liberado'; });
+    areaEntities.forEach((entity) => drawHatchedEntity(ctx, entity, transform, colors.blue, colors.blueSoft));
+    areaEntities.forEach((entity) => intersectEntityWithContours(entity, model.radiusContours).forEach((polygon) => drawHatchedPolygon(ctx, polygon, transform, colors.red, colors.redSoft)));
     const structurePoints = (model.structures || []).map((structure) => ({ ...structure, point: projectStructurePoint(structure, bounds, model.structurePageMap, transform, map) }));
-    structurePoints.forEach((structure) => { structure.status = pointIntersectsContours(structure.point, model.radiusContours) ? 'evacuar' : 'liberado'; const target = model.structures.find((candidate) => candidate.id === structure.id); if (target) { target.status = structure.status; target.point = structure.point; } drawStructureMarker(ctx, structure, transform, colors); });
+    structurePoints.forEach((structure) => { structure.status = pointIntersectsContours(structure.point, model.radiusContours) ? 'evacuar' : 'liberado'; const target = model.structures.find((candidate) => candidate.id === structure.id); if (target) { target.status = structure.status; target.point = structure.point; } });
+    placeStructureMarkers(structurePoints, transform).forEach(({ structure, displayPoint }) => drawStructureMarker(ctx, structure, transform, colors, displayPoint));
     stringEntities.forEach((entity) => drawEntity(ctx, entity, transform, colors.orange));
     drawContours(ctx, model.radiusContours, transform, colors, model.radii);
     getStringEndpoints(stringEntities).forEach((point) => { ctx.fillStyle = colors.orange; ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(transform.x(point), transform.y(point), 8, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); });
@@ -253,7 +351,7 @@ export function drawReport(canvas, model, config) {
     (model.cardPoints || []).forEach((point) => drawPointMarker(ctx, point, transform, model.cardIcon, colors, 'card'));
     ctx.restore();
   }
-  drawNorth(ctx, map); drawScale(ctx, map, transform, bounds); const legend = transform ? drawLegend(ctx, { ...model, areas: model.structures?.length ? model.structures : model.areas }, map, colors, transform) : null; drawPanel(ctx, { ...model, meta: { ...model.meta, dateLabel: model.meta.date ? new Date(`${model.meta.date}T12:00:00`).toLocaleDateString('pt-BR') : 'DATA NÃO INFORMADA' } }, panel, colors);
+  drawNorth(ctx, map); drawScale(ctx, map, transform, bounds); const legend = transform ? drawLegend(ctx, { ...model, areas: model.areas, statusAreas: model.structures?.length ? model.structures : model.areas }, map, colors, transform) : null; drawPanel(ctx, { ...model, meta: { ...model.meta, dateLabel: model.meta.date ? new Date(`${model.meta.date}T12:00:00`).toLocaleDateString('pt-BR') : 'DATA NÃO INFORMADA' } }, panel, colors);
   ctx.fillStyle = colors.ink; ctx.font = '14px Arial'; ctx.textAlign = 'left'; ctx.fillText(model.meta.location || 'Local não informado', map.x + 8, height - 20); ctx.textAlign = 'right'; ctx.fillText(model.meta.observation || 'Valide os dados operacionais antes da emissão', width - 24, height - 20);
   return { bounds, map, transform, extentSource, legend, endpointCount: getStringEndpoints(stringEntities).length, areaStatuses: model.areas.map((area) => ({ id: area.id, status: area.status })) };
 }

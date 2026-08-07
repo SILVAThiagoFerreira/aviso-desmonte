@@ -17,7 +17,9 @@ Gerador local de pranchas de área de influência para avisos de desmonte. O sit
 
 Os dados e os arquivos ficam no navegador. Substituições de ortomosaicos persistem no IndexedDB desta máquina para permitir atualização entre sessões; o original publicado permanece intacto. O projeto não envia DXF, imagens ou informações operacionais para um servidor.
 
-O fundo satelital automático usa o serviço World Imagery da Esri, com a extensão do croqui e a referência espacial do projeto. Não exige chave Google Maps nem configuração manual. Se a rede não responder, o aplicativo mantém a prancha funcionando com os GeoTIFFs locais já carregados.
+O fundo satelital automático usa o serviço World Imagery da Esri, com uma extensão calculada na mesma proporção do quadro cartográfico para cobrir todo o mapa. Não exige chave Google Maps nem configuração manual. Se a rede não responder, o aplicativo mantém a prancha funcionando com os GeoTIFFs locais já carregados.
+
+As áreas sólidas são renderizadas em duas partes: a diferença em relação aos raios fica azul e somente a interseção geométrica com qualquer cerco recebe hachura vermelha. A legenda procura primeiro o canto inferior esquerdo e rejeita posições que cruzem sólidos, pontos operacionais, norte ou escala.
 
 ## Desenvolvimento
 
