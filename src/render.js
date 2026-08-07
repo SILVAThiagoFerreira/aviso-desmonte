@@ -19,7 +19,17 @@ function makeTransform(bounds, box) {
   const drawnHeight = height * scale;
   const offsetX = box.x + (box.width - drawnWidth) / 2;
   const offsetY = box.y + (box.height - drawnHeight) / 2;
-  return { scale, offsetX, offsetY, x: (point) => offsetX + (point.x - bounds.minX) * scale, y: (point) => offsetY + (bounds.maxY - point.y) * scale };
+  return {
+    scale,
+    offsetX,
+    offsetY,
+    x: (point) => offsetX + (point.x - bounds.minX) * scale,
+    y: (point) => offsetY + (bounds.maxY - point.y) * scale,
+    world: (screenPoint) => ({
+      x: bounds.minX + (screenPoint.x - offsetX) / scale,
+      y: bounds.maxY - (screenPoint.y - offsetY) / scale,
+    }),
+  };
 }
 
 function drawGeoImage(ctx, baseImage, transform) {
@@ -276,19 +286,27 @@ function drawStructureMarker(ctx, structure, transform, colors, displayPoint = n
   const point = structure.point; const actualX = transform.x(point); const actualY = transform.y(point); const x = displayPoint?.x ?? actualX; const y = displayPoint?.y ?? actualY; const color = structure.status === 'evacuar' ? colors.red : colors.blue;
   ctx.save();
   if (displayPoint && Math.hypot(x - actualX, y - actualY) > 2) { ctx.strokeStyle = color; ctx.globalAlpha = .65; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(actualX, actualY); ctx.lineTo(x, y); ctx.stroke(); }
-  ctx.globalAlpha = 1; ctx.fillStyle = color; ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(x, y, 14, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); ctx.fillStyle = '#ffffff'; ctx.font = '700 10px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(String(structure.id).replace('structure-', ''), x, y + 1); ctx.restore();
+  ctx.globalAlpha = 1; ctx.fillStyle = color; ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(x, y, 9, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); ctx.fillStyle = '#ffffff'; ctx.font = '700 8px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(String(structure.id).replace('structure-', ''), x, y + 1); ctx.restore();
 }
 
-function placeStructureMarkers(structures, transform) {
+function placeStructureMarkers(structures, transform, contours = [], protectedPoints = []) {
   const offsets = [[0, 0]];
-  for (let radius = 28; radius <= 112; radius += 28) {
+  for (let radius = 24; radius <= 96; radius += 24) {
     for (let step = 0; step < 8; step += 1) { const angle = Math.PI * 2 * step / 8; offsets.push([Math.cos(angle) * radius, Math.sin(angle) * radius]); }
   }
   const placed = [];
+  const protectedScreenPoints = protectedPoints.map((point) => ({ x: transform.x(point), y: transform.y(point) }));
   return structures.map((structure) => {
     const actual = { x: transform.x(structure.point), y: transform.y(structure.point) };
-    const chosen = offsets.map(([dx, dy]) => ({ x: actual.x + dx, y: actual.y + dy })).sort((a, b) => {
-      const score = (candidate) => placed.reduce((total, point) => total + Math.max(0, 30 - Math.hypot(candidate.x - point.x, candidate.y - point.y)), 0);
+    const candidates = offsets.map(([dx, dy]) => ({ x: actual.x + dx, y: actual.y + dy }));
+    const validCandidates = candidates.filter((candidate) => {
+      if (!contours.length) return true;
+      const inside = pointIntersectsContours(transform.world(candidate), contours);
+      return structure.status === 'evacuar' ? inside : !inside;
+    });
+    const chosen = (validCandidates.length ? validCandidates : candidates).sort((a, b) => {
+      const score = (candidate) => placed.reduce((total, point) => total + Math.max(0, 22 - Math.hypot(candidate.x - point.x, candidate.y - point.y)), 0)
+        + protectedScreenPoints.reduce((total, point) => total + Math.max(0, 34 - Math.hypot(candidate.x - point.x, candidate.y - point.y)) * 2, 0);
       return score(a) - score(b);
     })[0];
     placed.push(chosen); return { structure, displayPoint: chosen };
@@ -342,7 +360,8 @@ export function drawReport(canvas, model, config) {
     areaEntities.forEach((entity) => intersectEntityWithContours(entity, model.radiusContours).forEach((polygon) => drawHatchedPolygon(ctx, polygon, transform, colors.red, colors.redSoft)));
     const structurePoints = (model.structures || []).map((structure) => ({ ...structure, point: projectStructurePoint(structure, bounds, model.structurePageMap, transform, map) }));
     structurePoints.forEach((structure) => { structure.status = pointIntersectsContours(structure.point, model.radiusContours) ? 'evacuar' : 'liberado'; const target = model.structures.find((candidate) => candidate.id === structure.id); if (target) { target.status = structure.status; target.point = structure.point; } });
-    placeStructureMarkers(structurePoints, transform).forEach(({ structure, displayPoint }) => drawStructureMarker(ctx, structure, transform, colors, displayPoint));
+    const protectedPoints = [...(model.firingPoints || []), ...(model.blockingPoints || []), ...(model.cardPoints || [])];
+    placeStructureMarkers(structurePoints, transform, model.radiusContours || [], protectedPoints).forEach(({ structure, displayPoint }) => drawStructureMarker(ctx, structure, transform, colors, displayPoint));
     stringEntities.forEach((entity) => drawEntity(ctx, entity, transform, colors.orange));
     drawContours(ctx, model.radiusContours, transform, colors, model.radii);
     getStringEndpoints(stringEntities).forEach((point) => { ctx.fillStyle = colors.orange; ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(transform.x(point), transform.y(point), 8, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); });
