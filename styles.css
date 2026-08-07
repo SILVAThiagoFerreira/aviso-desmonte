@@ -39,12 +39,18 @@ button { cursor: pointer; }
 .helper, .file-state { margin: 9px 0 0; color: var(--muted); font-size: 10px; line-height: 1.5; }
 .file-state { padding: 9px 10px; border-radius: 7px; background: #f1f5f3; font-family: 'IBM Plex Mono', monospace; }
 .radius-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 14px; }
-.area-list { display: grid; gap: 8px; margin-top: 11px; }
+.area-list, .string-list { display: grid; gap: 8px; margin-top: 11px; }
 .empty-state { padding: 13px; border-radius: 7px; color: var(--muted); background: #f4f7f6; font-size: 11px; }
-.area-item { display: grid; grid-template-columns: 1fr 102px; gap: 8px; align-items: center; padding: 9px 10px; border: 1px solid var(--line); border-radius: 7px; background: #fff; }
-.area-item input, .area-item select { width: 100%; min-width: 0; border: 0; outline: 0; color: var(--ink); background: transparent; font-size: 11px; }
-.area-item input { font-weight: 600; }
-.area-item select { padding: 5px 4px; border-radius: 5px; background: #f3f6f5; font: 500 10px 'IBM Plex Mono', monospace; }
+.area-item, .string-item { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 8px; align-items: center; padding: 9px 10px; border: 1px solid var(--line); border-radius: 7px; background: #fff; }
+.area-item-copy, .string-item-copy { min-width: 0; }
+.area-item input, .string-item input { width: 100%; min-width: 0; border: 0; outline: 0; color: var(--ink); background: transparent; font-size: 11px; }
+.area-item input, .string-item input { font-weight: 600; }
+.area-item small, .string-item small { display: block; margin-top: 3px; overflow: hidden; color: var(--muted); font: 9px 'IBM Plex Mono', monospace; text-overflow: ellipsis; white-space: nowrap; }
+.area-status { display: inline-flex; align-items: center; min-height: 22px; border-radius: 4px; padding: 0 6px; font: 700 8px 'IBM Plex Mono', monospace; white-space: nowrap; }
+.area-status.evacuar { color: #fff; background: var(--red); }
+.area-status.liberado { color: #fff; background: var(--blue); }
+.remove-button { width: 24px; height: 24px; border: 1px solid var(--line); border-radius: 5px; color: var(--muted); background: #f6f8f7; font-size: 18px; line-height: 1; }
+.remove-button:hover { border-color: var(--red); color: var(--red); background: #fff3f3; }
 .switch-row { display: flex; align-items: center; gap: 9px; cursor: pointer; }
 .switch-row input { position: absolute; opacity: 0; }
 .switch { position: relative; flex: 0 0 34px; width: 34px; height: 20px; border-radius: 99px; background: #c8d2d0; transition: .2s; }

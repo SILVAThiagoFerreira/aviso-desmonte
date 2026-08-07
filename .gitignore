@@ -20,3 +20,7 @@
 !/tests/**
 !/assets/
 !/assets/**
+!/vendor/
+!/vendor/**
+!/GEOTIFF/
+!/GEOTIFF/**

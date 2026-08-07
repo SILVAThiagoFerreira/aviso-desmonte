@@ -3,10 +3,12 @@
 ```text
 ReportModel {
   meta: { company, date: YYYY-MM-DD, time: HH:mm, location, observation },
-  baseImage: Image | null,
-  string: { name, sourceType, entities[], unsupported[] } | null,
+  baseImage: { image, name, bounds: { minX, minY, maxX, maxY } | null } | null,
+  logoImage: Image | null,
+  strings: [{ id, name, label, sourceType, entities[], unsupported[] }],
   areas: [{ id, name, label, status: "evacuar" | "liberado", entities[], sourceType }],
   radii: { people: number, machine: number },
+  radiusContours: [{ radius, polygons[] }],
   boundsMode: "auto" | "manual",
   manualBounds: { minX, minY, maxX, maxY } | null
 }
@@ -14,4 +16,4 @@ ReportModel {
 
 Cada entidade geométrica usa `{ type, points: [{ x, y }], closed, layer }`. Círculos também possuem `radius`.
 
-No relatório, a lista lateral exibe apenas os arquivos de área carregados e seus rótulos editáveis. O nome sugerido vem do nome do arquivo; o status inicial é `liberado` quando o nome contém “liberad” e `evacuar` nos demais casos, sempre podendo ser corrigido pelo usuário.
+As strings podem ser carregadas em quantidade ilimitada, cada uma com nome editável. O raio é calculado como buffer planar contínuo em toda a geometria linear; as geometrias resultantes são unidas por raio e somente seus contornos são renderizados. O status da área é calculado automaticamente: `evacuar` quando a área intercepta um contorno e `liberado` quando fica fora.

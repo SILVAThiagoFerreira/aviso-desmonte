@@ -1,14 +1,4 @@
-import { boundsOf, formatNumber, getStringEndpoints, mergeBounds, paddedBounds } from './geometry.js';
-
-function roundedRect(ctx, x, y, width, height, radius) {
-  ctx.beginPath();
-  ctx.moveTo(x + radius, y);
-  ctx.arcTo(x + width, y, x + width, y + height, radius);
-  ctx.arcTo(x + width, y + height, x, y + height, radius);
-  ctx.arcTo(x, y + height, x, y, radius);
-  ctx.arcTo(x, y, x + width, y, radius);
-  ctx.closePath();
-}
+import { areaIntersectsContours, boundsOf, flattenStringEntities, formatNumber, getStringEndpoints, mergeBounds, paddedBounds } from './geometry.js';
 
 function drawCoverImage(ctx, image, box) {
   if (!image) return;
@@ -32,127 +22,122 @@ function makeTransform(bounds, box) {
   return { scale, x: (point) => offsetX + (point.x - bounds.minX) * scale, y: (point) => offsetY + (bounds.maxY - point.y) * scale };
 }
 
-function drawGrid(ctx, box, transform, bounds, colors) {
-  if (!transform || !bounds) return;
-  ctx.save();
-  ctx.beginPath(); ctx.rect(box.x, box.y, box.width, box.height); ctx.clip();
+function drawGeoImage(ctx, baseImage, transform) {
+  if (!baseImage?.image || !baseImage.bounds || !transform) return;
+  const topLeft = { x: baseImage.bounds.minX, y: baseImage.bounds.maxY };
+  const bottomRight = { x: baseImage.bounds.maxX, y: baseImage.bounds.minY };
+  const x = transform.x(topLeft); const y = transform.y(topLeft);
+  const width = transform.x(bottomRight) - x; const height = transform.y(bottomRight) - y;
+  ctx.drawImage(baseImage.image, x, y, width, height);
+}
+
+function drawGrid(ctx, box, colors) {
+  ctx.save(); ctx.beginPath(); ctx.rect(box.x, box.y, box.width, box.height); ctx.clip();
   ctx.strokeStyle = colors.grid; ctx.lineWidth = 1; ctx.setLineDash([3, 8]);
-  const steps = 8;
-  for (let index = 1; index < steps; index += 1) {
-    const x = box.x + box.width * index / steps;
-    const y = box.y + box.height * index / steps;
+  for (let index = 1; index < 8; index += 1) {
+    const x = box.x + box.width * index / 8; const y = box.y + box.height * index / 8;
     ctx.beginPath(); ctx.moveTo(x, box.y); ctx.lineTo(x, box.y + box.height); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(box.x, y); ctx.lineTo(box.x + box.width, y); ctx.stroke();
   }
   ctx.restore();
 }
 
-function polygonPath(ctx, entity, transform) {
+function entityPath(ctx, entity, transform) {
   if (!entity.points?.length) return false;
   ctx.beginPath();
-  entity.points.forEach((point, index) => {
-    const x = transform.x(point); const y = transform.y(point);
-    if (index === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
-  });
+  entity.points.forEach((point, index) => { const x = transform.x(point); const y = transform.y(point); if (index) ctx.lineTo(x, y); else ctx.moveTo(x, y); });
   if (entity.closed) ctx.closePath();
   return true;
 }
 
 function drawHatchedEntity(ctx, entity, transform, color, fill) {
-  if (!polygonPath(ctx, entity, transform)) return;
-  if (entity.closed) {
-    ctx.save(); ctx.fillStyle = fill; ctx.fill(); ctx.clip();
-    const xs = entity.points.map((point) => transform.x(point)); const ys = entity.points.map((point) => transform.y(point));
-    const minX = Math.min(...xs) - 40; const maxX = Math.max(...xs) + 40; const minY = Math.min(...ys) - 40; const maxY = Math.max(...ys) + 40;
-    ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.setLineDash([]);
-    for (let x = minX - (maxY - minY); x < maxX + (maxY - minY); x += 18) { ctx.beginPath(); ctx.moveTo(x, maxY); ctx.lineTo(x + (maxY - minY), minY); ctx.stroke(); }
-    ctx.restore();
-    polygonPath(ctx, entity, transform); ctx.strokeStyle = color; ctx.lineWidth = 3; ctx.stroke();
-  } else { ctx.strokeStyle = color; ctx.lineWidth = 3; ctx.stroke(); }
+  if (!entityPath(ctx, entity, transform)) return;
+  if (!entity.closed) { ctx.strokeStyle = color; ctx.lineWidth = 3; ctx.stroke(); return; }
+  ctx.save(); ctx.fillStyle = fill; ctx.fill(); ctx.clip();
+  const xs = entity.points.map((point) => transform.x(point)); const ys = entity.points.map((point) => transform.y(point));
+  const minX = Math.min(...xs) - 80; const maxX = Math.max(...xs) + 80; const minY = Math.min(...ys) - 80; const maxY = Math.max(...ys) + 80;
+  ctx.strokeStyle = color; ctx.lineWidth = 2;
+  for (let x = minX - (maxY - minY); x < maxX + (maxY - minY); x += 18) { ctx.beginPath(); ctx.moveTo(x, maxY); ctx.lineTo(x + (maxY - minY), minY); ctx.stroke(); }
+  ctx.restore(); entityPath(ctx, entity, transform); ctx.strokeStyle = color; ctx.lineWidth = 3; ctx.stroke();
 }
 
 function drawEntity(ctx, entity, transform, color) {
-  if (entity.type === 'circle') {
-    const center = entity.points[0]; ctx.beginPath(); ctx.arc(transform.x(center), transform.y(center), entity.radius * transform.scale, 0, Math.PI * 2); ctx.strokeStyle = color; ctx.lineWidth = 3; ctx.stroke(); return;
-  }
-  if (!polygonPath(ctx, entity, transform)) return;
+  if (entity.type === 'circle') { const center = entity.points[0]; ctx.beginPath(); ctx.arc(transform.x(center), transform.y(center), entity.radius * transform.scale, 0, Math.PI * 2); ctx.strokeStyle = color; ctx.lineWidth = 3; ctx.stroke(); return; }
+  if (!entityPath(ctx, entity, transform)) return;
   ctx.strokeStyle = color; ctx.lineWidth = 3; ctx.lineJoin = 'round'; ctx.lineCap = 'round'; ctx.stroke();
+}
+
+function drawContours(ctx, contours, transform, colors, radii) {
+  contours.forEach((contour) => {
+    const isPeople = Number(contour.radius) === Number(radii.people);
+    ctx.save(); ctx.strokeStyle = isPeople ? colors.cyan : colors.greenLight; ctx.lineWidth = isPeople ? 4 : 4; ctx.setLineDash(isPeople ? [] : [15, 9]);
+    contour.polygons.forEach((polygon) => polygon.forEach((ring) => {
+      if (!ring.length) return;
+      ctx.beginPath(); ring.forEach(([x, y], index) => { const point = transform.x({ x, y }); const screenY = transform.y({ x, y }); if (index) ctx.lineTo(point, screenY); else ctx.moveTo(point, screenY); }); ctx.closePath(); ctx.stroke();
+    }));
+    ctx.restore();
+  });
 }
 
 function drawNorth(ctx, box) {
   const x = box.x + 78; const y = box.y + 75;
   ctx.save(); ctx.translate(x, y); ctx.strokeStyle = '#ffffff'; ctx.fillStyle = '#ffffff'; ctx.lineWidth = 4;
-  ctx.beginPath(); ctx.moveTo(0, 42); ctx.lineTo(0, -35); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(0, -48); ctx.lineTo(-18, -8); ctx.lineTo(0, -18); ctx.lineTo(18, -8); ctx.closePath(); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(0, 42); ctx.lineTo(0, -35); ctx.stroke(); ctx.beginPath(); ctx.moveTo(0, -48); ctx.lineTo(-18, -8); ctx.lineTo(0, -18); ctx.lineTo(18, -8); ctx.closePath(); ctx.fill();
   ctx.font = '700 18px Arial'; ctx.textAlign = 'center'; ctx.fillText('N', 0, -58); ctx.restore();
 }
 
 function drawScale(ctx, box, transform, bounds) {
   if (!transform || !bounds) return;
-  const worldWidth = bounds.maxX - bounds.minX;
-  const target = worldWidth / 4;
-  const magnitude = 10 ** Math.floor(Math.log10(Math.max(target, 1)));
-  const steps = [1, 2, 5, 10];
-  const value = steps.find((step) => step * magnitude >= target) * magnitude;
-  const width = value * transform.scale;
-  const x = box.x + box.width - Math.min(width, 330) - 36; const y = box.y + box.height - 42;
-  ctx.fillStyle = '#ffffff'; ctx.fillRect(x - 12, y - 26, Math.min(width, 330) + 24, 48);
-  ctx.fillStyle = '#111111'; ctx.fillRect(x, y, Math.min(width, 330) / 2, 14); ctx.fillStyle = '#ffffff'; ctx.fillRect(x + Math.min(width, 330) / 2, y, Math.min(width, 330) / 2, 14);
-  ctx.strokeStyle = '#111111'; ctx.lineWidth = 2; ctx.strokeRect(x, y, Math.min(width, 330), 14);
-  ctx.fillStyle = '#111111'; ctx.font = '14px Arial'; ctx.textAlign = 'center'; ctx.fillText(`${formatNumber(value, 0)} m`, x + Math.min(width, 330) / 2, y - 6);
+  const target = Math.max(bounds.maxX - bounds.minX, 1) / 4; const magnitude = 10 ** Math.floor(Math.log10(target)); const candidate = [1, 2, 5, 10].find((step) => step * magnitude >= target) * magnitude; const width = Math.min(candidate * transform.scale, 330);
+  const x = box.x + box.width - width - 36; const y = box.y + box.height - 42;
+  ctx.fillStyle = '#ffffff'; ctx.fillRect(x - 12, y - 26, width + 24, 48); ctx.fillStyle = '#111111'; ctx.fillRect(x, y, width / 2, 14); ctx.fillStyle = '#ffffff'; ctx.fillRect(x + width / 2, y, width / 2, 14); ctx.strokeStyle = '#111111'; ctx.lineWidth = 2; ctx.strokeRect(x, y, width, 14); ctx.fillStyle = '#111111'; ctx.font = '14px Arial'; ctx.textAlign = 'center'; ctx.fillText(`${formatNumber(candidate, 0)} m`, x + width / 2, y - 6);
 }
 
 function drawLegend(ctx, model, box, colors) {
-  const x = box.x + 28; const y = box.y + box.height - 372; const width = 390; const height = 372;
+  const x = box.x + 28; const y = box.y + box.height - 380; const width = 450; const height = 380;
   ctx.fillStyle = '#ffffff'; ctx.fillRect(x, y, width, height); ctx.strokeStyle = colors.rule; ctx.lineWidth = 2; ctx.strokeRect(x, y, width, height);
-  ctx.fillStyle = colors.ink; ctx.font = '700 17px Arial'; ctx.textAlign = 'left'; ctx.fillText('LEGENDA', x + 16, y + 28);
-  const rows = [];
-  if (model.radii.people > 0) rows.push({ color: colors.greenLight, label: `Raio de segurança ${formatNumber(model.radii.people, 0)}m - pessoas`, dashed: true });
-  if (model.radii.machine > 0) rows.push({ color: colors.cyan, label: `Raio de segurança ${formatNumber(model.radii.machine, 0)}m - máquinas`, dashed: true });
-  rows.push({ color: colors.orange, label: 'String DXF / extremidades', dashed: false });
-  rows.push({ color: colors.red, label: 'Evacuar', dashed: false }); rows.push({ color: colors.blue, label: 'Liberado', dashed: false });
-  rows.forEach((row, index) => { const rowY = y + 60 + index * 30; ctx.strokeStyle = row.color; ctx.lineWidth = 4; ctx.setLineDash(row.dashed ? [10, 8] : []); ctx.beginPath(); ctx.moveTo(x + 16, rowY); ctx.lineTo(x + 60, rowY); ctx.stroke(); ctx.setLineDash([]); ctx.fillStyle = colors.ink; ctx.font = '15px Arial'; ctx.fillText(row.label, x + 76, rowY + 5); });
-}
-
-function drawPanelText(ctx, text, x, y, maxWidth, lineHeight) {
-  const words = String(text || '').split(/\s+/); const lines = []; let line = '';
-  words.forEach((word) => { const test = line ? `${line} ${word}` : word; if (ctx.measureText(test).width > maxWidth && line) { lines.push(line); line = word; } else line = test; });
-  if (line) lines.push(line);
-  lines.forEach((value, index) => ctx.fillText(value, x, y + index * lineHeight));
-  return lines.length * lineHeight;
+  ctx.fillStyle = colors.ink; ctx.font = '700 18px Arial'; ctx.textAlign = 'left'; ctx.fillText('LEGENDA', x + 16, y + 30);
+  let rowY = y + 62;
+  const line = (color, label, dashed = false) => { ctx.strokeStyle = color; ctx.lineWidth = 4; ctx.setLineDash(dashed ? [12, 8] : []); ctx.beginPath(); ctx.moveTo(x + 16, rowY); ctx.lineTo(x + 62, rowY); ctx.stroke(); ctx.setLineDash([]); ctx.fillStyle = colors.ink; ctx.font = '14px Arial'; ctx.fillText(label, x + 78, rowY + 5); rowY += 27; };
+  model.radiusContours.forEach((contour) => line(Number(contour.radius) === Number(model.radii.people) ? colors.cyan : colors.greenLight, `Raio contínuo ${formatNumber(contour.radius, 0)} m`, false));
+  line(colors.orange, 'String(s) de desmonte DXF');
+  ctx.fillStyle = colors.ink; ctx.font = '700 13px Arial'; ctx.fillText('REGIÕES DE DESMONTE:', x + 16, rowY + 6); rowY += 27;
+  (model.strings || []).slice(0, 8).forEach((item, index) => { ctx.fillStyle = colors.orange; ctx.font = '12px Arial'; ctx.fillText(`${String(index + 1).padStart(2, '0')}  ${String(item.label || item.name).slice(0, 42)}`, x + 16, rowY); rowY += 18; });
 }
 
 function drawAreaGroup(ctx, areas, title, color, panel, colors, startY) {
-  const x = panel.x + 10; const width = panel.width - 20; let y = startY;
-  ctx.fillStyle = color; ctx.fillRect(x, y, width, 30); ctx.fillStyle = '#ffffff'; ctx.font = '700 17px Arial'; ctx.textAlign = 'center'; ctx.fillText(title, x + width / 2, y + 21); y += 34;
-  ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.strokeRect(x, y, width, Math.max(70, panel.y + panel.height - y - 10));
-  ctx.textAlign = 'left'; ctx.fillStyle = colors.ink; ctx.font = '700 13px Arial';
-  if (!areas.length) { ctx.font = '12px Arial'; ctx.fillStyle = colors.muted; ctx.fillText('Nenhuma área carregada', x + 10, y + 25); return y + 48; }
-  const colWidth = width / 2; const rows = Math.ceil(areas.length / 2);
-  areas.forEach((area, index) => { const col = index < rows ? 0 : 1; const row = col === 0 ? index : index - rows; const rowY = y + 22 + row * 18; const label = String(area.label || area.name).slice(0, 28); ctx.fillStyle = colors.ink; ctx.fillText(`${String(index + 1).padStart(2, '0')}  ${label}`, x + 9 + col * colWidth, rowY); });
-  return y + rows * 18 + 22;
+  const x = panel.x + 10; const width = panel.width - 20; let y = startY; ctx.fillStyle = color; ctx.fillRect(x, y, width, 30); ctx.fillStyle = '#ffffff'; ctx.font = '700 17px Arial'; ctx.textAlign = 'center'; ctx.fillText(title, x + width / 2, y + 21); y += 34;
+  const height = Math.max(70, panel.y + panel.height - y - 10); ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.strokeRect(x, y, width, height); ctx.textAlign = 'left';
+  if (!areas.length) { ctx.font = '12px Arial'; ctx.fillStyle = colors.muted; ctx.fillText('Nenhuma área', x + 10, y + 25); return y + 48; }
+  areas.forEach((area, index) => { const label = String(area.label || area.name).slice(0, 26); ctx.fillStyle = colors.ink; ctx.font = '700 12px Arial'; ctx.fillText(`${String(index + 1).padStart(2, '0')}  ${label}`, x + 9, y + 22 + index * 18); });
+  return y + areas.length * 18 + 22;
 }
 
 function drawPanel(ctx, model, panel, colors) {
   ctx.fillStyle = colors.paper; ctx.fillRect(panel.x, panel.y, panel.width, panel.height); ctx.strokeStyle = colors.rule; ctx.lineWidth = 2; ctx.strokeRect(panel.x, panel.y, panel.width, panel.height);
-  ctx.fillStyle = colors.green; ctx.fillRect(panel.x + 10, panel.y + 52, panel.width - 20, 54); ctx.fillStyle = '#ffffff'; ctx.textAlign = 'center'; ctx.font = '700 20px Arial'; ctx.fillText('ÁREA DE INFLUÊNCIA', panel.x + panel.width / 2, panel.y + 76); ctx.font = '700 16px Arial'; ctx.fillText(`DESMONTE - ${model.meta.dateLabel}`, panel.x + panel.width / 2, panel.y + 97);
-  ctx.fillStyle = colors.ink; ctx.textAlign = 'left'; ctx.font = '700 16px Arial'; ctx.fillText(model.meta.company || 'EMPRESA / OPERAÇÃO', panel.x + 12, panel.y + 34);
-  let y = panel.y + 124; y = drawAreaGroup(ctx, model.areas.filter((area) => area.status === 'evacuar'), 'EVACUAR', colors.red, panel, colors, y); y += 18; drawAreaGroup(ctx, model.areas.filter((area) => area.status === 'liberado'), 'LIBERADO', colors.blue, panel, colors, y);
+  if (model.logoImage) { const logoWidth = panel.width - 26; const logoHeight = logoWidth * model.logoImage.height / model.logoImage.width; ctx.drawImage(model.logoImage, panel.x + 13, panel.y + 8, logoWidth, Math.min(logoHeight, 70)); }
+  const titleY = panel.y + 86; ctx.fillStyle = colors.green; ctx.fillRect(panel.x + 10, titleY, panel.width - 20, 54); ctx.fillStyle = '#ffffff'; ctx.textAlign = 'center'; ctx.font = '700 18px Arial'; ctx.fillText('ÁREA DE INFLUÊNCIA', panel.x + panel.width / 2, titleY + 22); ctx.font = '700 15px Arial'; ctx.fillText(`DESMONTE - ${model.meta.dateLabel}`, panel.x + panel.width / 2, titleY + 44);
+  ctx.fillStyle = colors.ink; ctx.textAlign = 'left'; ctx.font = '700 14px Arial'; ctx.fillText(model.meta.company || 'EMPRESA / OPERAÇÃO', panel.x + 12, titleY - 10);
+  let y = titleY + 68; y = drawAreaGroup(ctx, model.areas.filter((area) => area.status === 'evacuar'), 'EVACUAR', colors.red, panel, colors, y); y += 16; drawAreaGroup(ctx, model.areas.filter((area) => area.status === 'liberado'), 'LIBERADO', colors.blue, panel, colors, y);
 }
 
 export function drawReport(canvas, model, config) {
   const width = config.report.canvasWidth; const height = config.report.canvasHeight; canvas.width = width; canvas.height = height;
-  const ctx = canvas.getContext('2d'); const colors = config.report.colors; const map = config.report.map; const panel = config.report.panel;
+  const ctx = canvas.getContext('2d'); const colors = config.report.colors; const map = config.report.map; const panel = config.report.panel; const stringEntities = flattenStringEntities(model.strings || []);
+  const geometryBounds = mergeBounds([boundsOf(stringEntities), ...model.areas.map((area) => boundsOf(area.entities || []))]);
+  const combinedBounds = mergeBounds([model.baseImage?.bounds, geometryBounds]);
+  const bounds = model.boundsMode === 'manual' ? model.manualBounds : model.baseImage?.bounds ? combinedBounds : paddedBounds(geometryBounds);
+  const transform = makeTransform(bounds, map);
   ctx.fillStyle = colors.paper; ctx.fillRect(0, 0, width, height); ctx.strokeStyle = colors.rule; ctx.lineWidth = 2; ctx.strokeRect(16, 16, width - 32, height - 32);
-  ctx.save(); ctx.beginPath(); ctx.rect(map.x, map.y, map.width, map.height); ctx.clip(); ctx.fillStyle = '#e8eef0'; ctx.fillRect(map.x, map.y, map.width, map.height); drawCoverImage(ctx, model.baseImage, map); ctx.restore();
-  const all = [model.string?.entities || [], ...model.areas.map((area) => area.entities || [])].flat(); const bounds = model.boundsMode === 'manual' ? model.manualBounds : paddedBounds(mergeBounds([boundsOf(model.string?.entities || []), ...model.areas.map((area) => boundsOf(area.entities || []))])); const transform = makeTransform(bounds, map);
-  drawGrid(ctx, map, transform, bounds, colors);
+  ctx.save(); ctx.beginPath(); ctx.rect(map.x, map.y, map.width, map.height); ctx.clip(); ctx.fillStyle = '#dde6e4'; ctx.fillRect(map.x, map.y, map.width, map.height); if (model.baseImage?.bounds) drawGeoImage(ctx, model.baseImage, transform); else drawCoverImage(ctx, model.baseImage?.image || model.baseImage, map); ctx.restore();
+  drawGrid(ctx, map, colors);
   if (transform) {
-    model.areas.forEach((area) => (area.entities || []).forEach((entity) => drawHatchedEntity(ctx, entity, transform, area.status === 'evacuar' ? colors.red : colors.blue, area.status === 'evacuar' ? colors.redSoft : colors.blueSoft)));
-    (model.string?.entities || []).forEach((entity) => drawEntity(ctx, entity, transform, colors.orange));
-    const endpoints = getStringEndpoints(model.string?.entities || []); endpoints.forEach((point) => { if (model.radii.people > 0) { ctx.save(); ctx.setLineDash([18, 10]); ctx.strokeStyle = colors.greenLight; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(transform.x(point), transform.y(point), model.radii.people * transform.scale, 0, Math.PI * 2); ctx.stroke(); ctx.restore(); } if (model.radii.machine > 0) { ctx.save(); ctx.setLineDash([12, 10]); ctx.strokeStyle = colors.cyan; ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(transform.x(point), transform.y(point), model.radii.machine * transform.scale, 0, Math.PI * 2); ctx.stroke(); ctx.restore(); } ctx.fillStyle = colors.orange; ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(transform.x(point), transform.y(point), 8, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); });
+    model.areas.forEach((area) => { area.status = areaIntersectsContours(area.entities || [], model.radiusContours) ? 'evacuar' : 'liberado'; (area.entities || []).forEach((entity) => drawHatchedEntity(ctx, entity, transform, area.status === 'evacuar' ? colors.red : colors.blue, area.status === 'evacuar' ? colors.redSoft : colors.blueSoft)); });
+    stringEntities.forEach((entity) => drawEntity(ctx, entity, transform, colors.orange));
+    drawContours(ctx, model.radiusContours, transform, colors, model.radii);
+    getStringEndpoints(stringEntities).forEach((point) => { ctx.fillStyle = colors.orange; ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(transform.x(point), transform.y(point), 8, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); });
   }
   drawNorth(ctx, map); drawScale(ctx, map, transform, bounds); drawLegend(ctx, model, map, colors); drawPanel(ctx, { ...model, meta: { ...model.meta, dateLabel: model.meta.date ? new Date(`${model.meta.date}T12:00:00`).toLocaleDateString('pt-BR') : 'DATA NÃO INFORMADA' } }, panel, colors);
-  ctx.fillStyle = colors.ink; ctx.font = '14px Arial'; ctx.textAlign = 'left'; ctx.fillText(model.meta.location || 'Local não informado', map.x + 8, height - 20); ctx.textAlign = 'right'; ctx.fillText(model.meta.observation || 'Prévia técnica para conferência antes da emissão', width - 24, height - 20);
-  return { bounds, endpointCount: getStringEndpoints(model.string?.entities || []).length };
+  ctx.fillStyle = colors.ink; ctx.font = '14px Arial'; ctx.textAlign = 'left'; ctx.fillText(model.meta.location || 'Local não informado', map.x + 8, height - 20); ctx.textAlign = 'right'; ctx.fillText(model.meta.observation || 'Valide os dados operacionais antes da emissão', width - 24, height - 20);
+  return { bounds, endpointCount: getStringEndpoints(stringEntities).length, areaStatuses: model.areas.map((area) => ({ id: area.id, status: area.status })) };
 }

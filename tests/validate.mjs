@@ -1,15 +1,20 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
+import vm from 'node:vm';
 import { parseDxf, parseGeoJson } from '../src/dxf.js';
-import { boundsOf, getStringEndpoints, paddedBounds } from '../src/geometry.js';
+import { areaIntersectsContours, boundsOf, buildRadiusContours, flattenStringEntities, getStringEndpoints, paddedBounds } from '../src/geometry.js';
 import { safeFileName } from '../src/pdf.js';
 
 const dxf = await fs.readFile(new URL('../POLIGONAIS/r030826.dxf', import.meta.url), 'latin1');
 const parsed = parseDxf(dxf);
+vm.runInThisContext(await fs.readFile(new URL('../vendor/polygon-clipping.min.js', import.meta.url), 'utf8'));
 assert.equal(parsed.sourceType, 'dxf');
 assert.ok(parsed.entities.length >= 3, 'o DXF de referência deve conter as três strings');
 assert.ok(parsed.entities.every((entity) => entity.points.length >= 2), 'cada string precisa ter vértices');
 assert.ok(getStringEndpoints(parsed.entities).length >= 3, 'as extremidades devem ser identificadas');
+const contours = buildRadiusContours(parsed.entities, [700, 300]);
+assert.equal(contours.length, 2, 'os dois raios devem gerar dois contornos únicos');
+assert.ok(contours.every((contour) => contour.polygons.length >= 1), 'cada raio precisa ter uma união geométrica');
 const bounds = boundsOf(parsed.entities);
 assert.ok(bounds.maxX > bounds.minX && bounds.maxY > bounds.minY, 'a extensão precisa ser válida');
 const expanded = paddedBounds(bounds);
@@ -22,5 +27,9 @@ assert.ok(parsedArea.entities.every((entity) => entity.closed), 'as áreas HATCH
 const geo = parseGeoJson(JSON.stringify({ type: 'FeatureCollection', features: [{ type: 'Feature', properties: { name: 'EVACUAR' }, geometry: { type: 'Polygon', coordinates: [[[0, 0], [10, 0], [10, 10], [0, 0]]] } }] }));
 assert.equal(geo.entities.length, 1);
 assert.equal(geo.entities[0].closed, true);
+assert.equal(flattenStringEntities([{ entities: parsed.entities }, { entities: parsed.entities.slice(0, 1) }]).length, parsed.entities.length + 1);
+const contour = [{ polygons: [[[[0, 0], [10, 0], [10, 10], [0, 10], [0, 0]]]], radius: 5 }];
+assert.equal(areaIntersectsContours([{ type: 'polyline', closed: true, points: [{ x: 4, y: 4 }, { x: 6, y: 4 }, { x: 6, y: 6 }, { x: 4, y: 4 }] }], contour), true);
+assert.equal(areaIntersectsContours([{ type: 'polyline', closed: true, points: [{ x: 20, y: 20 }, { x: 22, y: 20 }, { x: 22, y: 22 }, { x: 20, y: 20 }] }], contour), false);
 assert.equal(safeFileName('Aviso de Detonação 04/08/2026'), 'aviso-de-detonacao-04-08-2026');
 console.log(`PASS: DXF ${parsed.entities.length} entidades, ${getStringEndpoints(parsed.entities).length} extremidades, GeoJSON e nome de arquivo validados.`);
