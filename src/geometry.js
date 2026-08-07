@@ -101,9 +101,10 @@ function bufferPieces(entities, radius) {
       seen.add(key);
       return;
     }
-    for (let index = 1; index < points.length; index += 1) {
-      const start = points[index - 1];
-      const end = points[index];
+    const segmentCount = entity.closed ? points.length : points.length - 1;
+    for (let index = 0; index < segmentCount; index += 1) {
+      const start = points[index];
+      const end = points[(index + 1) % points.length];
       if (start.x === end.x && start.y === end.y) continue;
       pieces.push(capsulePolygon(start, end, radius));
     }

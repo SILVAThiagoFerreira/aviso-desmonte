@@ -28,6 +28,8 @@ const geo = parseGeoJson(JSON.stringify({ type: 'FeatureCollection', features: [
 assert.equal(geo.entities.length, 1);
 assert.equal(geo.entities[0].closed, true);
 assert.equal(flattenStringEntities([{ entities: parsed.entities }, { entities: parsed.entities.slice(0, 1) }]).length, parsed.entities.length + 1);
+const closedContour = buildRadiusContours([{ type: 'polyline', closed: true, points: [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 10 }] }], [1]);
+assert.equal(areaIntersectsContours([{ type: 'point', points: [{ x: 5, y: 5 }] }], closedContour), true, 'a poligonal fechada precisa receber buffer também no último segmento');
 const contour = [{ polygons: [[[[0, 0], [10, 0], [10, 10], [0, 10], [0, 0]]]], radius: 5 }];
 assert.equal(areaIntersectsContours([{ type: 'polyline', closed: true, points: [{ x: 4, y: 4 }, { x: 6, y: 4 }, { x: 6, y: 6 }, { x: 4, y: 4 }] }], contour), true);
 assert.equal(areaIntersectsContours([{ type: 'polyline', closed: true, points: [{ x: 20, y: 20 }, { x: 22, y: 20 }, { x: 22, y: 22 }, { x: 20, y: 20 }] }], contour), false);

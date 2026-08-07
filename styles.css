@@ -93,6 +93,18 @@ button { cursor: pointer; }
 .toast { position: fixed; right: 24px; bottom: 24px; z-index: 10; max-width: 360px; transform: translateY(20px); opacity: 0; pointer-events: none; border: 1px solid rgba(23,39,46,.18); border-radius: 8px; padding: 12px 15px; color: #fff; background: var(--ink); box-shadow: var(--shadow); font-size: 12px; transition: opacity .2s, transform .2s; }
 .toast.show { transform: translateY(0); opacity: 1; }
 .toast.error { background: #8d1820; }
+.point-actions { display: grid; grid-template-columns: 1fr; gap: 7px; margin-top: 10px; }
+.point-actions .text-button { margin-top: 0; text-align: left; }
+.point-list { display: grid; gap: 7px; margin-top: 10px; }
+.point-item { display: grid; grid-template-columns: 20px minmax(0, 1fr) 24px; align-items: center; gap: 8px; padding: 8px 9px; border: 1px solid var(--line); border-radius: 6px; background: #f8fafb; }
+.point-item-copy { min-width: 0; display: grid; gap: 2px; }
+.point-item-copy strong { font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.point-item-copy small { font: 9px/1.35 'IBM Plex Mono', monospace; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.point-swatch { display: block; width: 15px; height: 15px; border-radius: 50%; border: 2px solid var(--ink); background: var(--enaex-red); }
+.point-swatch.firing { background: var(--orange); }
+.point-swatch.blocking { border-radius: 2px; background: linear-gradient(135deg, #ff7a18 0 40%, #fff 40% 60%, #ff7a18 60%); }
+.point-swatch.card { border-radius: 2px; background: #fff; border-color: var(--enaex-red); }
+#reportCanvas.placing-point { cursor: crosshair; outline: 3px solid rgba(237, 28, 36, .35); outline-offset: 4px; }
 @media (max-width: 1100px) { .workspace { grid-template-columns: 360px 1fr; gap: 16px; padding: 16px; } .control-panel { padding: 18px; } .preview-metrics { gap: 9px; } }
 @media (max-width: 1000px) { .topbar-center { display: none; } }
 @media (max-width: 840px) { .topbar { min-height: 76px; height: auto; flex-wrap: wrap; gap: 8px; padding: 12px 18px; } .brand-lockup { min-width: 0; flex: 1 1 auto; } .enaex-logo { width: 116px; } .topbar-meta { font-size: 0; } .version { font-size: 10px; } .workspace { grid-template-columns: 1fr; } .control-panel { order: 2; } .preview-panel { order: 1; } .preview-toolbar { align-items: start; gap: 12px; flex-direction: column; } .preview-metrics { flex-wrap: wrap; text-align: left; } }
