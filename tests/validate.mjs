@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import vm from 'node:vm';
 import { parseDxf, parseGeoJson } from '../src/dxf.js';
-import { areaIntersectsContours, boundsOf, buildRadiusContours, flattenStringEntities, getStringEndpoints, paddedBounds } from '../src/geometry.js';
+import { areaIntersectsContours, boundsOf, boundsOfContours, buildRadiusContours, flattenStringEntities, getStringEndpoints, paddedBounds } from '../src/geometry.js';
 import { safeFileName } from '../src/pdf.js';
 
 const dxf = await fs.readFile(new URL('../POLIGONAIS/r030826.dxf', import.meta.url), 'latin1');
@@ -16,6 +16,9 @@ const contours = buildRadiusContours(parsed.entities, [700, 300]);
 assert.equal(contours.length, 2, 'os dois raios devem gerar dois contornos únicos');
 assert.ok(contours.every((contour) => contour.polygons.length >= 1), 'cada raio precisa ter uma união geométrica');
 const bounds = boundsOf(parsed.entities);
+const contourBounds = boundsOfContours(contours);
+assert.ok(contourBounds.minX < bounds.minX && contourBounds.maxX > bounds.maxX, 'os raios precisam ampliar a extensão horizontal');
+assert.ok(contourBounds.minY < bounds.minY && contourBounds.maxY > bounds.maxY, 'os raios precisam ampliar a extensão vertical');
 assert.ok(bounds.maxX > bounds.minX && bounds.maxY > bounds.minY, 'a extensão precisa ser válida');
 const expanded = paddedBounds(bounds);
 assert.ok(expanded.minX < bounds.minX && expanded.maxY > bounds.maxY, 'a extensão automática precisa ter margem');

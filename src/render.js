@@ -1,4 +1,4 @@
-import { areaIntersectsContours, boundsOf, flattenStringEntities, formatNumber, getStringEndpoints, mergeBounds, paddedBounds } from './geometry.js';
+import { areaIntersectsContours, boundsOf, boundsOfContours, flattenStringEntities, formatNumber, getStringEndpoints, mergeBounds, paddedBounds } from './geometry.js';
 
 function drawCoverImage(ctx, image, box) {
   if (!image) return;
@@ -71,7 +71,7 @@ function drawContours(ctx, contours, transform, colors, radii) {
   contours.forEach((contour) => {
     const isPeople = Number(contour.radius) === Number(radii.people);
     ctx.save(); ctx.strokeStyle = isPeople ? colors.cyan : colors.greenLight; ctx.lineWidth = isPeople ? 4 : 4; ctx.setLineDash(isPeople ? [] : [15, 9]);
-    contour.polygons.forEach((polygon) => polygon.forEach((ring) => {
+    (contour.outline || contour.polygons).forEach((polygon) => polygon.forEach((ring) => {
       if (!ring.length) return;
       ctx.beginPath(); ring.forEach(([x, y], index) => { const point = transform.x({ x, y }); const screenY = transform.y({ x, y }); if (index) ctx.lineTo(point, screenY); else ctx.moveTo(point, screenY); }); ctx.closePath(); ctx.stroke();
     }));
@@ -88,9 +88,9 @@ function drawNorth(ctx, box) {
 
 function drawScale(ctx, box, transform, bounds) {
   if (!transform || !bounds) return;
-  const target = Math.max(bounds.maxX - bounds.minX, 1) / 4; const magnitude = 10 ** Math.floor(Math.log10(target)); const candidate = [1, 2, 5, 10].find((step) => step * magnitude >= target) * magnitude; const width = Math.min(candidate * transform.scale, 330);
+  const target = Math.max(bounds.maxX - bounds.minX, 1) / 4; const magnitude = 10 ** Math.floor(Math.log10(target)); const candidate = [1, 2, 5, 10].find((step) => step * magnitude >= target) * magnitude; const width = Math.min(candidate * transform.scale, 330); const displayedDistance = width / transform.scale;
   const x = box.x + box.width - width - 36; const y = box.y + box.height - 42;
-  ctx.fillStyle = '#ffffff'; ctx.fillRect(x - 12, y - 26, width + 24, 48); ctx.fillStyle = '#111111'; ctx.fillRect(x, y, width / 2, 14); ctx.fillStyle = '#ffffff'; ctx.fillRect(x + width / 2, y, width / 2, 14); ctx.strokeStyle = '#111111'; ctx.lineWidth = 2; ctx.strokeRect(x, y, width, 14); ctx.fillStyle = '#111111'; ctx.font = '14px Arial'; ctx.textAlign = 'center'; ctx.fillText(`${formatNumber(candidate, 0)} m`, x + width / 2, y - 6);
+  ctx.fillStyle = '#ffffff'; ctx.fillRect(x - 12, y - 26, width + 24, 48); ctx.fillStyle = '#111111'; ctx.fillRect(x, y, width / 2, 14); ctx.fillStyle = '#ffffff'; ctx.fillRect(x + width / 2, y, width / 2, 14); ctx.strokeStyle = '#111111'; ctx.lineWidth = 2; ctx.strokeRect(x, y, width, 14); ctx.fillStyle = '#111111'; ctx.font = '14px Arial'; ctx.textAlign = 'center'; ctx.fillText(`${formatNumber(displayedDistance, 0)} m`, x + width / 2, y - 6);
 }
 
 function drawLegendIcon(ctx, image, x, y, size, fallback) {
@@ -110,34 +110,74 @@ function drawHatchSwatch(ctx, x, y, width, height, color, fill) {
   ctx.restore(); ctx.strokeStyle = color; ctx.lineWidth = 1.5; ctx.strokeRect(x, y, width, height);
 }
 
-function drawLegend(ctx, model, box, colors) {
-  const entries = Math.min((model.strings || []).length, 18);
-  const stringRows = Math.max(1, Math.ceil(entries / 2));
-  const lineCount = (model.radiusContours || []).length + 1 + 2 + 2 + 1;
-  const height = Math.max(392, Math.min(box.height - 30, 218 + lineCount * 21 + stringRows * 16));
-  const width = 470; const x = box.x + 28; const y = box.y + box.height - height;
-  ctx.save();
-  ctx.fillStyle = '#ffffff'; ctx.fillRect(x, y, width, height); ctx.strokeStyle = colors.rule; ctx.lineWidth = 2; ctx.strokeRect(x, y, width, height);
-  ctx.strokeStyle = '#aeb9b7'; ctx.lineWidth = 1; ctx.strokeRect(x + 7, y + 7, width - 14, height - 14);
+function fitCanvasText(ctx, value, maxWidth) {
+  const text = String(value || '');
+  if (ctx.measureText(text).width <= maxWidth) return text;
+  let result = text;
+  while (result.length > 1 && ctx.measureText(`${result}…`).width > maxWidth) result = result.slice(0, -1);
+  return `${result.trimEnd()}…`;
+}
+
+function pointInRect(point, rect) { return point.x >= rect.x && point.x <= rect.x + rect.width && point.y >= rect.y && point.y <= rect.y + rect.height; }
+function rectOverlap(a, b) { return Math.max(0, Math.min(a.x + a.width, b.x + b.width) - Math.max(a.x, b.x)) * Math.max(0, Math.min(a.y + a.height, b.y + b.height) - Math.max(a.y, b.y)); }
+
+function chooseLegendPlacement(ctx, model, box, width, height, transform) {
+  const margin = 24;
+  const candidates = [
+    { name: 'bottom-left', x: box.x + margin, y: box.y + box.height - height - margin },
+    { name: 'top-left', x: box.x + margin, y: box.y + margin },
+    { name: 'top-right', x: box.x + box.width - width - margin, y: box.y + margin },
+    { name: 'bottom-right', x: box.x + box.width - width - margin, y: box.y + box.height - height - margin }
+  ].map((item) => ({ ...item, width, height }));
+  const protectedRects = [
+    { x: box.x + 20, y: box.y + 18, width: 140, height: 120 },
+    { x: box.x + box.width - 390, y: box.y + box.height - 86, width: 390, height: 86 }
+  ];
+  const entities = flattenStringEntities(model.strings || []).concat((model.areas || []).flatMap((area) => area.entities || []));
+  const projectedPoints = entities.flatMap((entity) => (entity.points || []).map((point) => ({ x: transform.x(point), y: transform.y(point) })));
+  const operationalPoints = (model.firingPoints || []).concat(model.blockingPoints || [], model.cardPoints || []).map((point) => ({ x: transform.x(point), y: transform.y(point) }));
+  return candidates.map((candidate) => {
+    let score = protectedRects.reduce((total, rect) => total + rectOverlap(candidate, rect) / 1000, 0);
+    projectedPoints.forEach((point) => { if (pointInRect(point, candidate)) score += 4; });
+    operationalPoints.forEach((point) => { if (pointInRect(point, candidate)) score += 20; });
+    score += Math.abs(candidate.x - (box.x + box.width / 2)) * 0.0001;
+    return { ...candidate, score };
+  }).sort((a, b) => a.score - b.score)[0];
+}
+
+function drawLegend(ctx, model, box, colors, transform) {
+  const strings = model.strings || [];
+  const radiusRows = (model.radiusContours || []).map((contour) => ({ color: Number(contour.radius) === Number(model.radii?.people) ? colors.cyan : colors.greenLight, dashed: Number(contour.radius) !== Number(model.radii?.people), label: `Cx(r)=${formatNumber(contour.radius, 0)} m · RAIO DE SEGURANÇA · ${Number(contour.radius) === Number(model.radii?.people) ? 'PESSOAS' : 'MÁQUINAS E EQUIPAMENTOS'}` }));
+  const rows = [...radiusRows];
+  if (strings.length) rows.push({ color: colors.orange, label: 'POLIGONAIS / STRINGS DE DESMONTE' });
+  if (model.areas?.some((area) => area.status === 'evacuar')) rows.push({ swatch: 'evacuar', label: 'EVACUAR' });
+  if (model.areas?.some((area) => area.status === 'liberado')) rows.push({ swatch: 'liberado', label: 'LIBERADO' });
+  if (model.firingPoints?.length) rows.push({ icon: 'firing', label: 'PONTOS DE DISPARO' });
+  if (model.blockingPoints?.length) rows.push({ icon: 'blocking', label: 'PONTOS DE BLOQUEIO' });
+  if (model.cardPoints?.length) rows.push({ icon: 'card', label: 'ENTREGA DE CARTÕES DE BLOQUEIO' });
+  const shown = strings.slice(0, 24); const nameRows = strings.length ? Math.ceil(shown.length / 2) : 0; const overflow = Math.max(strings.length - shown.length, 0);
+  const width = strings.length ? 560 : 440; const height = 54 + rows.length * 24 + (strings.length ? 34 + nameRows * 18 + (overflow ? 18 : 0) : 0);
+  const placement = chooseLegendPlacement(ctx, model, box, width, height, transform); const { x, y } = placement;
+  ctx.save(); ctx.globalAlpha = .96; ctx.fillStyle = '#ffffff'; ctx.fillRect(x, y, width, height); ctx.strokeStyle = colors.rule; ctx.lineWidth = 2; ctx.strokeRect(x, y, width, height); ctx.strokeStyle = '#aeb9b7'; ctx.lineWidth = 1; ctx.strokeRect(x + 7, y + 7, width - 14, height - 14);
   ctx.fillStyle = colors.ink; ctx.font = '700 18px Arial'; ctx.textAlign = 'left'; ctx.fillText('LEGENDA:', x + 18, y + 31);
-  let rowY = y + 58;
-  const label = (text, offset = 78) => { ctx.fillStyle = colors.ink; ctx.font = '12px Arial'; ctx.fillText(text, x + offset, rowY + 5); rowY += 22; };
-  const line = (color, text, dashed = false) => { ctx.strokeStyle = color; ctx.lineWidth = 3; ctx.setLineDash(dashed ? [10, 7] : []); ctx.beginPath(); ctx.moveTo(x + 18, rowY); ctx.lineTo(x + 62, rowY); ctx.stroke(); ctx.setLineDash([]); label(text); };
-  (model.radiusContours || []).forEach((contour) => {
-    const isPeople = Number(contour.radius) === Number(model.radii?.people);
-    line(isPeople ? colors.cyan : colors.greenLight, `Cx(r)=${formatNumber(contour.radius, 0)} m · RAIO DE SEGURANÇA · ${isPeople ? 'PESSOAS' : 'MÁQUINAS E EQUIPAMENTOS'}`);
+  let rowY = y + 57;
+  rows.forEach((item) => {
+    const iconY = rowY - 9;
+    if (item.swatch === 'evacuar') drawHatchSwatch(ctx, x + 18, iconY, 44, 16, colors.red, colors.redSoft);
+    else if (item.swatch === 'liberado') drawHatchSwatch(ctx, x + 18, iconY, 44, 16, colors.blue, colors.blueSoft);
+    else if (item.icon === 'firing') drawLegendIcon(ctx, model.firingIcon, x + 18, rowY - 15, 44, (canvas, cx, cy, size) => { canvas.fillStyle = colors.orange; canvas.strokeStyle = colors.ink; canvas.lineWidth = 2; canvas.beginPath(); canvas.arc(cx, cy, size * .27, 0, Math.PI * 2); canvas.fill(); canvas.stroke(); });
+    else if (item.icon === 'blocking') drawLegendIcon(ctx, model.blockingIcon, x + 18, rowY - 16, 44, (canvas, cx, cy, size) => { canvas.strokeStyle = colors.red; canvas.lineWidth = 3; canvas.beginPath(); canvas.moveTo(cx - size * .25, cy + size * .28); canvas.lineTo(cx - size * .12, cy - size * .25); canvas.lineTo(cx + size * .12, cy - size * .25); canvas.lineTo(cx + size * .25, cy + size * .28); canvas.stroke(); });
+    else if (item.icon === 'card') drawLegendIcon(ctx, model.cardIcon, x + 18, rowY - 16, 44, (canvas, cx, cy, size) => { canvas.strokeStyle = colors.red; canvas.lineWidth = 2; canvas.strokeRect(cx - size * .3, cy - size * .2, size * .6, size * .4); canvas.fillStyle = colors.red; canvas.fillRect(cx - size * .22, cy - size * .05, size * .44, size * .08); });
+    else { ctx.strokeStyle = item.color; ctx.lineWidth = 3; ctx.setLineDash(item.dashed ? [10, 7] : []); ctx.beginPath(); ctx.moveTo(x + 18, rowY); ctx.lineTo(x + 62, rowY); ctx.stroke(); ctx.setLineDash([]); }
+    ctx.fillStyle = colors.ink; ctx.font = '12px Arial'; ctx.fillText(fitCanvasText(ctx, item.label, width - 98), x + 78, rowY + 5); rowY += 24;
   });
-  line(colors.orange, 'POLIGONAIS / STRINGS DE DESMONTE');
-  drawHatchSwatch(ctx, x + 18, rowY - 9, 44, 16, colors.red, colors.redSoft); label('EVACUAR');
-  drawHatchSwatch(ctx, x + 18, rowY - 9, 44, 16, colors.blue, colors.blueSoft); label('LIBERADO');
-  drawLegendIcon(ctx, model.firingIcon, x + 18, rowY - 15, 44, (canvas, cx, cy, size) => { canvas.fillStyle = colors.orange; canvas.strokeStyle = colors.ink; canvas.lineWidth = 2; canvas.beginPath(); canvas.arc(cx, cy, size * .27, 0, Math.PI * 2); canvas.fill(); canvas.stroke(); }); label('PONTO DE DISPARO');
-  drawLegendIcon(ctx, model.blockingIcon, x + 18, rowY - 16, 44, (canvas, cx, cy, size) => { canvas.strokeStyle = colors.red; canvas.lineWidth = 3; canvas.beginPath(); canvas.moveTo(cx - size * .25, cy + size * .28); canvas.lineTo(cx - size * .12, cy - size * .25); canvas.lineTo(cx + size * .12, cy - size * .25); canvas.lineTo(cx + size * .25, cy + size * .28); canvas.stroke(); }); label('PONTOS DE BLOQUEIO');
-  drawLegendIcon(ctx, model.cardIcon, x + 18, rowY - 16, 44, (canvas, cx, cy, size) => { canvas.strokeStyle = colors.red; canvas.lineWidth = 2; canvas.strokeRect(cx - size * .3, cy - size * .2, size * .6, size * .4); canvas.fillStyle = colors.red; canvas.fillRect(cx - size * .22, cy - size * .05, size * .44, size * .08); }); label('PONTO DE ENTREGA DOS CARTÕES DE BLOQUEIO');
-  ctx.fillStyle = colors.ink; ctx.font = '700 12px Arial'; ctx.fillText('REGIÕES DE DESMONTE DE ROCHAS:', x + 18, rowY + 5); rowY += 22;
-  const shown = (model.strings || []).slice(0, entries); const rowsPerColumn = Math.max(1, Math.ceil(shown.length / 2));
-  shown.forEach((item, index) => { const column = Math.floor(index / rowsPerColumn); const row = index % rowsPerColumn; ctx.strokeStyle = colors.orange; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x + 18 + column * 224, rowY + row * 16); ctx.lineTo(x + 44 + column * 224, rowY + row * 16); ctx.stroke(); ctx.fillStyle = colors.ink; ctx.font = '10px Arial'; ctx.fillText(`${String(index + 1).padStart(2, '0')} ${String(item.label || item.name).slice(0, 24)}`, x + 50 + column * 224, rowY + row * 16 + 4); });
-  if ((model.strings || []).length > entries) { ctx.fillStyle = colors.muted; ctx.font = '10px Arial'; ctx.fillText(`+ ${(model.strings || []).length - entries} poligonal(is) não exibida(s) na legenda`, x + 18, y + height - 18); }
-  ctx.restore();
+  if (strings.length) {
+    ctx.fillStyle = colors.ink; ctx.font = '700 12px Arial'; ctx.fillText('REGIÕES DE DESMONTE DE ROCHAS:', x + 18, rowY + 7); rowY += 26;
+    const rowsPerColumn = Math.max(1, Math.ceil(shown.length / 2));
+    shown.forEach((item, index) => { const column = Math.floor(index / rowsPerColumn); const row = index % rowsPerColumn; const offset = column * (width / 2); ctx.strokeStyle = colors.orange; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x + 18 + offset, rowY + row * 18); ctx.lineTo(x + 44 + offset, rowY + row * 18); ctx.stroke(); ctx.fillStyle = colors.ink; ctx.font = '10px Arial'; ctx.fillText(fitCanvasText(ctx, `${String(index + 1).padStart(2, '0')} ${item.label || item.name}`, width / 2 - 64), x + 50 + offset, rowY + row * 18 + 4); });
+    if (overflow) { ctx.fillStyle = colors.muted; ctx.font = '10px Arial'; ctx.fillText(`+ ${overflow} poligonal(is) não exibida(s) na legenda`, x + 18, y + height - 14); }
+  }
+  ctx.restore(); return placement;
 }
 
 function drawPointMarker(ctx, point, transform, image, colors, kind) {
@@ -171,9 +211,12 @@ export function drawReport(canvas, model, config) {
   const width = config.report.canvasWidth; const height = config.report.canvasHeight; canvas.width = width; canvas.height = height;
   const ctx = canvas.getContext('2d'); const colors = config.report.colors; const map = config.report.map; const panel = config.report.panel; const stringEntities = flattenStringEntities(model.strings || []);
   const geometryBounds = mergeBounds([boundsOf(stringEntities), ...model.areas.map((area) => boundsOf(area.entities || []))]);
+  const contourBounds = boundsOfContours(model.radiusContours || []);
+  const operationalBounds = mergeBounds([geometryBounds, contourBounds]);
   const baseImages = model.baseImages?.length ? model.baseImages : model.baseImage ? [model.baseImage] : [];
   const imageBounds = mergeBounds(baseImages.map((image) => image?.bounds));
-  const bounds = model.boundsMode === 'manual' ? model.manualBounds : imageBounds ? imageBounds : paddedBounds(geometryBounds);
+  const bounds = model.boundsMode === 'manual' ? model.manualBounds : paddedBounds(operationalBounds || imageBounds);
+  const extentSource = model.boundsMode === 'manual' ? 'manual' : operationalBounds ? (imageBounds ? 'georreferenciado' : 'geometria-e-raios') : 'imagem';
   const transform = makeTransform(bounds, map);
   ctx.fillStyle = colors.paper; ctx.fillRect(0, 0, width, height); ctx.strokeStyle = colors.rule; ctx.lineWidth = 2; ctx.strokeRect(16, 16, width - 32, height - 32);
   ctx.save(); ctx.beginPath(); ctx.rect(map.x, map.y, map.width, map.height); ctx.clip(); ctx.fillStyle = '#dde6e4'; ctx.fillRect(map.x, map.y, map.width, map.height);
@@ -193,7 +236,7 @@ export function drawReport(canvas, model, config) {
     (model.cardPoints || []).forEach((point) => drawPointMarker(ctx, point, transform, model.cardIcon, colors, 'card'));
     ctx.restore();
   }
-  drawNorth(ctx, map); drawScale(ctx, map, transform, bounds); drawLegend(ctx, model, map, colors); drawPanel(ctx, { ...model, meta: { ...model.meta, dateLabel: model.meta.date ? new Date(`${model.meta.date}T12:00:00`).toLocaleDateString('pt-BR') : 'DATA NÃO INFORMADA' } }, panel, colors);
+  drawNorth(ctx, map); drawScale(ctx, map, transform, bounds); const legend = transform ? drawLegend(ctx, model, map, colors, transform) : null; drawPanel(ctx, { ...model, meta: { ...model.meta, dateLabel: model.meta.date ? new Date(`${model.meta.date}T12:00:00`).toLocaleDateString('pt-BR') : 'DATA NÃO INFORMADA' } }, panel, colors);
   ctx.fillStyle = colors.ink; ctx.font = '14px Arial'; ctx.textAlign = 'left'; ctx.fillText(model.meta.location || 'Local não informado', map.x + 8, height - 20); ctx.textAlign = 'right'; ctx.fillText(model.meta.observation || 'Valide os dados operacionais antes da emissão', width - 24, height - 20);
-  return { bounds, map, transform, endpointCount: getStringEndpoints(stringEntities).length, areaStatuses: model.areas.map((area) => ({ id: area.id, status: area.status })) };
+  return { bounds, map, transform, extentSource, legend, endpointCount: getStringEndpoints(stringEntities).length, areaStatuses: model.areas.map((area) => ({ id: area.id, status: area.status })) };
 }

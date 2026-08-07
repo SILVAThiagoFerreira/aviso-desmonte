@@ -14,6 +14,11 @@ export function boundsOf(entities = []) {
   return { minX: Math.min(...xs), minY: Math.min(...ys), maxX: Math.max(...xs), maxY: Math.max(...ys) };
 }
 
+export function boundsOfContours(contours = []) {
+  const points = contours.flatMap((contour) => (contour.polygons || []).flatMap((polygon) => polygon.flatMap((ring) => ring.map(([x, y]) => ({ x, y })))));
+  return boundsOf(points.length ? [{ points }] : []);
+}
+
 export function mergeBounds(boundsList = []) {
   const valid = boundsList.filter(Boolean);
   if (!valid.length) return null;
@@ -84,6 +89,17 @@ function circlePolygon(center, radius, steps = 32) {
   return [ring];
 }
 
+function roundedBoundsPolygon(entities, radius) {
+  const bounds = boundsOf(entities);
+  if (!bounds) return [];
+  const minX = bounds.minX - radius; const minY = bounds.minY - radius; const maxX = bounds.maxX + radius; const maxY = bounds.maxY + radius; const cornerSteps = 8;
+  const corners = [[maxX - radius, maxY - radius, 0], [minX + radius, maxY - radius, Math.PI / 2], [minX + radius, minY + radius, Math.PI], [maxX - radius, minY + radius, Math.PI * 1.5]];
+  const ring = [];
+  corners.forEach(([cx, cy, start]) => { for (let index = 0; index <= cornerSteps; index += 1) { const angle = start + Math.PI / 2 * index / cornerSteps; ring.push([cx + radius * Math.cos(angle), cy + radius * Math.sin(angle)]); } });
+  ring.push(ring[0]);
+  return [[ring]];
+}
+
 function bufferPieces(entities, radius) {
   const pieces = [];
   const seen = new Set();
@@ -124,7 +140,8 @@ export function buildRadiusContours(entities = [], radii = []) {
     const pieces = bufferPieces(entities, radius);
     if (!pieces.length) return { radius, polygons: [] };
     let polygons = [];
-    try { polygons = globalThis.polygonClipping.union(...pieces); } catch { polygons = []; }
+    if (pieces.length > 120) return { radius, polygons: pieces, outline: roundedBoundsPolygon(entities, radius) };
+    try { polygons = globalThis.polygonClipping.union(...pieces); } catch { polygons = pieces; }
     return { radius, polygons };
   }).filter((item) => item.polygons.length);
 }
