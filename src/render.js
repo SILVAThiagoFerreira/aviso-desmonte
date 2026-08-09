@@ -282,6 +282,14 @@ function projectStructurePoint(structure, bounds, pageMap = {}, transform, mapBo
   return { x: bounds.minX + (screenX - transform.offsetX) / transform.scale, y: bounds.maxY - (screenY - transform.offsetY) / transform.scale };
 }
 
+function structureIntersectsReferencedArea(structure, model, contours) {
+  const reference = structure.classificationArea;
+  if (!reference) return false;
+  const area = (model.areas || []).find((candidate) => candidate.catalogId === reference.catalogId);
+  const entity = area?.entities?.[Number(reference.entityIndex)];
+  return Boolean(entity && areaIntersectsContours([entity], contours));
+}
+
 function drawStructureMarker(ctx, structure, transform, colors, displayPoint = null) {
   const point = structure.point; const actualX = transform.x(point); const actualY = transform.y(point); const x = displayPoint?.x ?? actualX; const y = displayPoint?.y ?? actualY; const color = structure.status === 'evacuar' ? colors.red : colors.blue;
   ctx.save();
@@ -325,8 +333,8 @@ function drawPanel(ctx, model, panel, colors) {
   ctx.fillStyle = colors.paper; ctx.fillRect(panel.x, panel.y, panel.width, panel.height); ctx.strokeStyle = colors.rule; ctx.lineWidth = 2; ctx.strokeRect(panel.x, panel.y, panel.width, panel.height);
   const headerX = panel.x + 10; const headerWidth = panel.width - 20;
   if (model.logoImage) { const maxWidth = headerWidth - 12; const maxHeight = 58; const ratio = Math.min(maxWidth / model.logoImage.width, maxHeight / model.logoImage.height); const logoWidth = model.logoImage.width * ratio; const logoHeight = model.logoImage.height * ratio; ctx.drawImage(model.logoImage, panel.x + (panel.width - logoWidth) / 2, panel.y + 8, logoWidth, logoHeight); }
-  ctx.fillStyle = colors.muted; ctx.textAlign = 'center'; ctx.font = '700 10px Arial'; wrapCanvasText(ctx, model.meta.company || 'EMPRESA / OPERAÇÃO', headerWidth - 8, 2).forEach((line, index) => ctx.fillText(line, panel.x + panel.width / 2, panel.y + 75 + index * 12));
-  const titleY = panel.y + 99; const titleHeight = 62; const titleDate = model.meta.date ? `DESMONTE - ${model.meta.dateLabel}` : 'DATA NÃO INFORMADA'; ctx.fillStyle = colors.green; ctx.fillRect(headerX, titleY, headerWidth, titleHeight); ctx.fillStyle = '#ffffff'; ctx.textAlign = 'center'; ctx.font = '700 15px Arial'; ctx.fillText(fitCanvasText(ctx, 'ÁREA DE INFLUÊNCIA', headerWidth - 12), panel.x + panel.width / 2, titleY + 23); ctx.font = '700 12px Arial'; ctx.fillText(fitCanvasText(ctx, titleDate, headerWidth - 12), panel.x + panel.width / 2, titleY + 46);
+  ctx.fillStyle = colors.muted; ctx.textAlign = 'center'; ctx.font = '700 10px Arial'; wrapCanvasText(ctx, model.meta.company || 'EMPRESA / OPERAÇÃO', headerWidth - 8, 2).forEach((line, index) => ctx.fillText(line, panel.x + panel.width / 2, panel.y + 86 + index * 12));
+  const titleY = panel.y + 112; const titleHeight = 62; const titleDate = model.meta.date ? `DESMONTE - ${model.meta.dateLabel}` : 'DATA NÃO INFORMADA'; ctx.fillStyle = colors.green; ctx.fillRect(headerX, titleY, headerWidth, titleHeight); ctx.fillStyle = '#ffffff'; ctx.textAlign = 'center'; ctx.font = '700 15px Arial'; ctx.fillText(fitCanvasText(ctx, 'ÁREA DE INFLUÊNCIA', headerWidth - 12), panel.x + panel.width / 2, titleY + 23); ctx.font = '700 12px Arial'; ctx.fillText(fitCanvasText(ctx, titleDate, headerWidth - 12), panel.x + panel.width / 2, titleY + 46);
   const panelAreas = model.structures?.length ? model.structures : model.areas; const evacuarAreas = panelAreas.filter((area) => area.status === 'evacuar'); const liberadoAreas = panelAreas.filter((area) => area.status === 'liberado'); const startY = titleY + titleHeight + 12; const groupGap = 16; const available = panel.y + panel.height - 10 - startY - groupGap; const evacuarHeight = Math.max(70, evacuarAreas.length * 18 + 24); const liberadoHeight = Math.max(70, liberadoAreas.length * 18 + 24); const scale = Math.min(1, available / (evacuarHeight + liberadoHeight)); let y = startY; y = drawAreaGroup(ctx, evacuarAreas, 'EVACUAR', colors.red, panel, colors, y, Math.max(70, evacuarHeight * scale)); y += groupGap; drawAreaGroup(ctx, liberadoAreas, 'LIBERADO', colors.blue, panel, colors, y, Math.max(70, liberadoHeight * scale));
 }
 
@@ -359,7 +367,7 @@ export function drawReport(canvas, model, config) {
     areaEntities.forEach((entity) => drawHatchedEntity(ctx, entity, transform, colors.blue, colors.blueSoft));
     areaEntities.forEach((entity) => intersectEntityWithContours(entity, model.radiusContours).forEach((polygon) => drawHatchedPolygon(ctx, polygon, transform, colors.red, colors.redSoft)));
     const structurePoints = (model.structures || []).map((structure) => ({ ...structure, point: projectStructurePoint(structure, bounds, model.structurePageMap, transform, map) }));
-    structurePoints.forEach((structure) => { structure.status = pointIntersectsContours(structure.point, model.radiusContours) ? 'evacuar' : 'liberado'; const target = model.structures.find((candidate) => candidate.id === structure.id); if (target) { target.status = structure.status; target.point = structure.point; } });
+    structurePoints.forEach((structure) => { const pointInRadius = pointIntersectsContours(structure.point, model.radiusContours); const referencedAreaInRadius = structureIntersectsReferencedArea(structure, model, model.radiusContours); structure.status = pointInRadius || referencedAreaInRadius ? 'evacuar' : 'liberado'; const target = model.structures.find((candidate) => candidate.id === structure.id); if (target) { target.status = structure.status; target.point = structure.point; } });
     const protectedPoints = [...(model.firingPoints || []), ...(model.blockingPoints || []), ...(model.cardPoints || [])];
     placeStructureMarkers(structurePoints, transform, model.radiusContours || [], protectedPoints).forEach(({ structure, displayPoint }) => drawStructureMarker(ctx, structure, transform, colors, displayPoint));
     stringEntities.forEach((entity) => drawEntity(ctx, entity, transform, colors.orange));

@@ -27,10 +27,13 @@ const parsedArea = parseDxf(areaDxf);
 assert.ok(parsedArea.entities.length >= 10, 'o DXF de áreas de referência precisa ler os HATCHs');
 assert.ok(parsedArea.entities.every((entity) => entity.closed), 'as áreas HATCH precisam ser fechadas');
 const structureCatalog = JSON.parse(await fs.readFile(new URL('../data/structures.json', import.meta.url), 'utf8'));
-assert.equal(structureCatalog.structures.length, 54, 'o catálogo do PDF deve conter as 54 estruturas numeradas');
-assert.equal(new Set(structureCatalog.structures.map((structure) => structure.id)).size, 54, 'os identificadores das estruturas devem ser únicos');
-assert.equal(structureCatalog.structures.filter((structure) => structure.statusFromPdf === 'evacuar').length, 29, 'o PDF deve conter 29 estruturas de evacuação');
+assert.equal(structureCatalog.structures.length, 55, 'o catálogo deve conter as 55 estruturas numeradas após separar a portaria');
+assert.equal(new Set(structureCatalog.structures.map((structure) => structure.id)).size, 55, 'os identificadores das estruturas devem ser únicos');
+assert.equal(structureCatalog.structures.filter((structure) => structure.statusFromPdf === 'evacuar').length, 30, 'o catálogo deve conter 30 estruturas de evacuação');
 assert.equal(structureCatalog.structures.filter((structure) => structure.statusFromPdf === 'liberado').length, 25, 'o PDF deve conter 25 estruturas liberadas');
+assert.equal(structureCatalog.structures.find((structure) => structure.id === '41')?.name, 'PORTARIA');
+assert.equal(structureCatalog.structures.find((structure) => structure.id === '42')?.name, 'ACESSO PORTARIA');
+assert.deepEqual(structureCatalog.structures.find((structure) => structure.id === '42')?.classificationArea, { catalogId: 'evacuar', entityIndex: 10 });
 assert.ok(structureCatalog.pageMap.width > 0 && structureCatalog.pageMap.height > 0, 'o catálogo deve guardar a extensão cartográfica da página fonte');
 
 const geo = parseGeoJson(JSON.stringify({ type: 'FeatureCollection', features: [{ type: 'Feature', properties: { name: 'EVACUAR' }, geometry: { type: 'Polygon', coordinates: [[[0, 0], [10, 0], [10, 10], [0, 0]]] } }] }));
