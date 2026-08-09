@@ -1,6 +1,6 @@
 # Aviso de Desmonte
 
-Gerador local de pranchas de área de influência para avisos de desmonte. O site recebe os dados do aviso, uma GeoTIFF georreferenciada, várias strings de desmonte em DXF e áreas em DXF/GeoJSON; depois calcula buffers contínuos ao longo das poligonais, classifica cada ponto de estrutura e baixa uma prancha em PDF.
+Gerador de pranchas de área de influência para avisos de desmonte. O site recebe os dados do aviso, uma GeoTIFF georreferenciada, várias strings de desmonte em DXF e áreas em DXF/GeoJSON; depois calcula buffers contínuos ao longo das poligonais, classifica cada ponto de estrutura e baixa uma prancha em PDF. O catálogo de estruturas é lido do catálogo online e as publicações administrativas ficam disponíveis para todos os usuários; o catálogo embutido no Pages permanece como fallback quando o serviço online não responde.
 
 ## Uso
 

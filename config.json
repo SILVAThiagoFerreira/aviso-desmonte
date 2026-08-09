@@ -2,7 +2,7 @@
   "app": {
     "name": "Aviso de Desmonte",
     "eyebrow": "AVISO DE DESMONTE",
-    "version": "1.11.0"
+    "version": "1.12.0"
   },
   "defaultPreset": {
     "loadAllOrthomosaics": true,
@@ -12,6 +12,12 @@
     "peopleRadius": 700,
     "machineRadius": 300,
     "structureCatalog": "data/structures.json"
+  },
+  "onlineCatalog": {
+    "enabled": true,
+    "endpoint": "https://script.google.com/macros/s/AKfycbxCqHUXlW7nImAnk9o-_oYPWOaFH1dWRz_8nz4u_qAagmcPKNew0Y4bVPQCyAreXi3lKQ/exec",
+    "writeToken": "AVISO_DESMONTE_ADMIN_2026_08",
+    "timeoutMs": 10000
   },
   "ortomosaicos": [
     { "id": "mina-20260730", "label": "Mina reduzida · 30/07/2026", "path": "GEOTIFF/20260730_Mina_Reduzida.tif" },
