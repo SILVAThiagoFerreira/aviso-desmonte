@@ -274,6 +274,7 @@ function drawPointMarker(ctx, point, transform, image, colors, kind) {
 
 function projectStructurePoint(structure, bounds, pageMap = {}, transform, mapBox) {
   const map = { x: 61, y: 68, width: 1205, height: 1385, ...pageMap };
+  if (structure.worldX !== null && structure.worldX !== undefined && structure.worldY !== null && structure.worldY !== undefined && Number.isFinite(Number(structure.worldX)) && Number.isFinite(Number(structure.worldY))) return { x: Number(structure.worldX), y: Number(structure.worldY) };
   if (map.worldTransform) { const world = map.worldTransform; return { x: world.originX + (Number(structure.pageX) - map.x) * world.scaleX, y: world.originY - (Number(structure.pageY) - map.y) * world.scaleY }; }
   const u = (Number(structure.pageX) - map.x) / map.width;
   const v = (Number(structure.pageY) - map.y) / map.height;
@@ -306,7 +307,7 @@ function placeStructureMarkers(structures, transform, contours = [], protectedPo
   const protectedScreenPoints = protectedPoints.map((point) => ({ x: transform.x(point), y: transform.y(point) }));
   return structures.map((structure) => {
     const actual = { x: transform.x(structure.point), y: transform.y(structure.point) };
-    const candidates = offsets.map(([dx, dy]) => ({ x: actual.x + dx, y: actual.y + dy }));
+    const candidates = structure.lockMarkerPosition ? [actual] : offsets.map(([dx, dy]) => ({ x: actual.x + dx, y: actual.y + dy }));
     const validCandidates = candidates.filter((candidate) => {
       if (!contours.length) return true;
       const inside = pointIntersectsContours(transform.world(candidate), contours);

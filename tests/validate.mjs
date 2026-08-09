@@ -34,6 +34,8 @@ assert.equal(structureCatalog.structures.filter((structure) => structure.statusF
 assert.equal(structureCatalog.structures.find((structure) => structure.id === '41')?.name, 'PORTARIA');
 assert.equal(structureCatalog.structures.find((structure) => structure.id === '42')?.name, 'ACESSO PORTARIA');
 assert.deepEqual(structureCatalog.structures.find((structure) => structure.id === '42')?.classificationArea, { catalogId: 'evacuar', entityIndex: 10 });
+assert.equal(structureCatalog.structures.find((structure) => structure.id === '40')?.name, 'ACESSO PRINCIPAL');
+assert.ok(['40', '41', '42'].every((id) => structureCatalog.structures.find((structure) => structure.id === id)?.lockMarkerPosition), 'os acessos e a portaria devem preservar a posição vetorial do PDF');
 assert.ok(structureCatalog.pageMap.width > 0 && structureCatalog.pageMap.height > 0, 'o catálogo deve guardar a extensão cartográfica da página fonte');
 
 const geo = parseGeoJson(JSON.stringify({ type: 'FeatureCollection', features: [{ type: 'Feature', properties: { name: 'EVACUAR' }, geometry: { type: 'Polygon', coordinates: [[[0, 0], [10, 0], [10, 10], [0, 0]]] } }] }));
