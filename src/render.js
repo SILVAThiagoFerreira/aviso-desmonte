@@ -98,9 +98,9 @@ function drawEntity(ctx, entity, transform, color) {
 }
 
 function drawContours(ctx, contours, transform, colors, radii) {
-  contours.forEach((contour) => {
+    contours.forEach((contour) => {
     const isPeople = Number(contour.radius) === Number(radii.people);
-    ctx.save(); ctx.strokeStyle = isPeople ? colors.cyan : colors.greenLight; ctx.lineWidth = isPeople ? 4 : 4; ctx.setLineDash(isPeople ? [] : [15, 9]);
+    ctx.save(); ctx.strokeStyle = isPeople ? colors.cyan : colors.greenLight; ctx.lineWidth = 4; ctx.setLineDash([]);
     (contour.outline || contour.polygons).forEach((polygon) => polygon.forEach((ring) => {
       if (!ring.length) return;
       ctx.beginPath(); ring.forEach(([x, y], index) => { const point = transform.x({ x, y }); const screenY = transform.y({ x, y }); if (index) ctx.lineTo(point, screenY); else ctx.moveTo(point, screenY); }); ctx.closePath(); ctx.stroke();
