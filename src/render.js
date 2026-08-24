@@ -149,6 +149,8 @@ function fitCanvasText(ctx, value, maxWidth) {
 }
 
 function stringColor(item, colors) { return colors[item?.blastType] || colors.production || colors.orange; }
+const STRING_PRIORITY = { precut: 1, production: 2, regularization: 3 };
+function sortedStrings(strings = []) { return [...strings].sort((left, right) => (STRING_PRIORITY[left.blastType] || 2) - (STRING_PRIORITY[right.blastType] || 2) || String(left.label || left.name).localeCompare(String(right.label || right.name), 'pt-BR')); }
 
 function drawStringThumbnail(ctx, item, x, y, width, height, color) {
   const entities = item?.entities || [];
@@ -246,7 +248,7 @@ function chooseLegendPlacement(ctx, model, box, width, height, transform) {
 }
 
 function drawLegend(ctx, model, box, colors, transform) {
-  const strings = model.strings || [];
+  const strings = sortedStrings(model.strings || []);
   const statusAreas = model.statusAreas || model.areas || [];
   const radiusRows = (model.radiusContours || []).map((contour) => ({ color: Number(contour.radius) === Number(model.radii?.people) ? colors.cyan : colors.greenLight, dashed: false, label: `Cx(r)=${formatNumber(contour.radius, 0)} m · RAIO DE SEGURANÇA · ${Number(contour.radius) === Number(model.radii?.people) ? 'PESSOAS' : 'MÁQUINAS E EQUIPAMENTOS'}` }));
   const rows = [...radiusRows];
@@ -411,7 +413,7 @@ export function drawReport(canvas, model, config) {
     placeStructureMarkers(structurePoints, transform, model.radiusContours || [], protectedPoints).forEach(({ structure, displayPoint }) => drawStructureMarker(ctx, structure, transform, colors, displayPoint));
     drawContours(ctx, model.radiusContours, transform, colors, model.radii);
     // As poligonais de desmonte ficam na camada operacional superior do croqui.
-    (model.strings || []).forEach((item) => (item.entities || []).forEach((entity) => drawEntity(ctx, entity, transform, stringColor(item, colors))));
+    sortedStrings(model.strings || []).reverse().forEach((item) => (item.entities || []).forEach((entity) => drawEntity(ctx, entity, transform, stringColor(item, colors))));
     // O buffer já representa a extensão completa da poligonal. Não desenhar
     // círculos adicionais nas extremidades evita a aparência de raios sobrepostos.
     (model.firingPoints || []).forEach((point) => drawPointMarker(ctx, point, transform, model.firingIcon, colors, 'firing'));
