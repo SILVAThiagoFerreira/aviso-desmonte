@@ -369,11 +369,12 @@ export function drawReport(canvas, model, config) {
     areaEntities.forEach((entity) => intersectEntityWithContours(entity, model.radiusContours).forEach((polygon) => drawHatchedPolygon(ctx, polygon, transform, colors.red, colors.redSoft)));
     const structurePoints = (model.structures || []).map((structure) => ({ ...structure, point: projectStructurePoint(structure, bounds, model.structurePageMap, transform, map) }));
     structurePoints.forEach((structure) => { const pointInRadius = pointIntersectsContours(structure.point, model.radiusContours); const referencedAreaInRadius = structureIntersectsReferencedArea(structure, model, model.radiusContours); structure.status = pointInRadius || referencedAreaInRadius ? 'evacuar' : 'liberado'; const target = model.structures.find((candidate) => candidate.id === structure.id); if (target) { target.status = structure.status; target.point = structure.point; } });
-    const protectedPoints = [...(model.firingPoints || []), ...(model.blockingPoints || []), ...(model.cardPoints || [])];
-    placeStructureMarkers(structurePoints, transform, model.radiusContours || [], protectedPoints).forEach(({ structure, displayPoint }) => drawStructureMarker(ctx, structure, transform, colors, displayPoint));
+    // As estruturas continuam sendo classificadas e listadas no painel, mas seus
+    // marcadores numerados não devem cobrir o croqui operacional.
     stringEntities.forEach((entity) => drawEntity(ctx, entity, transform, colors.orange));
     drawContours(ctx, model.radiusContours, transform, colors, model.radii);
-    getStringEndpoints(stringEntities).forEach((point) => { ctx.fillStyle = colors.orange; ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(transform.x(point), transform.y(point), 8, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); });
+    // O buffer já representa a extensão completa da poligonal. Não desenhar
+    // círculos adicionais nas extremidades evita a aparência de raios sobrepostos.
     (model.firingPoints || []).forEach((point) => drawPointMarker(ctx, point, transform, model.firingIcon, colors, 'firing'));
     (model.blockingPoints || []).forEach((point) => drawPointMarker(ctx, point, transform, model.blockingIcon, colors, 'blocking'));
     (model.cardPoints || []).forEach((point) => drawPointMarker(ctx, point, transform, model.cardIcon, colors, 'card'));
