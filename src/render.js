@@ -284,14 +284,14 @@ function drawLegend(ctx, model, box, colors, transform) {
 }
 
 function drawPointMarker(ctx, point, transform, image, colors, kind) {
-  const x = transform.x(point); const y = transform.y(point); const size = kind === 'firing' ? 28 : 26;
+  const x = transform.x(point); const y = transform.y(point); const size = 48;
   drawLegendIcon(ctx, image, x - size / 2, y - size / 2, size, (canvas, cx, cy, markerSize) => {
     if (kind === 'blocking') { canvas.strokeStyle = colors.red; canvas.lineWidth = 3; canvas.beginPath(); canvas.moveTo(cx - markerSize * .25, cy + markerSize * .3); canvas.lineTo(cx - markerSize * .12, cy - markerSize * .25); canvas.lineTo(cx + markerSize * .12, cy - markerSize * .25); canvas.lineTo(cx + markerSize * .25, cy + markerSize * .3); canvas.stroke(); return; }
     if (kind === 'card') { canvas.fillStyle = '#ffffff'; canvas.strokeStyle = colors.red; canvas.lineWidth = 3; canvas.fillRect(cx - markerSize * .3, cy - markerSize * .2, markerSize * .6, markerSize * .4); canvas.strokeRect(cx - markerSize * .3, cy - markerSize * .2, markerSize * .6, markerSize * .4); return; }
     canvas.fillStyle = colors.orange; canvas.strokeStyle = colors.ink; canvas.lineWidth = 2; canvas.beginPath(); canvas.arc(cx, cy, markerSize * .27, 0, Math.PI * 2); canvas.fill(); canvas.stroke();
   });
-  ctx.fillStyle = '#ffffff'; ctx.strokeStyle = colors.ink; ctx.lineWidth = 2; ctx.font = '700 10px Arial'; ctx.textAlign = 'left';
-  if (point.label) { const text = String(point.label).slice(0, 22); const width = ctx.measureText(text).width + 8; ctx.fillStyle = 'rgba(255,255,255,.9)'; ctx.fillRect(x + 21, y - 13, width, 17); ctx.strokeRect(x + 21, y - 13, width, 17); ctx.fillStyle = colors.ink; ctx.fillText(text, x + 25, y - 1); }
+  ctx.fillStyle = '#ffffff'; ctx.strokeStyle = colors.ink; ctx.lineWidth = 1; ctx.font = '700 8px Arial'; ctx.textAlign = 'center';
+  if (point.label) { const text = String(point.label).slice(0, 22); const width = Math.min(ctx.measureText(text).width + 8, 118); const labelY = y + size / 2 + 5; ctx.fillStyle = 'rgba(255,255,255,.92)'; ctx.fillRect(x - width / 2, labelY, width, 13); ctx.strokeRect(x - width / 2, labelY, width, 13); ctx.fillStyle = colors.ink; ctx.fillText(fitCanvasText(ctx, text, width - 8), x, labelY + 9); }
 }
 
 function projectStructurePoint(structure, bounds, pageMap = {}, transform, mapBox) {
