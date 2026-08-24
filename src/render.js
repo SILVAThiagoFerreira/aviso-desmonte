@@ -259,20 +259,20 @@ function drawLegend(ctx, model, box, colors, transform) {
   if (model.blockingPoints?.length) rows.push({ icon: 'blocking', label: 'PONTOS DE BLOQUEIO' });
   if (model.cardPoints?.length) rows.push({ icon: 'card', label: 'ENTREGA DE CARTÕES DE BLOQUEIO' });
   const shown = strings.slice(0, 24); const nameRows = strings.length ? Math.ceil(shown.length / 2) : 0; const overflow = Math.max(strings.length - shown.length, 0);
-  const width = strings.length ? 470 : 430; const height = 54 + rows.length * 24 + (strings.length ? 34 + nameRows * 18 + (overflow ? 18 : 0) : 0);
+  const width = strings.length ? 470 : 430; const height = 54 + rows.length * 30 + (strings.length ? 34 + nameRows * 18 + (overflow ? 18 : 0) : 0);
   const placement = chooseLegendPlacement(ctx, model, box, width, height, transform); const { x, y } = placement;
   ctx.save(); ctx.globalAlpha = .96; ctx.fillStyle = '#ffffff'; ctx.fillRect(x, y, width, height); ctx.strokeStyle = colors.rule; ctx.lineWidth = 2; ctx.strokeRect(x, y, width, height); ctx.strokeStyle = '#aeb9b7'; ctx.lineWidth = 1; ctx.strokeRect(x + 7, y + 7, width - 14, height - 14);
   ctx.fillStyle = colors.ink; ctx.font = '700 18px Arial'; ctx.textAlign = 'left'; ctx.fillText('LEGENDA:', x + 18, y + 31);
   let rowY = y + 57;
   rows.forEach((item) => {
-    const iconY = rowY - 9;
+    const iconY = rowY - 7;
     if (item.swatch === 'evacuar') drawHatchSwatch(ctx, x + 18, iconY, 44, 16, colors.red, colors.redSoft);
     else if (item.swatch === 'liberado') drawHatchSwatch(ctx, x + 18, iconY, 44, 16, colors.blue, colors.blueSoft);
-    else if (item.icon === 'firing') drawLegendIcon(ctx, model.firingIcon, x + 18, rowY - 15, 44, (canvas, cx, cy, size) => { canvas.fillStyle = colors.orange; canvas.strokeStyle = colors.ink; canvas.lineWidth = 2; canvas.beginPath(); canvas.arc(cx, cy, size * .27, 0, Math.PI * 2); canvas.fill(); canvas.stroke(); });
-    else if (item.icon === 'blocking') drawLegendIcon(ctx, model.blockingIcon, x + 18, rowY - 16, 44, (canvas, cx, cy, size) => { canvas.strokeStyle = colors.red; canvas.lineWidth = 3; canvas.beginPath(); canvas.moveTo(cx - size * .25, cy + size * .28); canvas.lineTo(cx - size * .12, cy - size * .25); canvas.lineTo(cx + size * .12, cy - size * .25); canvas.lineTo(cx + size * .25, cy + size * .28); canvas.stroke(); });
-    else if (item.icon === 'card') drawLegendIcon(ctx, model.cardIcon, x + 18, rowY - 16, 44, (canvas, cx, cy, size) => { canvas.strokeStyle = colors.red; canvas.lineWidth = 2; canvas.strokeRect(cx - size * .3, cy - size * .2, size * .6, size * .4); canvas.fillStyle = colors.red; canvas.fillRect(cx - size * .22, cy - size * .05, size * .44, size * .08); });
+    else if (item.icon === 'firing') drawLegendIcon(ctx, model.firingIcon, x + 18, rowY - 13, 26, (canvas, cx, cy, size) => { canvas.fillStyle = colors.orange; canvas.strokeStyle = colors.ink; canvas.lineWidth = 2; canvas.beginPath(); canvas.arc(cx, cy, size * .27, 0, Math.PI * 2); canvas.fill(); canvas.stroke(); });
+    else if (item.icon === 'blocking') drawLegendIcon(ctx, model.blockingIcon, x + 18, rowY - 13, 26, (canvas, cx, cy, size) => { canvas.strokeStyle = colors.red; canvas.lineWidth = 2; canvas.beginPath(); canvas.moveTo(cx - size * .25, cy + size * .28); canvas.lineTo(cx - size * .12, cy - size * .25); canvas.lineTo(cx + size * .12, cy - size * .25); canvas.lineTo(cx + size * .25, cy + size * .28); canvas.stroke(); });
+    else if (item.icon === 'card') drawLegendIcon(ctx, model.cardIcon, x + 18, rowY - 13, 26, (canvas, cx, cy, size) => { canvas.strokeStyle = colors.red; canvas.lineWidth = 2; canvas.strokeRect(cx - size * .3, cy - size * .2, size * .6, size * .4); canvas.fillStyle = colors.red; canvas.fillRect(cx - size * .22, cy - size * .05, size * .44, size * .08); });
     else { ctx.strokeStyle = item.color; ctx.lineWidth = 3; ctx.setLineDash(item.dashed ? [10, 7] : []); ctx.beginPath(); ctx.moveTo(x + 18, rowY); ctx.lineTo(x + 62, rowY); ctx.stroke(); ctx.setLineDash([]); }
-    ctx.fillStyle = colors.ink; ctx.font = '12px Arial'; ctx.fillText(fitCanvasText(ctx, item.label, width - 98), x + 78, rowY + 5); rowY += 24;
+    ctx.fillStyle = colors.ink; ctx.font = '12px Arial'; ctx.fillText(fitCanvasText(ctx, item.label, width - 98), x + 78, rowY + 5); rowY += 30;
   });
   if (strings.length) {
     ctx.fillStyle = colors.ink; ctx.font = '700 12px Arial'; ctx.fillText('REGIÕES DE DESMONTE DE ROCHAS:', x + 18, rowY + 7); rowY += 26;
@@ -284,7 +284,7 @@ function drawLegend(ctx, model, box, colors, transform) {
 }
 
 function drawPointMarker(ctx, point, transform, image, colors, kind) {
-  const x = transform.x(point); const y = transform.y(point); const size = kind === 'firing' ? 42 : 48;
+  const x = transform.x(point); const y = transform.y(point); const size = kind === 'firing' ? 28 : 26;
   drawLegendIcon(ctx, image, x - size / 2, y - size / 2, size, (canvas, cx, cy, markerSize) => {
     if (kind === 'blocking') { canvas.strokeStyle = colors.red; canvas.lineWidth = 3; canvas.beginPath(); canvas.moveTo(cx - markerSize * .25, cy + markerSize * .3); canvas.lineTo(cx - markerSize * .12, cy - markerSize * .25); canvas.lineTo(cx + markerSize * .12, cy - markerSize * .25); canvas.lineTo(cx + markerSize * .25, cy + markerSize * .3); canvas.stroke(); return; }
     if (kind === 'card') { canvas.fillStyle = '#ffffff'; canvas.strokeStyle = colors.red; canvas.lineWidth = 3; canvas.fillRect(cx - markerSize * .3, cy - markerSize * .2, markerSize * .6, markerSize * .4); canvas.strokeRect(cx - markerSize * .3, cy - markerSize * .2, markerSize * .6, markerSize * .4); return; }
