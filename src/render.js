@@ -150,6 +150,24 @@ function fitCanvasText(ctx, value, maxWidth) {
 
 function stringColor(item, colors) { return colors[item?.blastType] || colors.production || colors.orange; }
 
+function drawStringThumbnail(ctx, item, x, y, width, height, color) {
+  const entities = item?.entities || [];
+  const points = entities.flatMap((entity) => entity.points || []);
+  if (!points.length) return;
+  const minX = Math.min(...points.map((point) => point.x)); const maxX = Math.max(...points.map((point) => point.x));
+  const minY = Math.min(...points.map((point) => point.y)); const maxY = Math.max(...points.map((point) => point.y));
+  const sourceWidth = Math.max(maxX - minX, 1); const sourceHeight = Math.max(maxY - minY, 1);
+  const scale = Math.min((width - 8) / sourceWidth, (height - 8) / sourceHeight);
+  const offsetX = x + (width - sourceWidth * scale) / 2; const offsetY = y + (height - sourceHeight * scale) / 2;
+  ctx.save(); ctx.strokeStyle = color; ctx.fillStyle = color; ctx.lineWidth = 2; ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+  entities.forEach((entity) => {
+    const entityPoints = entity.points || []; if (!entityPoints.length) return;
+    if (entity.type === 'circle') { const center = entityPoints[0]; const radius = Math.max(Number(entity.radius || 0) * scale, 2); ctx.beginPath(); ctx.arc(offsetX + (center.x - minX) * scale, offsetY + (maxY - center.y) * scale, radius, 0, Math.PI * 2); ctx.stroke(); return; }
+    ctx.beginPath(); entityPoints.forEach((point, index) => { const px = offsetX + (point.x - minX) * scale; const py = offsetY + (maxY - point.y) * scale; if (index) ctx.lineTo(px, py); else ctx.moveTo(px, py); }); if (entity.closed) ctx.closePath(); ctx.stroke();
+  });
+  ctx.restore();
+}
+
 function wrapCanvasText(ctx, value, maxWidth, maxLines = 2) {
   const words = String(value || '').trim().split(/\s+/).filter(Boolean);
   if (!words.length) return [''];
@@ -257,7 +275,7 @@ function drawLegend(ctx, model, box, colors, transform) {
   if (strings.length) {
     ctx.fillStyle = colors.ink; ctx.font = '700 12px Arial'; ctx.fillText('REGIÕES DE DESMONTE DE ROCHAS:', x + 18, rowY + 7); rowY += 26;
     const rowsPerColumn = Math.max(1, Math.ceil(shown.length / 2));
-    shown.forEach((item, index) => { const column = Math.floor(index / rowsPerColumn); const row = index % rowsPerColumn; const offset = column * (width / 2); ctx.strokeStyle = stringColor(item, colors); ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(x + 18 + offset, rowY + row * 18); ctx.lineTo(x + 44 + offset, rowY + row * 18); ctx.stroke(); ctx.fillStyle = colors.ink; ctx.font = '10px Arial'; const type = item.blastType === 'precut' ? 'Pré-Corte' : item.blastType === 'regularization' ? 'Regularização/Bloco' : 'Produção'; ctx.fillText(fitCanvasText(ctx, `${String(index + 1).padStart(2, '0')} ${type}: ${item.label || item.name}`, width / 2 - 64), x + 50 + offset, rowY + row * 18 + 4); });
+    shown.forEach((item, index) => { const column = Math.floor(index / rowsPerColumn); const row = index % rowsPerColumn; const offset = column * (width / 2); const color = stringColor(item, colors); drawStringThumbnail(ctx, item, x + 14 + offset, rowY + row * 18 - 8, 38, 16, color); ctx.fillStyle = colors.ink; ctx.font = '10px Arial'; const type = item.blastType === 'precut' ? 'Pré-Corte' : item.blastType === 'regularization' ? 'Regularização/Bloco' : 'Produção'; ctx.fillText(fitCanvasText(ctx, `${String(index + 1).padStart(2, '0')} ${type}: ${item.label || item.name}`, width / 2 - 64), x + 50 + offset, rowY + row * 18 + 4); });
     if (overflow) { ctx.fillStyle = colors.muted; ctx.font = '10px Arial'; ctx.fillText(`+ ${overflow} poligonal(is) não exibida(s) na legenda`, x + 18, y + height - 14); }
   }
   ctx.restore(); return placement;
