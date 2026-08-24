@@ -95,6 +95,8 @@ button { cursor: pointer; }
 .empty-state { padding: 13px; border-radius: 7px; color: var(--muted); background: #f4f7f6; font-size: 11px; }
 .area-item, .string-item { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 8px; align-items: center; padding: 9px 10px; border: 1px solid var(--line); border-radius: 7px; background: #fff; }
 .admin-active .structure-item { grid-template-columns: minmax(0, 1fr) auto auto auto; }
+.structure-item { grid-template-columns: minmax(0, 1fr) auto auto; }
+.admin-active .structure-item { grid-template-columns: minmax(0, 1fr) auto auto auto auto; }
 .area-item-copy, .string-item-copy { min-width: 0; }
 .area-item input, .string-item input { width: 100%; min-width: 0; border: 0; outline: 0; color: var(--ink); background: transparent; font-size: 11px; }
 .area-item input, .string-item input { font-weight: 600; }
@@ -102,6 +104,7 @@ button { cursor: pointer; }
 .radius-file-button input { display: none; }
 .radius-file-state { display: block; margin-top: 4px; overflow: hidden; color: var(--muted); font: 9px/1.35 'IBM Plex Mono', monospace; text-overflow: ellipsis; white-space: nowrap; }
 .point-size-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-top: 12px; }
+.status-override { min-height: 22px; max-width: 88px; border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; color: var(--ink); background: #f8fbfa; font: 700 8px 'IBM Plex Mono', monospace; }
 .string-type-select { width: 100%; min-height: 28px; margin-bottom: 4px; border: 1px solid var(--line); border-radius: 5px; padding: 0 7px; color: var(--ink); background: #f8fbfa; font: 700 10px 'IBM Plex Mono', monospace; }
 .area-item small, .string-item small { display: block; margin-top: 3px; overflow: hidden; color: var(--muted); font: 9px 'IBM Plex Mono', monospace; text-overflow: ellipsis; white-space: nowrap; }
 .area-status { display: inline-flex; align-items: center; min-height: 22px; border-radius: 4px; padding: 0 6px; font: 700 8px 'IBM Plex Mono', monospace; white-space: nowrap; }

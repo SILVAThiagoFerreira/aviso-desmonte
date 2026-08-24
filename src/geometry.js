@@ -190,8 +190,21 @@ function pointInPolygon(point, polygon) {
   return (polygon || []).slice(1).every((hole) => !pointInRing(point, hole));
 }
 
-export function pointIntersectsContours(point, contours = []) {
-  return contours.some((contour) => (contour.polygons || []).some((polygon) => pointInPolygon(point, polygon)));
+function pointToRingDistance(point, ring) {
+  let minimum = Infinity;
+  for (let index = 1; index < ring.length; index += 1) minimum = Math.min(minimum, segmentDistance(point, ring[index - 1], ring[index]));
+  return minimum;
+}
+
+function segmentDistance(point, start, end) {
+  const dx = end[0] - start[0]; const dy = end[1] - start[1]; const lengthSquared = dx * dx + dy * dy;
+  if (!lengthSquared) return Math.hypot(point.x - start[0], point.y - start[1]);
+  const ratio = Math.max(0, Math.min(1, ((point.x - start[0]) * dx + (point.y - start[1]) * dy) / lengthSquared));
+  return Math.hypot(point.x - (start[0] + ratio * dx), point.y - (start[1] + ratio * dy));
+}
+
+export function pointIntersectsContours(point, contours = [], boundaryTolerance = 0) {
+  return contours.some((contour) => (contour.polygons || []).some((polygon) => pointInPolygon(point, polygon) && (!boundaryTolerance || pointToRingDistance(point, polygon[0] || []) >= boundaryTolerance)));
 }
 
 export function intersectEntityWithContours(entity, contours = []) {
