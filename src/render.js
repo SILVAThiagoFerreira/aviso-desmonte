@@ -285,11 +285,13 @@ function drawLegend(ctx, model, box, colors, transform) {
 
 function drawPointMarker(ctx, point, transform, image, colors, kind, iconSizes = {}) {
   const x = transform.x(point); const y = transform.y(point); const size = Number(iconSizes[kind]) || 48;
+  ctx.save(); ctx.globalAlpha = kind === 'firing' ? .82 : 1;
   drawLegendIcon(ctx, image, x - size / 2, y - size / 2, size, (canvas, cx, cy, markerSize) => {
     if (kind === 'blocking') { canvas.strokeStyle = colors.red; canvas.lineWidth = 3; canvas.beginPath(); canvas.moveTo(cx - markerSize * .25, cy + markerSize * .3); canvas.lineTo(cx - markerSize * .12, cy - markerSize * .25); canvas.lineTo(cx + markerSize * .12, cy - markerSize * .25); canvas.lineTo(cx + markerSize * .25, cy + markerSize * .3); canvas.stroke(); return; }
     if (kind === 'card') { canvas.fillStyle = '#ffffff'; canvas.strokeStyle = colors.red; canvas.lineWidth = 3; canvas.fillRect(cx - markerSize * .3, cy - markerSize * .2, markerSize * .6, markerSize * .4); canvas.strokeRect(cx - markerSize * .3, cy - markerSize * .2, markerSize * .6, markerSize * .4); return; }
     canvas.fillStyle = colors.orange; canvas.strokeStyle = colors.ink; canvas.lineWidth = 2; canvas.beginPath(); canvas.arc(cx, cy, markerSize * .27, 0, Math.PI * 2); canvas.fill(); canvas.stroke();
   });
+  ctx.restore();
 }
 
 function projectStructurePoint(structure, bounds, pageMap = {}, transform, mapBox) {
@@ -327,11 +329,12 @@ function structureInsideAffectedArea(point, model, contours) {
   return (model.areas || []).some((area) => (area.entities || []).some((entity) => pointInsideClosedEntity(point, entity) && areaIntersectsContours([entity], contours)));
 }
 
-function drawStructureMarker(ctx, structure, transform, colors, displayPoint = null) {
+function drawStructureMarker(ctx, structure, transform, colors, displayPoint = null, labelSize = 16) {
   const point = structure.point; const actualX = transform.x(point); const actualY = transform.y(point); const x = displayPoint?.x ?? actualX; const y = displayPoint?.y ?? actualY; const color = structure.status === 'evacuar' ? colors.red : colors.blue;
   ctx.save();
-  if (displayPoint && Math.hypot(x - actualX, y - actualY) > 2) { ctx.strokeStyle = color; ctx.globalAlpha = .65; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(actualX, actualY); ctx.lineTo(x, y); ctx.stroke(); }
-  ctx.globalAlpha = 1; ctx.fillStyle = color; ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(x, y, 9, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); ctx.fillStyle = '#ffffff'; ctx.font = '700 8px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(String(structure.id).replace('structure-', ''), x, y + 1); ctx.restore();
+  // Os números ficam limpos sobre o croqui; não desenhar linhas-guia que
+  // confundem a leitura das strings e das poligonais na área operacional.
+  const number = String(structure.id).replace('structure-', ''); ctx.globalAlpha = 1; ctx.font = `700 ${labelSize}px Arial`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.lineJoin = 'round'; ctx.lineWidth = Math.max(3, labelSize * .34); ctx.strokeStyle = '#ffffff'; ctx.strokeText(number, x, y + 1); ctx.fillStyle = '#111111'; ctx.fillText(number, x, y + 1); ctx.restore();
 }
 
 function placeStructureMarkers(structures, transform, contours = [], protectedPoints = []) {
@@ -376,8 +379,8 @@ function drawPanel(ctx, model, panel, colors) {
 }
 
 export function drawReport(canvas, model, config) {
-  const width = config.report.canvasWidth; const height = config.report.canvasHeight; canvas.width = width; canvas.height = height;
-  const ctx = canvas.getContext('2d'); const colors = config.report.colors; const map = config.report.map; const panel = config.report.panel; const stringEntities = flattenStringEntities(model.strings || []);
+  const logicalWidth = config.report.canvasWidth; const logicalHeight = config.report.canvasHeight; const outputScale = Math.max(1, Number(config.report.outputScale) || 1); const width = logicalWidth; const height = logicalHeight; canvas.width = Math.round(width * outputScale); canvas.height = Math.round(height * outputScale);
+  const ctx = canvas.getContext('2d'); ctx.setTransform(outputScale, 0, 0, outputScale, 0, 0); ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high'; const colors = config.report.colors; const map = config.report.map; const panel = config.report.panel; const stringEntities = flattenStringEntities(model.strings || []);
   const geometryBounds = mergeBounds([boundsOf(stringEntities), ...model.areas.map((area) => boundsOf(area.entities || []))]);
   const contourBounds = boundsOfContours(model.radiusContours || []);
   const operationalBounds = mergeBounds([geometryBounds, contourBounds]);
@@ -408,7 +411,7 @@ export function drawReport(canvas, model, config) {
     const structurePoints = (model.structures || []).map((structure) => ({ ...structure, point: projectStructurePoint(structure, bounds, model.structurePageMap, transform, map) }));
     structurePoints.forEach((structure) => { const pointInRadius = pointIntersectsContours(structure.point, model.radiusContours); const referencedAreaInRadius = structureIntersectsReferencedArea(structure, model, model.radiusContours); const affectedArea = structureInsideAffectedArea(structure.point, model, model.radiusContours); structure.status = pointInRadius || referencedAreaInRadius || affectedArea ? 'evacuar' : 'liberado'; const target = model.structures.find((candidate) => candidate.id === structure.id); if (target) { target.status = structure.status; target.point = structure.point; } });
     const protectedPoints = [...(model.firingPoints || []), ...(model.blockingPoints || []), ...(model.cardPoints || [])];
-    placeStructureMarkers(structurePoints, transform, model.radiusContours || [], protectedPoints).forEach(({ structure, displayPoint }) => drawStructureMarker(ctx, structure, transform, colors, displayPoint));
+    placeStructureMarkers(structurePoints, transform, model.radiusContours || [], protectedPoints).forEach(({ structure, displayPoint }) => drawStructureMarker(ctx, structure, transform, colors, displayPoint, model.areaNumberSize));
     drawContours(ctx, model.radiusContours, transform, colors, model.radii);
     // As poligonais de desmonte ficam na camada operacional superior do croqui.
     sortedStrings(model.strings || []).reverse().forEach((item) => (item.entities || []).forEach((entity) => drawEntity(ctx, entity, transform, stringColor(item, colors))));
@@ -421,5 +424,5 @@ export function drawReport(canvas, model, config) {
   }
   drawNorth(ctx, map); drawScale(ctx, map, transform, bounds); const legend = transform ? drawLegend(ctx, { ...model, areas: model.areas, statusAreas: model.structures?.length ? model.structures : model.areas }, map, colors, transform) : null; drawPanel(ctx, { ...model, meta: { ...model.meta, dateLabel: model.meta.date ? new Date(`${model.meta.date}T12:00:00`).toLocaleDateString('pt-BR') : 'DATA NÃO INFORMADA' } }, panel, colors);
   ctx.fillStyle = colors.ink; ctx.font = '14px Arial'; ctx.textAlign = 'left'; ctx.fillText(model.meta.location || 'Local não informado', map.x + 8, height - 34); ctx.textAlign = 'right'; ctx.fillText(model.meta.observation || 'Valide os dados operacionais antes da emissão', width - 24, height - 34);
-  return { bounds, map, transform, extentSource, legend, endpointCount: getStringEndpoints(stringEntities).length, areaStatuses: model.areas.map((area) => ({ id: area.id, status: area.status })) };
+  return { bounds, map: { x: map.x * outputScale, y: map.y * outputScale, width: map.width * outputScale, height: map.height * outputScale }, transform, extentSource, legend, endpointCount: getStringEndpoints(stringEntities).length, areaStatuses: model.areas.map((area) => ({ id: area.id, status: area.status })) };
 }

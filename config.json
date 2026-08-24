@@ -2,7 +2,7 @@
   "app": {
     "name": "Aviso de Desmonte",
     "eyebrow": "AVISO DE DESMONTE",
-    "version": "1.14.0"
+    "version": "1.15.0"
   },
   "defaultPreset": {
     "loadAllOrthomosaics": true,
@@ -36,6 +36,7 @@
   "report": {
     "canvasWidth": 1600,
     "canvasHeight": 1512,
+    "outputScale": 1.5,
     "pageWidthPt": 1191,
     "pageHeightPt": 1126,
     "map": { "x": 28, "y": 35, "width": 1280, "height": 1422 },
