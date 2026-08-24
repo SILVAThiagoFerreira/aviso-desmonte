@@ -291,6 +291,22 @@ function structureIntersectsReferencedArea(structure, model, contours) {
   return Boolean(entity && areaIntersectsContours([entity], contours));
 }
 
+function pointInsideClosedEntity(point, entity) {
+  if (!entity?.closed || !entity.points || entity.points.length < 3) return false;
+  let inside = false;
+  for (let index = 0, previous = entity.points.length - 1; index < entity.points.length; previous = index, index += 1) {
+    const current = entity.points[index]; const prior = entity.points[previous];
+    const crosses = ((current.y > point.y) !== (prior.y > point.y))
+      && point.x < (prior.x - current.x) * (point.y - current.y) / ((prior.y - current.y) || Number.EPSILON) + current.x;
+    if (crosses) inside = !inside;
+  }
+  return inside;
+}
+
+function structureInsideAffectedArea(point, model, contours) {
+  return (model.areas || []).some((area) => (area.entities || []).some((entity) => pointInsideClosedEntity(point, entity) && areaIntersectsContours([entity], contours)));
+}
+
 function drawStructureMarker(ctx, structure, transform, colors, displayPoint = null) {
   const point = structure.point; const actualX = transform.x(point); const actualY = transform.y(point); const x = displayPoint?.x ?? actualX; const y = displayPoint?.y ?? actualY; const color = structure.status === 'evacuar' ? colors.red : colors.blue;
   ctx.save();
@@ -370,7 +386,7 @@ export function drawReport(canvas, model, config) {
     // área permanece azul, mas qualquer interseção, mesmo mínima, fica visível.
     areaEntities.forEach((entity) => intersectEntityWithContours(entity, model.radiusContours).forEach((polygon) => drawHatchedPolygon(ctx, polygon, transform, colors.red, colors.redSoft)));
     const structurePoints = (model.structures || []).map((structure) => ({ ...structure, point: projectStructurePoint(structure, bounds, model.structurePageMap, transform, map) }));
-    structurePoints.forEach((structure) => { const pointInRadius = pointIntersectsContours(structure.point, model.radiusContours); const referencedAreaInRadius = structureIntersectsReferencedArea(structure, model, model.radiusContours); structure.status = pointInRadius || referencedAreaInRadius ? 'evacuar' : 'liberado'; const target = model.structures.find((candidate) => candidate.id === structure.id); if (target) { target.status = structure.status; target.point = structure.point; } });
+    structurePoints.forEach((structure) => { const pointInRadius = pointIntersectsContours(structure.point, model.radiusContours); const referencedAreaInRadius = structureIntersectsReferencedArea(structure, model, model.radiusContours); const affectedArea = structureInsideAffectedArea(structure.point, model, model.radiusContours); structure.status = pointInRadius || referencedAreaInRadius || affectedArea ? 'evacuar' : 'liberado'; const target = model.structures.find((candidate) => candidate.id === structure.id); if (target) { target.status = structure.status; target.point = structure.point; } });
     const protectedPoints = [...(model.firingPoints || []), ...(model.blockingPoints || []), ...(model.cardPoints || [])];
     placeStructureMarkers(structurePoints, transform, model.radiusContours || [], protectedPoints).forEach(({ structure, displayPoint }) => drawStructureMarker(ctx, structure, transform, colors, displayPoint));
     stringEntities.forEach((entity) => drawEntity(ctx, entity, transform, colors.orange));
