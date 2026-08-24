@@ -148,6 +148,8 @@ function fitCanvasText(ctx, value, maxWidth) {
   return `${result.trimEnd()}…`;
 }
 
+function stringColor(item, colors) { return colors[item?.blastType] || colors.production || colors.orange; }
+
 function wrapCanvasText(ctx, value, maxWidth, maxLines = 2) {
   const words = String(value || '').trim().split(/\s+/).filter(Boolean);
   if (!words.length) return [''];
@@ -230,7 +232,7 @@ function drawLegend(ctx, model, box, colors, transform) {
   const statusAreas = model.statusAreas || model.areas || [];
   const radiusRows = (model.radiusContours || []).map((contour) => ({ color: Number(contour.radius) === Number(model.radii?.people) ? colors.cyan : colors.greenLight, dashed: Number(contour.radius) !== Number(model.radii?.people), label: `Cx(r)=${formatNumber(contour.radius, 0)} m · RAIO DE SEGURANÇA · ${Number(contour.radius) === Number(model.radii?.people) ? 'PESSOAS' : 'MÁQUINAS E EQUIPAMENTOS'}` }));
   const rows = [...radiusRows];
-  if (strings.length) rows.push({ color: colors.orange, label: 'POLIGONAIS / STRINGS DE DESMONTE' });
+  if (strings.length) rows.push({ color: colors.ink, label: 'POLIGONAIS / STRINGS DE DESMONTE' });
   if (statusAreas.some((area) => area.status === 'evacuar')) rows.push({ swatch: 'evacuar', label: 'EVACUAR' });
   if (statusAreas.some((area) => area.status === 'liberado')) rows.push({ swatch: 'liberado', label: 'LIBERADO' });
   if (model.firingPoints?.length) rows.push({ icon: 'firing', label: 'PONTOS DE DISPARO' });
@@ -255,7 +257,7 @@ function drawLegend(ctx, model, box, colors, transform) {
   if (strings.length) {
     ctx.fillStyle = colors.ink; ctx.font = '700 12px Arial'; ctx.fillText('REGIÕES DE DESMONTE DE ROCHAS:', x + 18, rowY + 7); rowY += 26;
     const rowsPerColumn = Math.max(1, Math.ceil(shown.length / 2));
-    shown.forEach((item, index) => { const column = Math.floor(index / rowsPerColumn); const row = index % rowsPerColumn; const offset = column * (width / 2); ctx.strokeStyle = colors.orange; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(x + 18 + offset, rowY + row * 18); ctx.lineTo(x + 44 + offset, rowY + row * 18); ctx.stroke(); ctx.fillStyle = colors.ink; ctx.font = '10px Arial'; ctx.fillText(fitCanvasText(ctx, `${String(index + 1).padStart(2, '0')} ${item.label || item.name}`, width / 2 - 64), x + 50 + offset, rowY + row * 18 + 4); });
+    shown.forEach((item, index) => { const column = Math.floor(index / rowsPerColumn); const row = index % rowsPerColumn; const offset = column * (width / 2); ctx.strokeStyle = stringColor(item, colors); ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(x + 18 + offset, rowY + row * 18); ctx.lineTo(x + 44 + offset, rowY + row * 18); ctx.stroke(); ctx.fillStyle = colors.ink; ctx.font = '10px Arial'; const type = item.blastType === 'precut' ? 'Pré-Corte' : item.blastType === 'regularization' ? 'Regularização/Bloco' : 'Produção'; ctx.fillText(fitCanvasText(ctx, `${String(index + 1).padStart(2, '0')} ${type}: ${item.label || item.name}`, width / 2 - 64), x + 50 + offset, rowY + row * 18 + 4); });
     if (overflow) { ctx.fillStyle = colors.muted; ctx.font = '10px Arial'; ctx.fillText(`+ ${overflow} poligonal(is) não exibida(s) na legenda`, x + 18, y + height - 14); }
   }
   ctx.restore(); return placement;
@@ -389,8 +391,9 @@ export function drawReport(canvas, model, config) {
     structurePoints.forEach((structure) => { const pointInRadius = pointIntersectsContours(structure.point, model.radiusContours); const referencedAreaInRadius = structureIntersectsReferencedArea(structure, model, model.radiusContours); const affectedArea = structureInsideAffectedArea(structure.point, model, model.radiusContours); structure.status = pointInRadius || referencedAreaInRadius || affectedArea ? 'evacuar' : 'liberado'; const target = model.structures.find((candidate) => candidate.id === structure.id); if (target) { target.status = structure.status; target.point = structure.point; } });
     const protectedPoints = [...(model.firingPoints || []), ...(model.blockingPoints || []), ...(model.cardPoints || [])];
     placeStructureMarkers(structurePoints, transform, model.radiusContours || [], protectedPoints).forEach(({ structure, displayPoint }) => drawStructureMarker(ctx, structure, transform, colors, displayPoint));
-    stringEntities.forEach((entity) => drawEntity(ctx, entity, transform, colors.orange));
     drawContours(ctx, model.radiusContours, transform, colors, model.radii);
+    // As poligonais de desmonte ficam na camada operacional superior do croqui.
+    (model.strings || []).forEach((item) => (item.entities || []).forEach((entity) => drawEntity(ctx, entity, transform, stringColor(item, colors))));
     // O buffer já representa a extensão completa da poligonal. Não desenhar
     // círculos adicionais nas extremidades evita a aparência de raios sobrepostos.
     (model.firingPoints || []).forEach((point) => drawPointMarker(ctx, point, transform, model.firingIcon, colors, 'firing'));

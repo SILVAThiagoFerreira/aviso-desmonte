@@ -98,6 +98,7 @@ button { cursor: pointer; }
 .area-item-copy, .string-item-copy { min-width: 0; }
 .area-item input, .string-item input { width: 100%; min-width: 0; border: 0; outline: 0; color: var(--ink); background: transparent; font-size: 11px; }
 .area-item input, .string-item input { font-weight: 600; }
+.string-type-select { width: 100%; min-height: 28px; margin-bottom: 4px; border: 1px solid var(--line); border-radius: 5px; padding: 0 7px; color: var(--ink); background: #f8fbfa; font: 700 10px 'IBM Plex Mono', monospace; }
 .area-item small, .string-item small { display: block; margin-top: 3px; overflow: hidden; color: var(--muted); font: 9px 'IBM Plex Mono', monospace; text-overflow: ellipsis; white-space: nowrap; }
 .area-status { display: inline-flex; align-items: center; min-height: 22px; border-radius: 4px; padding: 0 6px; font: 700 8px 'IBM Plex Mono', monospace; white-space: nowrap; }
 .area-status.evacuar { color: #fff; background: var(--red); }
