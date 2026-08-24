@@ -2,7 +2,7 @@
   "app": {
     "name": "Aviso de Desmonte",
     "eyebrow": "AVISO DE DESMONTE",
-    "version": "1.12.3"
+    "version": "1.12.4"
   },
   "defaultPreset": {
     "loadAllOrthomosaics": true,
@@ -48,7 +48,7 @@
       "green": "#147a59",
       "greenLight": "#45f000",
       "red": "#ed1c24",
-      "redSoft": "rgba(237,28,36,0.18)",
+      "redSoft": "rgba(237,28,36,0.38)",
       "blue": "#1820d8",
       "blueSoft": "rgba(24,32,216,0.16)",
       "cyan": "#10e8ff",

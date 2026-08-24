@@ -366,6 +366,8 @@ export function drawReport(canvas, model, config) {
     const areaEntities = model.areas.flatMap((area) => area.entities || []);
     model.areas.forEach((area) => { area.status = areaIntersectsContours(area.entities || [], model.radiusContours) ? 'evacuar' : 'liberado'; });
     areaEntities.forEach((entity) => drawHatchedEntity(ctx, entity, transform, colors.blue, colors.blueSoft));
+    // Pinta somente a parcela geométrica atingida pelo raio. O restante da
+    // área permanece azul, mas qualquer interseção, mesmo mínima, fica visível.
     areaEntities.forEach((entity) => intersectEntityWithContours(entity, model.radiusContours).forEach((polygon) => drawHatchedPolygon(ctx, polygon, transform, colors.red, colors.redSoft)));
     const structurePoints = (model.structures || []).map((structure) => ({ ...structure, point: projectStructurePoint(structure, bounds, model.structurePageMap, transform, map) }));
     structurePoints.forEach((structure) => { const pointInRadius = pointIntersectsContours(structure.point, model.radiusContours); const referencedAreaInRadius = structureIntersectsReferencedArea(structure, model, model.radiusContours); structure.status = pointInRadius || referencedAreaInRadius ? 'evacuar' : 'liberado'; const target = model.structures.find((candidate) => candidate.id === structure.id); if (target) { target.status = structure.status; target.point = structure.point; } });
