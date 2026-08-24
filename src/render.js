@@ -99,7 +99,7 @@ function drawEntity(ctx, entity, transform, color) {
 
 function drawContours(ctx, contours, transform, colors, radii) {
     contours.forEach((contour) => {
-    const isPeople = Number(contour.radius) === Number(radii.people);
+    const isPeople = contour.kind ? contour.kind === 'people' : Number(contour.radius) === Number(radii.people);
     ctx.save(); ctx.strokeStyle = isPeople ? colors.cyan : colors.greenLight; ctx.lineWidth = 4; ctx.setLineDash([]);
     (contour.outline || contour.polygons).forEach((polygon) => polygon.forEach((ring) => {
       if (!ring.length) return;
@@ -250,7 +250,7 @@ function chooseLegendPlacement(ctx, model, box, width, height, transform) {
 function drawLegend(ctx, model, box, colors, transform) {
   const strings = sortedStrings(model.strings || []);
   const statusAreas = model.statusAreas || model.areas || [];
-  const radiusRows = (model.radiusContours || []).map((contour) => ({ color: Number(contour.radius) === Number(model.radii?.people) ? colors.cyan : colors.greenLight, dashed: false, label: `Cx(r)=${formatNumber(contour.radius, 0)} m · RAIO DE SEGURANÇA · ${Number(contour.radius) === Number(model.radii?.people) ? 'PESSOAS' : 'MÁQUINAS E EQUIPAMENTOS'}` }));
+  const radiusRows = (model.radiusContours || []).map((contour) => { const isPeople = contour.kind ? contour.kind === 'people' : Number(contour.radius) === Number(model.radii?.people); return { color: isPeople ? colors.cyan : colors.greenLight, dashed: false, label: `Cx(r)=${formatNumber(contour.radius, 0)} m · RAIO DE SEGURANÇA · ${isPeople ? 'PESSOAS' : 'MÁQUINAS E EQUIPAMENTOS'}` }; });
   const rows = [...radiusRows];
   if (strings.length) rows.push({ color: colors.ink, label: 'POLIGONAIS / STRINGS DE DESMONTE' });
   if (statusAreas.some((area) => area.status === 'evacuar')) rows.push({ swatch: 'evacuar', label: 'EVACUAR' });
