@@ -283,15 +283,13 @@ function drawLegend(ctx, model, box, colors, transform) {
   ctx.restore(); return placement;
 }
 
-function drawPointMarker(ctx, point, transform, image, colors, kind) {
-  const x = transform.x(point); const y = transform.y(point); const size = 48;
+function drawPointMarker(ctx, point, transform, image, colors, kind, iconSizes = {}) {
+  const x = transform.x(point); const y = transform.y(point); const size = Number(iconSizes[kind]) || 48;
   drawLegendIcon(ctx, image, x - size / 2, y - size / 2, size, (canvas, cx, cy, markerSize) => {
     if (kind === 'blocking') { canvas.strokeStyle = colors.red; canvas.lineWidth = 3; canvas.beginPath(); canvas.moveTo(cx - markerSize * .25, cy + markerSize * .3); canvas.lineTo(cx - markerSize * .12, cy - markerSize * .25); canvas.lineTo(cx + markerSize * .12, cy - markerSize * .25); canvas.lineTo(cx + markerSize * .25, cy + markerSize * .3); canvas.stroke(); return; }
     if (kind === 'card') { canvas.fillStyle = '#ffffff'; canvas.strokeStyle = colors.red; canvas.lineWidth = 3; canvas.fillRect(cx - markerSize * .3, cy - markerSize * .2, markerSize * .6, markerSize * .4); canvas.strokeRect(cx - markerSize * .3, cy - markerSize * .2, markerSize * .6, markerSize * .4); return; }
     canvas.fillStyle = colors.orange; canvas.strokeStyle = colors.ink; canvas.lineWidth = 2; canvas.beginPath(); canvas.arc(cx, cy, markerSize * .27, 0, Math.PI * 2); canvas.fill(); canvas.stroke();
   });
-  ctx.fillStyle = '#ffffff'; ctx.strokeStyle = colors.ink; ctx.lineWidth = 1; ctx.font = '700 8px Arial'; ctx.textAlign = 'center';
-  if (point.label) { const text = String(point.label).slice(0, 22); const width = Math.min(ctx.measureText(text).width + 8, 118); const labelY = y + size / 2 + 5; ctx.fillStyle = 'rgba(255,255,255,.92)'; ctx.fillRect(x - width / 2, labelY, width, 13); ctx.strokeRect(x - width / 2, labelY, width, 13); ctx.fillStyle = colors.ink; ctx.fillText(fitCanvasText(ctx, text, width - 8), x, labelY + 9); }
 }
 
 function projectStructurePoint(structure, bounds, pageMap = {}, transform, mapBox) {
@@ -416,9 +414,9 @@ export function drawReport(canvas, model, config) {
     sortedStrings(model.strings || []).reverse().forEach((item) => (item.entities || []).forEach((entity) => drawEntity(ctx, entity, transform, stringColor(item, colors))));
     // O buffer já representa a extensão completa da poligonal. Não desenhar
     // círculos adicionais nas extremidades evita a aparência de raios sobrepostos.
-    (model.firingPoints || []).forEach((point) => drawPointMarker(ctx, point, transform, model.firingIcon, colors, 'firing'));
-    (model.blockingPoints || []).forEach((point) => drawPointMarker(ctx, point, transform, model.blockingIcon, colors, 'blocking'));
-    (model.cardPoints || []).forEach((point) => drawPointMarker(ctx, point, transform, model.cardIcon, colors, 'card'));
+    (model.firingPoints || []).forEach((point) => drawPointMarker(ctx, point, transform, model.firingIcon, colors, 'firing', model.pointIconSizes));
+    (model.blockingPoints || []).forEach((point) => drawPointMarker(ctx, point, transform, model.blockingIcon, colors, 'blocking', model.pointIconSizes));
+    (model.cardPoints || []).forEach((point) => drawPointMarker(ctx, point, transform, model.cardIcon, colors, 'card', model.pointIconSizes));
     ctx.restore();
   }
   drawNorth(ctx, map); drawScale(ctx, map, transform, bounds); const legend = transform ? drawLegend(ctx, { ...model, areas: model.areas, statusAreas: model.structures?.length ? model.structures : model.areas }, map, colors, transform) : null; drawPanel(ctx, { ...model, meta: { ...model.meta, dateLabel: model.meta.date ? new Date(`${model.meta.date}T12:00:00`).toLocaleDateString('pt-BR') : 'DATA NÃO INFORMADA' } }, panel, colors);
