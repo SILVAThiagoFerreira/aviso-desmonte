@@ -13,6 +13,16 @@ const ADMIN_USERNAME = 'admin';
 const ADMIN_PASSWORD = 'admin';
 const $ = (id) => document.getElementById(id);
 
+function setLoadingProgress(percent, message) {
+  const value = Math.max(0, Math.min(100, Math.round(percent)));
+  const gate = $('loadingGate'); const bar = $('loadingBar'); const label = $('loadingPercent'); const text = $('loadingMessage');
+  if (bar) { bar.style.width = `${value}%`; bar.parentElement?.setAttribute('aria-valuenow', String(value)); }
+  if (label) label.textContent = `${value}%`;
+  if (text && message) text.textContent = message;
+}
+
+function finishLoading() { setLoadingProgress(100, 'Projeto pronto para conferência.'); window.setTimeout(() => { const gate = $('loadingGate'); if (gate) gate.hidden = true; }, 220); }
+
 function notify(message, type = '') { const toast = $('toast'); toast.textContent = message; toast.className = `toast show ${type}`; window.clearTimeout(notify.timer); notify.timer = window.setTimeout(() => { toast.className = 'toast'; }, 4200); }
 function isAdmin() { return state.isAdmin; }
 function structureNumber(structure) { return String(structure.id || '').replace('structure-', ''); }
@@ -115,9 +125,10 @@ async function applyDefaultPreset() {
   const preset = state.config.defaultPreset || {};
   if (preset.peopleRadius != null) $('peopleRadius').value = preset.peopleRadius;
   if (preset.machineRadius != null) $('machineRadius').value = preset.machineRadius;
-  if (preset.loadAllOrthomosaics) await loadAllCatalogOrthomosaics();
-  if (preset.loadProjectStrings) await loadBundledStrings();
-  if (preset.loadProjectAreas) await loadBundledAreas();
+  if (preset.loadAllOrthomosaics) { setLoadingProgress(35, 'Carregando ortomosaicos do projeto…'); await loadAllCatalogOrthomosaics(); }
+  if (preset.loadProjectStrings) { setLoadingProgress(60, 'Importando poligonais de desmonte…'); await loadBundledStrings(); }
+  if (preset.loadProjectAreas) { setLoadingProgress(75, 'Carregando áreas e estruturas…'); await loadBundledAreas(); }
+  setLoadingProgress(88, 'Calculando a prancha e os raios de segurança…');
   if (preset.loadSatelliteBackground && state.baseImage?.bounds) { try { await loadAutomaticSatellite(); } catch (error) { $('basemapState').textContent = 'GeoTIFF local'; $('basemapState').className = 'status-pill muted'; notify(`Fundo automático indisponível: ${error.message}`, 'error'); } }
 }
 async function handleStrings(files) { for (const file of files) { try { if (file.size > state.config.validation.maxDxfBytes) throw new Error('O DXF excede o limite de 50 MB.'); const parsed = parseDxf(await file.text()); state.strings.push({ id: `${file.name}-${file.lastModified}-${Math.random()}`, name: file.name, label: file.name.replace(/\.[^.]+$/, ''), ...parsed }); } catch (error) { notify(`${file.name}: ${error.message}`, 'error'); } } renderStringList(); state.contourKey = ''; render(); }
@@ -209,5 +220,5 @@ function wire() {
   $('pdfButton').addEventListener('click', () => { try { if (!state.strings.length && !state.areas.length) throw new Error('Adicione ao menos uma string ou área antes de gerar o PDF.'); if (state.boundsMode === 'manual') state.manualBounds = parseManualBounds(); downloadReportPdf($('reportCanvas'), model(), state.config); notify('PDF gerado e baixado.'); } catch (error) { notify(error.message, 'error'); } });
 }
 
-async function start() { try { const response = await fetch('./config.json', { cache: 'no-store' }); if (!response.ok) throw new Error('Não foi possível carregar a configuração do projeto.'); state.config = await response.json(); try { state.logoImage = await loadImageBlob(await fetch('assets/mvv-logo.png').then((asset) => asset.blob())); } catch { state.logoImage = null; } try { state.enaexLogo = await loadImageBlob(await fetch('assets/enaex-logo-white.png').then((asset) => asset.blob())); } catch { state.enaexLogo = null; } try { state.blockingIcon = await loadImageBlob(await fetch('assets/cavalete-bloqueio.png').then((asset) => asset.blob())); } catch { state.blockingIcon = null; } try { state.cardIcon = await loadImageBlob(await fetch('assets/cartao-bloqueio.png').then((asset) => asset.blob())); } catch { state.cardIcon = null; } try { state.savedOverrideIds = new Set((await listOrthoOverrides()).map((item) => item.id)); } catch { state.savedOverrideIds = new Set(); } $('appName').textContent = state.config.app.name; $('appVersion').textContent = `v${state.config.app.version}`; populateOrthoCatalog(); wire(); renderStringList(); renderAreaList(); renderPointList(); render(); await applyDefaultPreset(); setAdminSession(sessionStorage.getItem('aviso-desmonte-admin') === '1'); if (!state.isAdmin) $('loginUsername').focus(); } catch (error) { $('statusText').textContent = 'Erro de configuração'; notify(error.message, 'error'); } }
+async function start() { try { setLoadingProgress(8, 'Carregando a configuração do projeto…'); const response = await fetch('./config.json', { cache: 'no-store' }); if (!response.ok) throw new Error('Não foi possível carregar a configuração do projeto.'); state.config = await response.json(); setLoadingProgress(18, 'Carregando recursos visuais…'); try { state.logoImage = await loadImageBlob(await fetch('assets/mvv-logo.png').then((asset) => asset.blob())); } catch { state.logoImage = null; } try { state.enaexLogo = await loadImageBlob(await fetch('assets/enaex-logo-white.png').then((asset) => asset.blob())); } catch { state.enaexLogo = null; } try { state.blockingIcon = await loadImageBlob(await fetch('assets/cavalete-bloqueio.png').then((asset) => asset.blob())); } catch { state.blockingIcon = null; } try { state.cardIcon = await loadImageBlob(await fetch('assets/cartao-bloqueio.png').then((asset) => asset.blob())); } catch { state.cardIcon = null; } try { state.savedOverrideIds = new Set((await listOrthoOverrides()).map((item) => item.id)); } catch { state.savedOverrideIds = new Set(); } $('appName').textContent = state.config.app.name; $('appVersion').textContent = `v${state.config.app.version}`; populateOrthoCatalog(); wire(); renderStringList(); renderAreaList(); renderPointList(); render(); await applyDefaultPreset(); setAdminSession(sessionStorage.getItem('aviso-desmonte-admin') === '1'); if (!state.isAdmin) $('loginUsername').focus(); finishLoading(); } catch (error) { $('statusText').textContent = 'Erro de configuração'; notify(error.message, 'error'); const message = $('loadingMessage'); if (message) message.textContent = `Não foi possível iniciar: ${error.message}`; const gate = $('loadingGate'); if (gate) gate.classList.add('loading-error'); } }
 start();

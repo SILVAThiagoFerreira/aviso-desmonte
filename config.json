@@ -2,7 +2,7 @@
   "app": {
     "name": "Aviso de Desmonte",
     "eyebrow": "AVISO DE DESMONTE",
-    "version": "1.12.2"
+    "version": "1.12.3"
   },
   "defaultPreset": {
     "loadAllOrthomosaics": true,

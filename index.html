@@ -12,6 +12,16 @@
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+  <div class="loading-gate" id="loadingGate" role="status" aria-live="polite" aria-label="Carregando o Aviso de Desmonte">
+    <div class="loading-card">
+      <div class="auth-mark"><img src="assets/icone-aviso-de-desmonte.png" alt=""></div>
+      <span class="section-kicker">AVISO DE DESMONTE</span>
+      <h2>Preparando a prancha</h2>
+      <p id="loadingMessage">Carregando a configuração do projeto…</p>
+      <div class="loading-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-label="Progresso do carregamento"><span id="loadingBar"></span></div>
+      <div class="loading-meta"><span id="loadingPercent">0%</span><span>Os arquivos permanecem no navegador.</span></div>
+    </div>
+  </div>
   <div class="auth-gate" id="authGate" role="dialog" aria-modal="true" aria-labelledby="loginTitle">
     <div class="auth-card">
       <div class="auth-mark"><img src="assets/icone-aviso-de-desmonte.png" alt=""></div>
@@ -30,7 +40,7 @@
   <div class="app-shell">
     <header class="topbar">
       <div class="brand-lockup"><img class="enaex-logo" src="assets/enaex-logo-white.png" alt="Enaex Brasil"><span class="brand-divider"></span><img class="blast-mark" src="assets/icone-aviso-de-desmonte.png" alt="Ícone do Aviso de Desmonte"><h1 id="appName">Aviso de Desmonte</h1></div>
-      <div class="topbar-meta"><span class="status-dot"></span><span id="statusText">Aguardando dados</span><span class="version" id="appVersion">v1.12.2</span><span class="admin-session" id="adminSession" hidden>ADMIN · EDITANDO</span><button class="logout-button" id="logoutButton" type="button" hidden>Sair</button></div>
+      <div class="topbar-meta"><span class="status-dot"></span><span id="statusText">Aguardando dados</span><span class="version" id="appVersion">v1.12.3</span><span class="admin-session" id="adminSession" hidden>ADMIN · EDITANDO</span><button class="logout-button" id="logoutButton" type="button" hidden>Sair</button></div>
     </header>
     <main class="workspace">
       <aside class="control-panel" aria-label="Dados do aviso">
@@ -53,6 +63,6 @@
   <script src="./vendor/polygon-clipping.min.js"></script>
   <script src="./vendor/proj4.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js" crossorigin="anonymous"></script>
-  <script type="module" src="app.js?v=1.12.2"></script>
+  <script type="module" src="app.js?v=1.12.3"></script>
 </body>
 </html>
