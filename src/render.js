@@ -336,6 +336,13 @@ function drawStructureMarker(ctx, structure, transform, colors, displayPoint = n
   // confundem a leitura das strings e das poligonais na área operacional.
   const number = String(structure.id).replace('structure-', ''); ctx.globalAlpha = 1; ctx.font = `700 ${labelSize}px Arial`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.lineJoin = 'round'; ctx.lineWidth = Math.max(3, labelSize * .34); ctx.strokeStyle = '#ffffff'; ctx.strokeText(number, x, y + 1); ctx.fillStyle = '#111111'; ctx.fillText(number, x, y + 1); ctx.restore();
 }
+function drawStructurePolygonNumber(ctx, structure, entities, transform, status, labelSize = 16) {
+  const points = entities.flatMap((entity) => entity.points || []);
+  if (!points.length) return;
+  const center = { x: points.reduce((sum, point) => sum + point.x, 0) / points.length, y: points.reduce((sum, point) => sum + point.y, 0) / points.length };
+  const x = transform.x(center); const y = transform.y(center); const number = String(structure.id).replace('structure-', '');
+  ctx.save(); ctx.globalAlpha = 1; ctx.font = `700 ${labelSize}px Arial`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.lineJoin = 'round'; ctx.lineWidth = Math.max(3, labelSize * .34); ctx.strokeStyle = '#ffffff'; ctx.strokeText(number, x, y + 1); ctx.fillStyle = status === 'evacuar' ? '#111111' : '#111111'; ctx.fillText(number, x, y + 1); ctx.restore();
+}
 
 function placeStructureMarkers(structures, transform, contours = [], protectedPoints = []) {
   const offsets = [[0, 0]];
@@ -409,7 +416,7 @@ export function drawReport(canvas, model, config) {
     // área permanece azul, mas qualquer interseção, mesmo mínima, fica visível.
     areaEntities.forEach((entity) => intersectEntityWithContours(entity, model.radiusContours).forEach((polygon) => drawHatchedPolygon(ctx, polygon, transform, 'rgba(237,28,36,0.48)', colors.redSoft)));
     const structurePoints = (model.structures || []).map((structure) => ({ ...structure, point: projectStructurePoint(structure, bounds, model.structurePageMap, transform, map) }));
-    structurePoints.forEach((structure) => { const pointInRadius = pointIntersectsContours(structure.point, model.radiusContours, model.structureBoundaryTolerance || 0); const automaticStatus = pointInRadius ? 'evacuar' : 'liberado'; structure.status = structure.statusOverride || automaticStatus; const target = model.structures.find((candidate) => candidate.id === structure.id); if (target) { target.status = structure.status; target.point = structure.point; } });
+    structurePoints.forEach((structure) => { const polygonEntities = areaEntities.filter((entity) => entity.structureId === structure.id); const polygonInRadius = polygonEntities.length ? areaIntersectsContours(polygonEntities, model.radiusContours) : false; const pointInRadius = pointIntersectsContours(structure.point, model.radiusContours, model.structureBoundaryTolerance || 0); const automaticStatus = polygonEntities.length ? (polygonInRadius ? 'evacuar' : 'liberado') : (pointInRadius ? 'evacuar' : 'liberado'); structure.status = structure.statusOverride || automaticStatus; const target = model.structures.find((candidate) => candidate.id === structure.id); if (target) { target.status = structure.status; target.point = structure.point; target.polygonEntities = polygonEntities; } if (polygonEntities.length) drawStructurePolygonNumber(ctx, structure, polygonEntities, transform, structure.status, model.areaNumberSize); });
     const protectedPoints = [...(model.firingPoints || []), ...(model.blockingPoints || []), ...(model.cardPoints || [])];
     placeStructureMarkers(structurePoints, transform, model.radiusContours || [], protectedPoints).forEach(({ structure, displayPoint }) => drawStructureMarker(ctx, structure, transform, colors, displayPoint, model.areaNumberSize));
     drawContours(ctx, model.radiusContours, transform, colors, model.radii);

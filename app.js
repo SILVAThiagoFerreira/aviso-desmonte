@@ -102,6 +102,8 @@ function updateStructureSaveState() {
   element.textContent = text; element.className = `save-state${state.structuresDirty || state.structuresSavePending ? ' dirty' : ''}`;
 }
 function updateStructureSourceLabel() { const labels = document.querySelectorAll('.project-import-row span'); if (labels[1]) labels[1].textContent = '54 estruturas · 59 posições · poligonais atualizadas'; }
+function entityCentroid(entity) { const points = entity?.points || []; if (!points.length) return null; return { x: points.reduce((sum, point) => sum + point.x, 0) / points.length, y: points.reduce((sum, point) => sum + point.y, 0) / points.length }; }
+function annotateStructurePolygons() { const structures = state.structures || []; const polygonArea = state.areas.find((area) => area.catalogId === 'estruturas-proximas'); if (!polygonArea) return; polygonArea.entities = polygonArea.entities.map((entity) => { const center = entityCentroid(entity); if (!center) return entity; let best = null; let bestDistance = Infinity; structures.forEach((structure) => (structure.positions || []).forEach((position) => { const distance = Math.hypot(center.x - position.x, center.y - position.y); if (distance < bestDistance) { bestDistance = distance; best = structure; } })); return best ? { ...entity, structureId: best.id, structureName: best.name } : entity; }); }
 function setAdminSession(active) { state.isAdmin = active; document.body.classList.toggle('admin-active', active); $('authGate').hidden = active; $('adminTools').hidden = !active; $('adminSession').hidden = !active; $('logoutButton').hidden = !active; renderAreaList(); updateStructureSaveState(); if (active) $('loginPassword').value = ''; }
 function logIn(event) { event.preventDefault(); const username = $('loginUsername').value.trim(); const password = $('loginPassword').value; if (username !== ADMIN_USERNAME || password !== ADMIN_PASSWORD) { $('loginFeedback').textContent = 'Usuário ou senha inválidos.'; $('loginPassword').focus(); return; } $('loginFeedback').textContent = ''; sessionStorage.setItem('aviso-desmonte-admin', '1'); setAdminSession(true); notify('Área administrativa liberada.'); }
 function logOut() { if (state.structuresDirty && !window.confirm('Existem alterações não salvas. Sair mesmo assim?')) return; sessionStorage.removeItem('aviso-desmonte-admin'); setAdminSession(false); notify('Sessão administrativa encerrada.'); }
@@ -173,6 +175,7 @@ async function loadStructureCatalog() {
   }
   state.structures = applyStatusOverrides(state.publishedStructures.map(runtimeStructure));
   state.structuresDirty = false;
+  annotateStructurePolygons();
   updateStructureSourceLabel();
   updateStructureSaveState();
 }
