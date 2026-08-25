@@ -31,7 +31,8 @@
   ],
   "areasProjeto": [
     { "id": "evacuar", "label": "Áreas de evacuação", "path": "ÁREA DE INFLUÊNCIA/DXF/EVACUAR.dxf" },
-    { "id": "liberado", "label": "Áreas liberadas", "path": "ÁREA DE INFLUÊNCIA/DXF/LIBERADO.dxf" }
+    { "id": "liberado", "label": "Áreas liberadas", "path": "ÁREA DE INFLUÊNCIA/DXF/LIBERADO.dxf" },
+    { "id": "estruturas-proximas", "label": "Poligonais das estruturas próximas", "path": "ESTRUTURAS PROXIMAS/Pligonais das Estruturas Proximas.dxf" }
   ],
   "report": {
     "canvasWidth": 1600,

@@ -23,6 +23,10 @@ assert.ok(bounds.maxX > bounds.minX && bounds.maxY > bounds.minY, 'a extensão p
 const expanded = paddedBounds(bounds);
 assert.ok(expanded.minX < bounds.minX && expanded.maxY > bounds.maxY, 'a extensão automática precisa ter margem');
 const areaDxf = await fs.readFile(new URL('../ÁREA DE INFLUÊNCIA/DXF/EVACUAR.dxf', import.meta.url), 'latin1');
+const structurePolygonsDxf = await fs.readFile(new URL('../ESTRUTURAS PROXIMAS/Pligonais das Estruturas Proximas.dxf', import.meta.url), 'latin1');
+const structurePolygons = parseDxf(structurePolygonsDxf);
+assert.ok(structurePolygons.entities.length >= 54, 'as poligonais novas devem conter as áreas das estruturas');
+assert.ok(structurePolygons.entities.every((entity) => entity.closed && entity.points.length >= 3), 'cada poligonal de estrutura precisa ser fechada');
 const parsedArea = parseDxf(areaDxf);
 assert.ok(parsedArea.entities.length >= 10, 'o DXF de áreas de referência precisa ler os HATCHs');
 assert.ok(parsedArea.entities.every((entity) => entity.closed), 'as áreas HATCH precisam ser fechadas');
@@ -34,15 +38,13 @@ assert.match(appConfig.onlineCatalog.endpoint, /^https:\/\/script\.google\.com\/
 assert.match(onlineBackend, /function doGet\(event\)/, 'o backend precisa expor leitura online');
 assert.match(onlineBackend, /function doPost\(event\)/, 'o backend precisa expor publicação online');
 assert.match(onlineBackend, /LockService\.getScriptLock\(\)/, 'a publicação online precisa serializar gravações');
-assert.equal(structureCatalog.structures.length, 55, 'o catálogo deve conter as 55 estruturas numeradas após separar a portaria');
-assert.equal(new Set(structureCatalog.structures.map((structure) => structure.id)).size, 55, 'os identificadores das estruturas devem ser únicos');
-assert.equal(structureCatalog.structures.filter((structure) => structure.statusFromPdf === 'evacuar').length, 30, 'o catálogo deve conter 30 estruturas de evacuação');
-assert.equal(structureCatalog.structures.filter((structure) => structure.statusFromPdf === 'liberado').length, 25, 'o PDF deve conter 25 estruturas liberadas');
+assert.equal(structureCatalog.structures.length, 54, 'o catálogo deve conter as 54 estruturas nomeadas da planilha');
+assert.equal(new Set(structureCatalog.structures.map((structure) => structure.id)).size, 54, 'os identificadores das estruturas devem ser únicos');
+assert.equal(structureCatalog.structures.reduce((total, structure) => total + structure.positions.length, 0), 59, 'o catálogo deve preservar todas as 59 posições fornecidas');
 assert.equal(structureCatalog.structures.find((structure) => structure.id === '41')?.name, 'PORTARIA');
-assert.equal(structureCatalog.structures.find((structure) => structure.id === '42')?.name, 'ACESSO PORTARIA');
-assert.deepEqual(structureCatalog.structures.find((structure) => structure.id === '42')?.classificationArea, { catalogId: 'evacuar', entityIndex: 10 });
+assert.equal(structureCatalog.structures.find((structure) => structure.id === '42')?.name, 'PILHA DE TOPSOIL');
 assert.equal(structureCatalog.structures.find((structure) => structure.id === '40')?.name, 'ACESSO PRINCIPAL');
-assert.ok(['40', '41', '42'].every((id) => structureCatalog.structures.find((structure) => structure.id === id)?.lockMarkerPosition), 'os acessos e a portaria devem preservar a posição vetorial do PDF');
+assert.ok(structureCatalog.structures.find((structure) => structure.id === '08')?.positions.length > 1, 'IDs compostos devem preservar posições repetidas');
 assert.ok(structureCatalog.pageMap.width > 0 && structureCatalog.pageMap.height > 0, 'o catálogo deve guardar a extensão cartográfica da página fonte');
 
 const geo = parseGeoJson(JSON.stringify({ type: 'FeatureCollection', features: [{ type: 'Feature', properties: { name: 'EVACUAR' }, geometry: { type: 'Polygon', coordinates: [[[0, 0], [10, 0], [10, 10], [0, 0]]] } }] }));

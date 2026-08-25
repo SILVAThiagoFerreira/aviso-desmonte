@@ -29,8 +29,8 @@ function notify(message, type = '') { const toast = $('toast'); toast.textConten
 function isAdmin() { return state.isAdmin; }
 function structureNumber(structure) { return String(structure.id || '').replace('structure-', ''); }
 function finiteOrNull(value) { return value === null || value === undefined || value === '' ? null : Number.isFinite(Number(value)) ? Number(value) : null; }
-function normalizeStructure(structure) { return { ...structure, id: String(structure.id || '').replace(/^structure-/, ''), name: String(structure.name || 'ESTRUTURA').trim() || 'ESTRUTURA', pageX: finiteOrNull(structure.pageX), pageY: finiteOrNull(structure.pageY), worldX: finiteOrNull(structure.worldX), worldY: finiteOrNull(structure.worldY), lockMarkerPosition: Boolean(structure.lockMarkerPosition), statusOverride: ['evacuar', 'liberado'].includes(structure.statusOverride) ? structure.statusOverride : null }; }
-function runtimeStructure(structure) { const normalized = normalizeStructure(structure); return { ...normalized, id: `structure-${normalized.id}`, status: 'liberado' }; }
+function normalizeStructure(structure) { return { ...structure, id: String(structure.id || '').replace(/^structure-/, ''), name: String(structure.name || 'ESTRUTURA').trim() || 'ESTRUTURA', pageX: finiteOrNull(structure.pageX), pageY: finiteOrNull(structure.pageY), worldX: finiteOrNull(structure.worldX), worldY: finiteOrNull(structure.worldY), positions: Array.isArray(structure.positions) ? structure.positions.map((point) => ({ x: finiteOrNull(point.x), y: finiteOrNull(point.y) })).filter((point) => point.x != null && point.y != null) : [], lockMarkerPosition: Boolean(structure.lockMarkerPosition), statusOverride: ['evacuar', 'liberado'].includes(structure.statusOverride) ? structure.statusOverride : null }; }
+function runtimeStructure(structure) { const normalized = normalizeStructure(structure); const primary = normalized.positions[0]; return { ...normalized, id: `structure-${normalized.id}`, worldX: normalized.worldX ?? primary?.x ?? null, worldY: normalized.worldY ?? primary?.y ?? null, status: 'liberado' }; }
 function serializableStructure(structure) { const { status, point, statusOverride, ...record } = normalizeStructure(structure); return record; }
 function readSavedStructures() { try { const raw = localStorage.getItem(STRUCTURE_STORAGE_KEY); if (!raw) return null; const parsed = JSON.parse(raw); if (!Array.isArray(parsed?.structures)) return null; return parsed.structures.map(normalizeStructure); } catch { return null; } }
 function readStatusOverrides() { try { const parsed = JSON.parse(localStorage.getItem(STRUCTURE_STATUS_OVERRIDE_KEY) || '{}'); return parsed && typeof parsed === 'object' ? parsed : {}; } catch { return {}; } }
@@ -100,6 +100,7 @@ function updateStructureSaveState() {
   const text = state.structuresSavePending ? 'Publicando online…' : state.structuresDirty ? 'Alterações não publicadas' : state.onlineCatalogStatus === 'online' ? 'Salvo online · visível para todos' : state.onlineCatalogStatus === 'fallback' ? 'Catálogo local · sem conexão' : 'Catálogo online';
   element.textContent = text; element.className = `save-state${state.structuresDirty || state.structuresSavePending ? ' dirty' : ''}`;
 }
+function updateStructureSourceLabel() { const labels = document.querySelectorAll('.project-import-row span'); if (labels[1]) labels[1].textContent = '54 estruturas · 59 posições · poligonais atualizadas'; }
 function setAdminSession(active) { state.isAdmin = active; document.body.classList.toggle('admin-active', active); $('authGate').hidden = active; $('adminTools').hidden = !active; $('adminSession').hidden = !active; $('logoutButton').hidden = !active; renderAreaList(); updateStructureSaveState(); if (active) $('loginPassword').value = ''; }
 function logIn(event) { event.preventDefault(); const username = $('loginUsername').value.trim(); const password = $('loginPassword').value; if (username !== ADMIN_USERNAME || password !== ADMIN_PASSWORD) { $('loginFeedback').textContent = 'Usuário ou senha inválidos.'; $('loginPassword').focus(); return; } $('loginFeedback').textContent = ''; sessionStorage.setItem('aviso-desmonte-admin', '1'); setAdminSession(true); notify('Área administrativa liberada.'); }
 function logOut() { if (state.structuresDirty && !window.confirm('Existem alterações não salvas. Sair mesmo assim?')) return; sessionStorage.removeItem('aviso-desmonte-admin'); setAdminSession(false); notify('Sessão administrativa encerrada.'); }
@@ -154,9 +155,15 @@ async function loadStructureCatalog() {
   const bundledStructures = (state.structureCatalog.structures || []).map(normalizeStructure);
   try {
     const online = await loadOnlineCatalog();
-    state.publishedStructures = online.structures.map(normalizeStructure);
+    const onlineStructures = online.structures.map(normalizeStructure);
+    // The workbook import is the authoritative release for this project. Keep
+    // an older online catalog from silently replacing the newly supplied
+    // names, IDs, XY positions, and compound structures.
+    const sameIds = onlineStructures.length === bundledStructures.length
+      && onlineStructures.every((structure, index) => structure.id === bundledStructures[index]?.id);
+    state.publishedStructures = sameIds ? onlineStructures : bundledStructures;
     state.onlineRevision = online.revision || null;
-    state.onlineCatalogStatus = 'online';
+    state.onlineCatalogStatus = sameIds ? 'online' : 'fallback';
   } catch (error) {
     const cached = readSavedStructures();
     state.publishedStructures = (cached || bundledStructures).map(normalizeStructure);
@@ -165,6 +172,7 @@ async function loadStructureCatalog() {
   }
   state.structures = applyStatusOverrides(state.publishedStructures.map(runtimeStructure));
   state.structuresDirty = false;
+  updateStructureSourceLabel();
   updateStructureSaveState();
 }
 async function loadBundledAreas() { const entries = state.config.areasProjeto || []; if (!entries.length) throw new Error('Nenhuma área de projeto foi configurada.'); let loaded = 0; if (!state.areas.length) for (const entry of entries) { try { const response = await fetch(entry.path); if (!response.ok) throw new Error('arquivo não disponível'); const parsed = parseDxf(await response.text()); state.areas.push({ id: `project-area-${entry.id}-${Date.now()}-${Math.random()}`, catalogId: entry.id, name: entry.path, label: entry.label, status: 'liberado', ...parsed }); loaded += 1; } catch (error) { notify(`${entry.label}: ${error.message}`, 'error'); } } await loadStructureCatalog(); if (!loaded && !state.areas.length) throw new Error('Nenhuma área de projeto pôde ser importada.'); renderAreaList(); render(); if (loaded) notify(`${loaded} base(s) de áreas e ${state.structures.length} estruturas importadas.`); }
