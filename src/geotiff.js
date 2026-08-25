@@ -1,3 +1,5 @@
+import { GEOTIFF_CRS, PROJECT_CRS, transformBounds } from './crs.js';
+
 function clampByte(value) {
   return Math.max(0, Math.min(255, Math.round(value)));
 }
@@ -31,9 +33,13 @@ export async function decodeGeoTiff(source) {
   }
   context.putImageData(pixels, 0, 0);
   const bbox = image.getBoundingBox();
+  const nativeBounds = { minX: bbox[0], minY: bbox[1], maxX: bbox[2], maxY: bbox[3] };
   return {
     image: canvas,
-    bounds: { minX: bbox[0], minY: bbox[1], maxX: bbox[2], maxY: bbox[3] },
+    bounds: transformBounds(nativeBounds, GEOTIFF_CRS, PROJECT_CRS),
+    nativeBounds,
+    sourceCrs: GEOTIFF_CRS,
+    projectCrs: PROJECT_CRS,
     width,
     height,
     name: source instanceof File ? source.name : decodeURIComponent(String(source).split('/').pop() || 'ortomosaico.tif')
