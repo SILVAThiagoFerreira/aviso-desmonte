@@ -53,7 +53,9 @@ assert.equal(appConfig.defaultPreset.observation, 'Setor Técnico de Operações
 assert.deepEqual(appConfig.defaultPreset.pointIconSizes, { firing: 48, blocking: 20, card: 20 });
 assert.equal(appConfig.defaultPreset.areaNumberSize, 6);
 assert.match(renderSource, /showLabel = true/);
-assert.match(renderSource, /!structure\.polygonEntities\?\.length/);
+assert.match(renderSource, /function drawStructurePositionLabel/);
+assert.match(renderSource, /structure\.positions \|\| \[\]/, 'os rótulos precisam usar as posições reais do catálogo');
+assert.match(renderSource, /structure\.points\.forEach\(\(point\) => drawStructurePositionLabel/);
 assert.match(renderSource, /rgba\(24,32,216,0\.42\)/, 'a cor azul de referência deve permanecer visível');
 assert.match(renderSource, /rgba\(237,28,36,0\.48\)/, 'a cor vermelha de referência deve permanecer visível');
 assert.equal(appConfig.defaultPreset.structurePointsSource.dxf, 'ESTRUTURAS PROXIMAS/ID - PONTOS.dxf');
