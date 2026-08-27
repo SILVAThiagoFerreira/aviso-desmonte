@@ -70,7 +70,7 @@ assert.match(renderSource, /drawHatchedEntity\(ctx, entity, transform, colors\.b
 assert.match(renderSource, /drawHatchedPolygon\(ctx, polygon, transform, colors\.redHatch, colors\.redSoft, colors\.red\)/, 'o contorno vermelho deve permanecer destacado');
 assert.match(renderSource, /const hatchEntities = model\.areas\.filter\(\(area\) => area\.catalogId !== 'estruturas-proximas'\)/, 'as poligonais das estruturas não devem virar uma camada de hachura');
 assert.equal(appConfig.defaultPreset.structurePointsSource.dxf, 'ESTRUTURAS PROXIMAS/ID - PONTOS.dxf');
-assert.equal(appConfig.areasProjeto.find((area) => area.id === 'estruturas-proximas')?.path, 'ESTRUTURAS PROXIMAS/ID - PONTOS + Pligonais das Estruturas Proximas.dxf');
+assert.equal(appConfig.areasProjeto.find((area) => area.id === 'estruturas-proximas')?.path, 'ESTRUTURAS PROXIMAS/Pligonais das Estruturas Proximas.dxf');
 assert.equal(appConfig.ortomosaicos.length, 4, 'o catálogo deve conter o GeoTIFF principal e os três ortomosaicos atuais');
 for (const ortho of appConfig.ortomosaicos) assert.ok((await fs.stat(new URL(`../${ortho.path}`, import.meta.url))).size > 0, `o ortomosaico ${ortho.path} precisa existir`);
 assert.match(appHtml, /id="exportProjectButton"/);

@@ -2,7 +2,7 @@
   "app": {
     "name": "Aviso de Desmonte",
     "eyebrow": "AVISO DE DESMONTE",
-    "version": "1.18.2"
+    "version": "1.18.3"
   },
   "defaultPreset": {
     "loadAllOrthomosaics": true,
@@ -40,7 +40,7 @@
   "areasProjeto": [
     { "id": "evacuar", "label": "Áreas de evacuação", "path": "ÁREA DE INFLUÊNCIA/DXF/EVACUAR.dxf" },
     { "id": "liberado", "label": "Áreas liberadas", "path": "ÁREA DE INFLUÊNCIA/DXF/LIBERADO.dxf" },
-    { "id": "estruturas-proximas", "label": "Poligonais das estruturas próximas · pontos atualizados", "path": "ESTRUTURAS PROXIMAS/ID - PONTOS + Pligonais das Estruturas Proximas.dxf" }
+    { "id": "estruturas-proximas", "label": "Poligonais das estruturas próximas · fonte única", "path": "ESTRUTURAS PROXIMAS/Pligonais das Estruturas Proximas.dxf" }
   ],
   "report": {
     "canvasWidth": 1600,
