@@ -1,4 +1,4 @@
-import { areaIntersectsContours, boundsOf, boundsOfContours, fitBoundsToAspect, flattenStringEntities, formatNumber, getStringEndpoints, intersectEntityWithContours, mergeBounds, paddedBounds, pointIntersectsContours } from './geometry.js';
+import { areaIntersectsContours, boundsOf, boundsOfContours, differenceEntityWithContours, fitBoundsToAspect, flattenStringEntities, formatNumber, getStringEndpoints, intersectEntityWithContours, mergeBounds, paddedBounds, pointIntersectsContours } from './geometry.js';
 
 function drawCoverImage(ctx, image, box) {
   if (!image) return;
@@ -88,7 +88,8 @@ function drawHatchedPolygon(ctx, polygon, transform, hatchColor, fill, outlineCo
   ctx.restore();
   ctx.save(); ctx.beginPath();
   polygon.forEach((ring) => { ring.forEach(([x, y], index) => { const point = transform.x({ x, y }); const screenY = transform.y({ x, y }); if (index) ctx.lineTo(point, screenY); else ctx.moveTo(point, screenY); }); ctx.closePath(); });
-  ctx.strokeStyle = outlineColor; ctx.lineWidth = 3; ctx.stroke(); ctx.restore();
+  if (outlineColor) { ctx.strokeStyle = outlineColor; ctx.lineWidth = 3; ctx.stroke(); }
+  ctx.restore();
 }
 
 function drawEntity(ctx, entity, transform, color) {
@@ -429,7 +430,12 @@ export function drawReport(canvas, model, config) {
     ctx.save(); ctx.beginPath(); ctx.rect(map.x, map.y, map.width, map.height); ctx.clip();
     const areaEntities = model.areas.flatMap((area) => area.entities || []);
     model.areas.forEach((area) => { area.status = areaIntersectsContours(area.entities || [], model.radiusContours) ? 'evacuar' : 'liberado'; });
-    areaEntities.forEach((entity) => drawHatchedEntity(ctx, entity, transform, colors.blueHatch, colors.blueSoft, colors.blue));
+    areaEntities.forEach((entity) => {
+      const basePieces = differenceEntityWithContours(entity, model.radiusContours);
+      if (basePieces.length) basePieces.forEach((polygon) => drawHatchedPolygon(ctx, polygon, transform, colors.blueHatch, colors.blueSoft, null));
+      else if (!entity.closed) drawHatchedEntity(ctx, entity, transform, colors.blueHatch, colors.blueSoft, colors.blue);
+      if (entity.closed) drawEntity(ctx, entity, transform, colors.blue);
+    });
     // Pinta somente a parcela geométrica atingida pelo raio. O restante da
     // área permanece azul, mas qualquer interseção, mesmo mínima, fica visível.
     areaEntities.forEach((entity) => intersectEntityWithContours(entity, model.radiusContours).forEach((polygon) => drawHatchedPolygon(ctx, polygon, transform, colors.redHatch, colors.redSoft, colors.red)));
