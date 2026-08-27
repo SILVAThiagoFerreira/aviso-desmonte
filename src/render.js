@@ -102,10 +102,10 @@ function drawContours(ctx, contours, transform, colors, radii) {
     contours.forEach((contour) => {
     const isPeople = contour.kind ? contour.kind === 'people' : Number(contour.radius) === Number(radii.people);
     ctx.save(); ctx.strokeStyle = isPeople ? colors.cyan : colors.greenLight; ctx.lineWidth = 4; ctx.setLineDash([]);
-    (contour.outline || contour.polygons).forEach((polygon) => polygon.forEach((ring) => {
+    (contour.outline || contour.polygons).forEach((polygon) => { const ring = polygon[0];
       if (!ring.length) return;
       ctx.beginPath(); ring.forEach(([x, y], index) => { const point = transform.x({ x, y }); const screenY = transform.y({ x, y }); if (index) ctx.lineTo(point, screenY); else ctx.moveTo(point, screenY); }); ctx.closePath(); ctx.stroke();
-    }));
+    });
     ctx.restore();
   });
 }

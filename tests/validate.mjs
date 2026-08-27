@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import vm from 'node:vm';
 import { parseDxf, parseGeoJson } from '../src/dxf.js';
-import { areaIntersectsContours, boundsOf, boundsOfContours, buildRadiusContours, dedupeEntities, differenceEntityWithContours, fitBoundsToAspect, flattenStringEntities, getStringEndpoints, intersectEntityWithContours, paddedBounds, pointIntersectsContours } from '../src/geometry.js';
+import { areaIntersectsContours, boundsOf, boundsOfContours, buildRadiusContours, dedupeEntities, differenceEntityWithContours, fitBoundsToAspect, flattenStringEntities, getStringEndpoints, intersectEntityWithContours, paddedBounds, pointIntersectsContours, unionContourPolygons } from '../src/geometry.js';
 import { safeFileName } from '../src/pdf.js';
 
 const dxf = await fs.readFile(new URL('../POLIGONAIS/r030826.dxf', import.meta.url), 'latin1');
@@ -15,6 +15,8 @@ assert.ok(getStringEndpoints(parsed.entities).length >= 3, 'as extremidades deve
 const contours = buildRadiusContours(parsed.entities, [700, 300]);
 assert.equal(contours.length, 2, 'os dois raios devem gerar dois contornos únicos');
 assert.ok(contours.every((contour) => contour.polygons.length >= 1), 'cada raio precisa ter uma união geométrica');
+globalThis.polygonClipping = { union: (...polygons) => polygons };
+assert.equal(unionContourPolygons([[[[0, 0], [10, 0], [10, 10], [0, 0]]], [[[5, 0], [15, 0], [15, 10], [5, 0]]]]).length, 2, 'a normalização precisa aceitar polígonos válidos sem criar raios extras');
 const bounds = boundsOf(parsed.entities);
 const contourBounds = boundsOfContours(contours);
 assert.ok(contourBounds.minX < bounds.minX && contourBounds.maxX > bounds.maxX, 'os raios precisam ampliar a extensão horizontal');

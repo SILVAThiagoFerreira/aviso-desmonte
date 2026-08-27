@@ -148,6 +148,16 @@ function unionInBatches(pieces, batchSize = 24) {
   return pending;
 }
 
+export function unionContourPolygons(polygons = []) {
+  const valid = polygons.filter((polygon) => polygon?.[0]?.length >= 3);
+  if (valid.length <= 1 || !globalThis.polygonClipping?.union) return valid;
+  try {
+    return globalThis.polygonClipping.union(...valid) || valid;
+  } catch {
+    return valid;
+  }
+}
+
 function bufferPieces(entities, radius) {
   const pieces = [];
   const seen = new Set();
@@ -188,7 +198,7 @@ export function buildRadiusContours(entities = [], radii = []) {
     const pieces = bufferPieces(entities, radius);
     if (!pieces.length) return { radius, polygons: [] };
     let polygons = [];
-    try { polygons = pieces.length > 120 ? unionInBatches(pieces) : globalThis.polygonClipping.union(...pieces); } catch { polygons = pieces; }
+    try { polygons = pieces.length > 120 ? unionContourPolygons(unionInBatches(pieces)) : unionContourPolygons(pieces); } catch { polygons = pieces; }
     if (!polygons.length) return { radius, polygons: pieces, outline: roundedBoundsPolygon(entities, radius) };
     return { radius, polygons };
   }).filter((item) => item.polygons.length);
