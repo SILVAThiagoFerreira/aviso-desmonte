@@ -60,18 +60,18 @@ function entityPath(ctx, entity, transform) {
   return true;
 }
 
-function drawHatchedEntity(ctx, entity, transform, color, fill) {
+function drawHatchedEntity(ctx, entity, transform, hatchColor, fill, outlineColor = hatchColor) {
   if (!entityPath(ctx, entity, transform)) return;
-  if (!entity.closed) { ctx.strokeStyle = color; ctx.lineWidth = 3; ctx.stroke(); return; }
+  if (!entity.closed) { ctx.strokeStyle = outlineColor; ctx.lineWidth = 3; ctx.stroke(); return; }
   ctx.save(); ctx.fillStyle = fill; ctx.fill(); ctx.clip();
   const xs = entity.points.map((point) => transform.x(point)); const ys = entity.points.map((point) => transform.y(point));
   const minX = Math.min(...xs) - 80; const maxX = Math.max(...xs) + 80; const minY = Math.min(...ys) - 80; const maxY = Math.max(...ys) + 80;
-  ctx.strokeStyle = color; ctx.lineWidth = 2;
+  ctx.strokeStyle = hatchColor; ctx.lineWidth = 2;
   for (let x = minX - (maxY - minY); x < maxX + (maxY - minY); x += 18) { ctx.beginPath(); ctx.moveTo(x, maxY); ctx.lineTo(x + (maxY - minY), minY); ctx.stroke(); }
-  ctx.restore(); entityPath(ctx, entity, transform); ctx.strokeStyle = color; ctx.lineWidth = 3; ctx.stroke();
+  ctx.restore(); entityPath(ctx, entity, transform); ctx.strokeStyle = outlineColor; ctx.lineWidth = 3; ctx.stroke();
 }
 
-function drawHatchedPolygon(ctx, polygon, transform, color, fill) {
+function drawHatchedPolygon(ctx, polygon, transform, hatchColor, fill, outlineColor = hatchColor) {
   if (!polygon?.length) return;
   ctx.save(); ctx.beginPath();
   polygon.forEach((ring) => {
@@ -83,12 +83,12 @@ function drawHatchedPolygon(ctx, polygon, transform, color, fill) {
   const points = polygon.flatMap((ring) => ring.map(([x, y]) => ({ x, y })));
   const xs = points.map((point) => transform.x(point)); const ys = points.map((point) => transform.y(point));
   const minX = Math.min(...xs) - 80; const maxX = Math.max(...xs) + 80; const minY = Math.min(...ys) - 80; const maxY = Math.max(...ys) + 80;
-  ctx.strokeStyle = color; ctx.lineWidth = 2;
+  ctx.strokeStyle = hatchColor; ctx.lineWidth = 2;
   for (let x = minX - (maxY - minY); x < maxX + (maxY - minY); x += 18) { ctx.beginPath(); ctx.moveTo(x, maxY); ctx.lineTo(x + (maxY - minY), minY); ctx.stroke(); }
   ctx.restore();
   ctx.save(); ctx.beginPath();
   polygon.forEach((ring) => { ring.forEach(([x, y], index) => { const point = transform.x({ x, y }); const screenY = transform.y({ x, y }); if (index) ctx.lineTo(point, screenY); else ctx.moveTo(point, screenY); }); ctx.closePath(); });
-  ctx.strokeStyle = color; ctx.lineWidth = 3; ctx.stroke(); ctx.restore();
+  ctx.strokeStyle = outlineColor; ctx.lineWidth = 3; ctx.stroke(); ctx.restore();
 }
 
 function drawEntity(ctx, entity, transform, color) {
@@ -266,8 +266,8 @@ function drawLegend(ctx, model, box, colors, transform) {
   let rowY = y + 57;
   rows.forEach((item) => {
     const iconY = rowY - 7;
-    if (item.swatch === 'evacuar') drawHatchSwatch(ctx, x + 18, iconY, 44, 16, colors.red, colors.redSoft);
-    else if (item.swatch === 'liberado') drawHatchSwatch(ctx, x + 18, iconY, 44, 16, colors.blue, colors.blueSoft);
+    if (item.swatch === 'evacuar') drawHatchSwatch(ctx, x + 18, iconY, 44, 16, colors.redHatch, colors.redSoft);
+    else if (item.swatch === 'liberado') drawHatchSwatch(ctx, x + 18, iconY, 44, 16, colors.blueHatch, colors.blueSoft);
     else if (item.icon === 'firing') drawLegendIcon(ctx, model.firingIcon, x + 18, rowY - 13, 26, (canvas, cx, cy, size) => { canvas.fillStyle = colors.orange; canvas.strokeStyle = colors.ink; canvas.lineWidth = 2; canvas.beginPath(); canvas.arc(cx, cy, size * .27, 0, Math.PI * 2); canvas.fill(); canvas.stroke(); });
     else if (item.icon === 'blocking') drawLegendIcon(ctx, model.blockingIcon, x + 18, rowY - 13, 26, (canvas, cx, cy, size) => { canvas.strokeStyle = colors.red; canvas.lineWidth = 2; canvas.beginPath(); canvas.moveTo(cx - size * .25, cy + size * .28); canvas.lineTo(cx - size * .12, cy - size * .25); canvas.lineTo(cx + size * .12, cy - size * .25); canvas.lineTo(cx + size * .25, cy + size * .28); canvas.stroke(); });
     else if (item.icon === 'card') drawLegendIcon(ctx, model.cardIcon, x + 18, rowY - 13, 26, (canvas, cx, cy, size) => { canvas.strokeStyle = colors.red; canvas.lineWidth = 2; canvas.strokeRect(cx - size * .3, cy - size * .2, size * .6, size * .4); canvas.fillStyle = colors.red; canvas.fillRect(cx - size * .22, cy - size * .05, size * .44, size * .08); });
@@ -429,10 +429,10 @@ export function drawReport(canvas, model, config) {
     ctx.save(); ctx.beginPath(); ctx.rect(map.x, map.y, map.width, map.height); ctx.clip();
     const areaEntities = model.areas.flatMap((area) => area.entities || []);
     model.areas.forEach((area) => { area.status = areaIntersectsContours(area.entities || [], model.radiusContours) ? 'evacuar' : 'liberado'; });
-    areaEntities.forEach((entity) => drawHatchedEntity(ctx, entity, transform, 'rgba(24,32,216,0.42)', colors.blueSoft));
+    areaEntities.forEach((entity) => drawHatchedEntity(ctx, entity, transform, colors.blueHatch, colors.blueSoft, colors.blue));
     // Pinta somente a parcela geométrica atingida pelo raio. O restante da
     // área permanece azul, mas qualquer interseção, mesmo mínima, fica visível.
-    areaEntities.forEach((entity) => intersectEntityWithContours(entity, model.radiusContours).forEach((polygon) => drawHatchedPolygon(ctx, polygon, transform, 'rgba(237,28,36,0.48)', colors.redSoft)));
+    areaEntities.forEach((entity) => intersectEntityWithContours(entity, model.radiusContours).forEach((polygon) => drawHatchedPolygon(ctx, polygon, transform, colors.redHatch, colors.redSoft, colors.red)));
     const structurePoints = (model.structures || []).map((structure) => { const points = (structure.positions || []).map((position) => projectStructurePoint({ ...structure, worldX: position.x, worldY: position.y }, bounds, model.structurePageMap, transform, map)); const point = points[0] || projectStructurePoint(structure, bounds, model.structurePageMap, transform, map); return { ...structure, point, points: points.length ? points : [point] }; });
     structurePoints.forEach((structure) => { const polygonEntities = areaEntities.filter((entity) => entity.structureId === structure.id); const polygonInRadius = polygonEntities.length ? areaIntersectsContours(polygonEntities, model.radiusContours) : false; const pointInRadius = pointIntersectsContours(structure.point, model.radiusContours, model.structureBoundaryTolerance || 0); const automaticStatus = polygonEntities.length ? (polygonInRadius ? 'evacuar' : 'liberado') : (pointInRadius ? 'evacuar' : 'liberado'); structure.status = structure.statusOverride || automaticStatus; const target = model.structures.find((candidate) => candidate.id === structure.id); if (target) { target.status = structure.status; target.point = structure.point; target.points = structure.points; target.polygonEntities = polygonEntities; } structure.points.forEach((point) => drawStructurePositionLabel(ctx, structure, point, transform, model.areaNumberSize)); });
     drawContours(ctx, model.radiusContours, transform, colors, model.radii);
