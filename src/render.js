@@ -429,8 +429,12 @@ export function drawReport(canvas, model, config) {
   if (transform) {
     ctx.save(); ctx.beginPath(); ctx.rect(map.x, map.y, map.width, map.height); ctx.clip();
     const areaEntities = model.areas.flatMap((area) => area.entities || []);
+    // As geometrias das estruturas próximas continuam disponíveis para
+    // classificação e rótulos, mas não são uma camada de área de influência.
+    // Desenhá-las como hachura criava contornos internos antigos sobre a mina.
+    const hatchEntities = model.areas.filter((area) => area.catalogId !== 'estruturas-proximas').flatMap((area) => area.entities || []);
     model.areas.forEach((area) => { area.status = areaIntersectsContours(area.entities || [], model.radiusContours) ? 'evacuar' : 'liberado'; });
-    areaEntities.forEach((entity) => {
+    hatchEntities.forEach((entity) => {
       const basePieces = differenceEntityWithContours(entity, model.radiusContours);
       if (basePieces.length) basePieces.forEach((polygon) => drawHatchedPolygon(ctx, polygon, transform, colors.blueHatch, colors.blueSoft, null));
       else if (!entity.closed) drawHatchedEntity(ctx, entity, transform, colors.blueHatch, colors.blueSoft, colors.blue);
@@ -438,7 +442,7 @@ export function drawReport(canvas, model, config) {
     });
     // Pinta somente a parcela geométrica atingida pelo raio. O restante da
     // área permanece azul, mas qualquer interseção, mesmo mínima, fica visível.
-    areaEntities.forEach((entity) => intersectEntityWithContours(entity, model.radiusContours).forEach((polygon) => drawHatchedPolygon(ctx, polygon, transform, colors.redHatch, colors.redSoft, colors.red)));
+    hatchEntities.forEach((entity) => intersectEntityWithContours(entity, model.radiusContours).forEach((polygon) => drawHatchedPolygon(ctx, polygon, transform, colors.redHatch, colors.redSoft, colors.red)));
     const structurePoints = (model.structures || []).map((structure) => { const points = (structure.positions || []).map((position) => projectStructurePoint({ ...structure, worldX: position.x, worldY: position.y }, bounds, model.structurePageMap, transform, map)); const point = points[0] || projectStructurePoint(structure, bounds, model.structurePageMap, transform, map); return { ...structure, point, points: points.length ? points : [point] }; });
     structurePoints.forEach((structure) => { const polygonEntities = areaEntities.filter((entity) => entity.structureId === structure.id); const polygonInRadius = polygonEntities.length ? areaIntersectsContours(polygonEntities, model.radiusContours) : false; const pointInRadius = pointIntersectsContours(structure.point, model.radiusContours, model.structureBoundaryTolerance || 0); const automaticStatus = polygonEntities.length ? (polygonInRadius ? 'evacuar' : 'liberado') : (pointInRadius ? 'evacuar' : 'liberado'); structure.status = structure.statusOverride || automaticStatus; const target = model.structures.find((candidate) => candidate.id === structure.id); if (target) { target.status = structure.status; target.point = structure.point; target.points = structure.points; target.polygonEntities = polygonEntities; } structure.points.forEach((point) => drawStructurePositionLabel(ctx, structure, point, transform, model.areaNumberSize)); });
     drawContours(ctx, model.radiusContours, transform, colors, model.radii);
