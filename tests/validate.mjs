@@ -68,7 +68,7 @@ assert.match(renderSource, /colors\.blueHatch/, 'a hachura azul deve usar a cor 
 assert.match(renderSource, /colors\.redHatch/, 'a hachura vermelha deve usar a cor suavizada configurada');
 assert.match(renderSource, /drawHatchedEntity\(ctx, entity, transform, colors\.blueHatch, colors\.blueSoft, colors\.blue\)/, 'o contorno azul deve permanecer destacado');
 assert.match(renderSource, /drawHatchedPolygon\(ctx, polygon, transform, colors\.redHatch, colors\.redSoft, colors\.red\)/, 'o contorno vermelho deve permanecer destacado');
-assert.match(renderSource, /const hatchEntities = model\.areas\.filter\(\(area\) => area\.catalogId !== 'estruturas-proximas'\)/, 'as poligonais das estruturas não devem virar uma camada de hachura');
+assert.match(renderSource, /const hatchEntities = model\.areas\.filter\(\(area\) => area\.catalogId === 'estruturas-proximas'\)/, 'as hachuras precisam usar o DXF atualizado das estruturas');
 assert.equal(appConfig.defaultPreset.structurePointsSource.dxf, 'ESTRUTURAS PROXIMAS/ID - PONTOS.dxf');
 assert.equal(appConfig.areasProjeto.find((area) => area.id === 'estruturas-proximas')?.path, 'ESTRUTURAS PROXIMAS/Pligonais das Estruturas Proximas.dxf');
 assert.equal(appConfig.ortomosaicos.length, 4, 'o catálogo deve conter o GeoTIFF principal e os três ortomosaicos atuais');

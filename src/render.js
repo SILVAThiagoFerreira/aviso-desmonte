@@ -429,10 +429,10 @@ export function drawReport(canvas, model, config) {
   if (transform) {
     ctx.save(); ctx.beginPath(); ctx.rect(map.x, map.y, map.width, map.height); ctx.clip();
     const areaEntities = model.areas.flatMap((area) => area.entities || []);
-    // As geometrias das estruturas próximas continuam disponíveis para
-    // classificação e rótulos, mas não são uma camada de área de influência.
-    // Desenhá-las como hachura criava contornos internos antigos sobre a mina.
-    const hatchEntities = model.areas.filter((area) => area.catalogId !== 'estruturas-proximas').flatMap((area) => area.entities || []);
+    // O DXF atualizado das estruturas é a fonte visual única das hachuras.
+    // EVACUAR/LIBERADO legados continuam disponíveis no projeto, mas não podem
+    // substituir nem reduzir o contorno operacional mais recente da mina.
+    const hatchEntities = model.areas.filter((area) => area.catalogId === 'estruturas-proximas').flatMap((area) => area.entities || []);
     model.areas.forEach((area) => { area.status = areaIntersectsContours(area.entities || [], model.radiusContours) ? 'evacuar' : 'liberado'; });
     hatchEntities.forEach((entity) => {
       const basePieces = differenceEntityWithContours(entity, model.radiusContours);
