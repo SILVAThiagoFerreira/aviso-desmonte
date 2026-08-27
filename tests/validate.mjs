@@ -32,8 +32,14 @@ assert.ok(parsedArea.entities.length >= 10, 'o DXF de áreas de referência prec
 assert.ok(parsedArea.entities.every((entity) => entity.closed), 'as áreas HATCH precisam ser fechadas');
 const structureCatalog = JSON.parse(await fs.readFile(new URL('../data/structures.json', import.meta.url), 'utf8'));
 const appConfig = JSON.parse(await fs.readFile(new URL('../config.json', import.meta.url), 'utf8'));
+const appHtml = await fs.readFile(new URL('../index.html', import.meta.url), 'utf8');
 const onlineBackend = await fs.readFile(new URL('../backend/Code.gs', import.meta.url), 'utf8');
 assert.equal(appConfig.onlineCatalog.enabled, true, 'o catálogo online precisa estar habilitado');
+assert.equal(appConfig.defaultPreset.observation, 'Setor Técnico de Operações - Enaex Brasil.');
+assert.deepEqual(appConfig.defaultPreset.pointIconSizes, { firing: 48, blocking: 20, card: 20 });
+assert.equal(appConfig.defaultPreset.areaNumberSize, 6);
+assert.match(appHtml, /id="exportProjectButton"/);
+assert.match(appHtml, /id="importProjectFile"/);
 assert.match(appConfig.onlineCatalog.endpoint, /^https:\/\/script\.google\.com\/macros\/s\//, 'o endpoint online precisa ser um Web App do Apps Script');
 assert.match(onlineBackend, /function doGet\(event\)/, 'o backend precisa expor leitura online');
 assert.match(onlineBackend, /function doPost\(event\)/, 'o backend precisa expor publicação online');

@@ -104,6 +104,10 @@ button { cursor: pointer; }
 .radius-file-button input { display: none; }
 .radius-file-state { display: block; margin-top: 4px; overflow: hidden; color: var(--muted); font: 9px/1.35 'IBM Plex Mono', monospace; text-overflow: ellipsis; white-space: nowrap; }
 .point-size-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-top: 12px; }
+.project-file-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
+.project-file-label { display: flex; align-items: center; justify-content: center; cursor: pointer; }
+.project-file-label input { display: none; }
+.project-file-state { margin: 9px 0 0; color: var(--muted); font: 500 10px/1.4 'IBM Plex Mono', monospace; }
 .status-override { min-height: 22px; max-width: 88px; border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; color: var(--ink); background: #f8fbfa; font: 700 8px 'IBM Plex Mono', monospace; }
 .string-type-select { width: 100%; min-height: 28px; margin-bottom: 4px; border: 1px solid var(--line); border-radius: 5px; padding: 0 7px; color: var(--ink); background: #f8fbfa; font: 700 10px 'IBM Plex Mono', monospace; }
 .area-item small, .string-item small { display: block; margin-top: 3px; overflow: hidden; color: var(--muted); font: 9px 'IBM Plex Mono', monospace; text-overflow: ellipsis; white-space: nowrap; }

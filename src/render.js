@@ -337,9 +337,20 @@ function drawStructureMarker(ctx, structure, transform, colors, displayPoint = n
   const number = String(structure.id).replace('structure-', ''); ctx.globalAlpha = 1; ctx.font = `700 ${labelSize}px Arial`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.lineJoin = 'round'; ctx.lineWidth = Math.max(3, labelSize * .34); ctx.strokeStyle = '#ffffff'; ctx.strokeText(number, x, y + 1); ctx.fillStyle = '#111111'; ctx.fillText(number, x, y + 1); ctx.restore();
 }
 function drawStructurePolygonNumber(ctx, structure, entities, transform, status, labelSize = 16) {
+  // A média dos vértices desloca o rótulo para sudoeste em polígonos
+  // assimétricos. Use o centróide geométrico do maior contorno fechado.
+  const candidate = entities.map((entity) => {
+    const points = entity.points || [];
+    if (points.length < 3) return null;
+    let twiceArea = 0; let x = 0; let y = 0;
+    points.forEach((point, index) => { const next = points[(index + 1) % points.length]; const cross = point.x * next.y - next.x * point.y; twiceArea += cross; x += (point.x + next.x) * cross; y += (point.y + next.y) * cross; });
+    const area = Math.abs(twiceArea / 2);
+    if (area < Number.EPSILON) return null;
+    return { area, center: { x: x / (3 * twiceArea), y: y / (3 * twiceArea) } };
+  }).filter(Boolean).sort((left, right) => right.area - left.area)[0];
   const points = entities.flatMap((entity) => entity.points || []);
   if (!points.length) return;
-  const center = { x: points.reduce((sum, point) => sum + point.x, 0) / points.length, y: points.reduce((sum, point) => sum + point.y, 0) / points.length };
+  const center = candidate?.center || { x: points.reduce((sum, point) => sum + point.x, 0) / points.length, y: points.reduce((sum, point) => sum + point.y, 0) / points.length };
   const x = transform.x(center); const y = transform.y(center); const number = String(structure.id).replace('structure-', '');
   ctx.save(); ctx.globalAlpha = 1; ctx.font = `700 ${labelSize}px Arial`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.lineJoin = 'round'; ctx.lineWidth = Math.max(3, labelSize * .34); ctx.strokeStyle = '#ffffff'; ctx.strokeText(number, x, y + 1); ctx.fillStyle = status === 'evacuar' ? '#111111' : '#111111'; ctx.fillText(number, x, y + 1); ctx.restore();
 }

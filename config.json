@@ -11,6 +11,9 @@
     "loadSatelliteBackground": true,
     "peopleRadius": 700,
     "machineRadius": 300,
+    "observation": "Setor Técnico de Operações - Enaex Brasil.",
+    "pointIconSizes": { "firing": 48, "blocking": 20, "card": 20 },
+    "areaNumberSize": 6,
     "structureCatalog": "data/structures.json"
   },
   "onlineCatalog": {
