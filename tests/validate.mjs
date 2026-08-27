@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import vm from 'node:vm';
 import { parseDxf, parseGeoJson } from '../src/dxf.js';
-import { areaIntersectsContours, boundsOf, boundsOfContours, buildRadiusContours, dedupeEntities, fitBoundsToAspect, flattenStringEntities, getStringEndpoints, intersectEntityWithContours, paddedBounds, pointIntersectsContours } from '../src/geometry.js';
+import { areaIntersectsContours, boundsOf, boundsOfContours, buildRadiusContours, dedupeEntities, differenceEntityWithContours, fitBoundsToAspect, flattenStringEntities, getStringEndpoints, intersectEntityWithContours, paddedBounds, pointIntersectsContours } from '../src/geometry.js';
 import { safeFileName } from '../src/pdf.js';
 
 const dxf = await fs.readFile(new URL('../POLIGONAIS/r030826.dxf', import.meta.url), 'latin1');
@@ -96,5 +96,7 @@ const aspectBounds = fitBoundsToAspect({ minX: 0, minY: 0, maxX: 10, maxY: 10 },
 assert.equal(aspectBounds.maxX - aspectBounds.minX, 20, 'a extensão deve cobrir a proporção horizontal do mapa');
 globalThis.polygonClipping = { intersection: () => [[[[0, 0], [1, 0], [1, 1], [0, 0]]]] };
 assert.equal(intersectEntityWithContours({ closed: true, points: [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 10 }, { x: 0, y: 0 }] }, contour).length, 1, 'um sólido fechado precisa retornar a interseção para a hachura vermelha');
+globalThis.polygonClipping = { difference: (subject) => subject };
+assert.equal(differenceEntityWithContours({ closed: true, points: [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 10 }, { x: 0, y: 0 }] }, contour).length, 1, 'a base azul precisa aceitar a diferença geométrica dos raios');
 assert.equal(safeFileName('Aviso de Detonação 04/08/2026'), 'aviso-de-detonacao-04-08-2026');
 console.log(`PASS: DXF ${parsed.entities.length} entidades, ${getStringEndpoints(parsed.entities).length} extremidades, GeoJSON e nome de arquivo validados.`);
