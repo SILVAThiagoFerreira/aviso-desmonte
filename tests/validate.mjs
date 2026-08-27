@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import vm from 'node:vm';
 import { parseDxf, parseGeoJson } from '../src/dxf.js';
-import { areaIntersectsContours, boundsOf, boundsOfContours, buildRadiusContours, fitBoundsToAspect, flattenStringEntities, getStringEndpoints, intersectEntityWithContours, paddedBounds, pointIntersectsContours } from '../src/geometry.js';
+import { areaIntersectsContours, boundsOf, boundsOfContours, buildRadiusContours, fitBoundsToAspect, flattenStringEntities, getStringEndpoints, intersectEntityWithContours, paddedBounds, pointIntersectsContours, sampleEntityPoints } from '../src/geometry.js';
 import { safeFileName } from '../src/pdf.js';
 
 const dxf = await fs.readFile(new URL('../POLIGONAIS/r030826.dxf', import.meta.url), 'latin1');
@@ -38,6 +38,8 @@ assert.equal(appConfig.onlineCatalog.enabled, true, 'o catálogo online precisa 
 assert.equal(appConfig.defaultPreset.observation, 'Setor Técnico de Operações - Enaex Brasil.');
 assert.deepEqual(appConfig.defaultPreset.pointIconSizes, { firing: 48, blocking: 20, card: 20 });
 assert.equal(appConfig.defaultPreset.areaNumberSize, 6);
+const sampled = sampleEntityPoints({ type: 'line', points: [{ x: 0, y: 0 }, { x: 1, y: 0 }] });
+assert.equal(sampled.length, 101, 'a extensão de 1 m deve conter centros a cada centímetro, incluindo as duas extremidades');
 assert.match(appHtml, /id="exportProjectButton"/);
 assert.match(appHtml, /id="importProjectFile"/);
 assert.match(appConfig.onlineCatalog.endpoint, /^https:\/\/script\.google\.com\/macros\/s\//, 'o endpoint online precisa ser um Web App do Apps Script');

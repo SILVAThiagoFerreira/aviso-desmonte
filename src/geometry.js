@@ -103,6 +103,46 @@ function circlePolygon(center, radius, steps = 32) {
   return [ring];
 }
 
+// As coordenadas do projeto estão em metros. A malha de centros de 1 cm é a
+// referência operacional do cálculo: cada segmento da string é percorrido
+// ponto a ponto antes de gerar os dois buffers de segurança.
+export function sampleEntityPoints(entity, spacing = 0.01) {
+  const points = entity?.points || [];
+  if (!points.length || entity.type === 'circle') return points.slice();
+  if (points.length === 1) return points.slice();
+  const step = Math.max(Number(spacing) || 0.01, 0.000001);
+  const sampled = [];
+  const segmentCount = entity.closed ? points.length : points.length - 1;
+  const append = (point) => {
+    const previous = sampled[sampled.length - 1];
+    if (!previous || previous.x !== point.x || previous.y !== point.y) sampled.push({ x: point.x, y: point.y });
+  };
+  for (let index = 0; index < segmentCount; index += 1) {
+    const start = points[index];
+    const end = points[(index + 1) % points.length];
+    const length = Math.hypot(end.x - start.x, end.y - start.y);
+    const count = Math.max(1, Math.ceil(length / step));
+    for (let sample = 0; sample < count; sample += 1) {
+      const ratio = sample / count;
+      append({ x: start.x + (end.x - start.x) * ratio, y: start.y + (end.y - start.y) * ratio });
+    }
+  }
+  if (!entity.closed) append(points[points.length - 1]);
+  return sampled;
+}
+
+function compactCollinearPoints(points, closed = false) {
+  if (points.length < 3) return points;
+  const compacted = [points[0]];
+  for (let index = 1; index < points.length - 1; index += 1) {
+    const previous = compacted[compacted.length - 1]; const current = points[index]; const next = points[index + 1];
+    const cross = (current.x - previous.x) * (next.y - current.y) - (current.y - previous.y) * (next.x - current.x);
+    if (Math.abs(cross) > 1e-9) compacted.push(current);
+  }
+  compacted.push(points[points.length - 1]);
+  return closed && compacted.length > 2 ? compacted : compacted;
+}
+
 function roundedBoundsPolygon(entities, radius) {
   const bounds = boundsOf(entities);
   if (!bounds) return [];
@@ -142,18 +182,19 @@ function bufferPieces(entities, radius) {
       seen.add(key);
       return;
     }
-    const segmentCount = entity.closed ? points.length : points.length - 1;
+    // Amostra cada extensão em centros de 1 cm. Os centros consecutivos são
+    // compactados em cápsulas para evitar centenas de milhares de polígonos
+    // independentes; a união resultante mantém apenas a extremidade externa.
+    const sampled = compactCollinearPoints(sampleEntityPoints(entity), entity.closed);
+    const segmentCount = entity.closed ? sampled.length : sampled.length - 1;
     for (let index = 0; index < segmentCount; index += 1) {
-      const start = points[index];
-      const end = points[(index + 1) % points.length];
+      const start = sampled[index];
+      const end = sampled[(index + 1) % sampled.length];
       if (start.x === end.x && start.y === end.y) continue;
       pieces.push(capsulePolygon(start, end, radius));
     }
-    points.forEach((point) => {
-      const key = `${pointKey(point)}:${radius}`;
-      if (!seen.has(key)) pieces.push(circlePolygon(point, radius));
-      seen.add(key);
-    });
+    // A cápsula já contém os círculos dos centros consecutivos; não é
+    // necessário adicionar um polígono redundante para cada amostra.
   });
   return pieces;
 }
