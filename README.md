@@ -6,7 +6,7 @@ Gerador de pranchas de área de influência para avisos de desmonte. O site rece
 
 1. Abra o site publicado no GitHub Pages ou rode um servidor local na raiz (`python -m http.server 8000`).
 2. Informe data, horário, empresa/operação e local.
-3. Escolha um dos ortomosaicos do catálogo (Mina, Estoque ou Pilha de estéril) e clique em `Carregar`, ou use `Carregar todas no mapa` para exibir as quatro camadas georreferenciadas em conjunto. O botão `Substituir / atualizar ortomosaico` grava uma versão local no navegador, sem alterar o TIFF original; `Restaurar original` remove essa substituição.
+3. Escolha um dos ortomosaicos do catálogo (Mina, PDE ou Eetoques) e clique em `Carregar`, ou use `Carregar todas no mapa` para exibir as quatro camadas georreferenciadas em conjunto. O botão `Substituir / atualizar ortomosaico` grava uma versão local no navegador, sem alterar o TIFF original; `Restaurar original` remove essa substituição.
 4. Carregue uma imagem de fundo quando houver outro ortomosaico ou use a imagem de referência apenas para conferência visual.
 5. Use `Importar poligonais do projeto` para carregar os DXF já catalogados ou adicione uma ou várias poligonais DXF e renomeie cada entrada.
 6. Informe os raios para pessoas e máquinas. O sistema percorre cada segmento continuamente, une as áreas sobrepostas e exibe apenas o contorno final de cada raio.

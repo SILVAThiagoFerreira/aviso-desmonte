@@ -24,9 +24,9 @@
   },
   "ortomosaicos": [
     { "id": "mina-20260730", "label": "Mina reduzida · 30/07/2026", "path": "GEOTIFF/20260730_Mina_Reduzida.tif" },
-    { "id": "estoque-20251119", "label": "Estoque reduzido · 19/11/2025", "path": "ORTOMOSAICO/20251119_Estoque_Reduzido.tif" },
-    { "id": "pilha-esteril-20251124", "label": "Pilha de estéril reduzida · 24/11/2025", "path": "ORTOMOSAICO/20251124_Pilha_Esteril_Reduzida.tif" },
-    { "id": "mina-20251126", "label": "Mina reduzida · 26/11/2025", "path": "ORTOMOSAICO/20251126_Mina_Reduzida.tif" }
+    { "id": "pde-20260820", "label": "PDE reduzida · 20/08/2026", "path": "ORTOMOSAICO/20260820_PDE_REDUZIDA.tif" },
+    { "id": "mina-20260825", "label": "Mina reduzida · 25/08/2026", "path": "ORTOMOSAICO/20260825_Mina_Reduzida.tif" },
+    { "id": "eetoques-20260826", "label": "Eetoques reduzida · 26/08/2026", "path": "ORTOMOSAICO/20260826_Eetoques_Reduzida.tif" }
   ],
   "poligonaisProjeto": [
     { "id": "r030826", "label": "r030826 · 3 entidades", "path": "POLIGONAIS/r030826.dxf" },
