@@ -73,6 +73,29 @@ function pointKey(point) {
   return `${point.x.toFixed(6)}:${point.y.toFixed(6)}`;
 }
 
+function entityGeometryKey(entity) {
+  const points = (entity.points || []).map(pointKey);
+  if (entity.closed && points.length > 1 && points[0] === points[points.length - 1]) points.pop();
+  if (entity.closed && points.length > 1) {
+    const variants = [];
+    for (const sequence of [points, [...points].reverse()]) {
+      for (let offset = 0; offset < sequence.length; offset += 1) variants.push(sequence.slice(offset).concat(sequence.slice(0, offset)).join('|'));
+    }
+    return `${entity.type}|closed|${entity.radius || ''}|${variants.sort()[0]}`;
+  }
+  return `${entity.type}|${entity.closed ? 'closed' : 'open'}|${entity.radius || ''}|${points.join('|')}`;
+}
+
+export function dedupeEntities(entities = []) {
+  const seen = new Set();
+  return entities.filter((entity) => {
+    const key = entityGeometryKey(entity);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
 function capsulePolygon(a, b, radius, steps = 16) {
   const dx = b.x - a.x;
   const dy = b.y - a.y;

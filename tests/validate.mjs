@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import vm from 'node:vm';
 import { parseDxf, parseGeoJson } from '../src/dxf.js';
-import { areaIntersectsContours, boundsOf, boundsOfContours, buildRadiusContours, fitBoundsToAspect, flattenStringEntities, getStringEndpoints, intersectEntityWithContours, paddedBounds, pointIntersectsContours } from '../src/geometry.js';
+import { areaIntersectsContours, boundsOf, boundsOfContours, buildRadiusContours, dedupeEntities, fitBoundsToAspect, flattenStringEntities, getStringEndpoints, intersectEntityWithContours, paddedBounds, pointIntersectsContours } from '../src/geometry.js';
 import { safeFileName } from '../src/pdf.js';
 
 const dxf = await fs.readFile(new URL('../POLIGONAIS/r030826.dxf', import.meta.url), 'latin1');
@@ -31,6 +31,7 @@ const combinedStructureDxf = await fs.readFile(new URL('../ESTRUTURAS PROXIMAS/I
 const combinedStructures = parseDxf(combinedStructureDxf);
 assert.ok(combinedStructures.entities.length >= 54, 'o DXF combinado precisa conter as poligonais das estruturas');
 assert.ok(combinedStructures.entities.every((entity) => entity.closed && entity.points.length >= 3), 'as poligonais combinadas precisam ser fechadas');
+assert.equal(dedupeEntities(combinedStructures.entities).length, 48, 'as duplicatas geométricas do DXF combinado devem ser removidas no carregamento');
 for (const source of ['ID - PONTOS.dwg', 'ID - PONTOS.dxf']) {
   const sourceStat = await fs.stat(new URL(`../ESTRUTURAS PROXIMAS/${source}`, import.meta.url));
   assert.ok(sourceStat.size > 0, `${source} precisa existir como fonte dos pontos atualizados`);
@@ -38,6 +39,10 @@ for (const source of ['ID - PONTOS.dwg', 'ID - PONTOS.dxf']) {
 const parsedArea = parseDxf(areaDxf);
 assert.ok(parsedArea.entities.length >= 10, 'o DXF de áreas de referência precisa ler os HATCHs');
 assert.ok(parsedArea.entities.every((entity) => entity.closed), 'as áreas HATCH precisam ser fechadas');
+assert.equal(dedupeEntities(parsedArea.entities).length, 11, 'as áreas de evacuação não devem perder geometrias distintas');
+const releasedAreaDxf = await fs.readFile(new URL('../ÁREA DE INFLUÊNCIA/DXF/LIBERADO.dxf', import.meta.url), 'latin1');
+const parsedReleasedArea = parseDxf(releasedAreaDxf);
+assert.equal(dedupeEntities(parsedReleasedArea.entities).length, 34, 'as duplicatas geométricas das áreas liberadas devem ser removidas no carregamento');
 const structureCatalog = JSON.parse(await fs.readFile(new URL('../data/structures.json', import.meta.url), 'utf8'));
 const appConfig = JSON.parse(await fs.readFile(new URL('../config.json', import.meta.url), 'utf8'));
 const appHtml = await fs.readFile(new URL('../index.html', import.meta.url), 'utf8');
