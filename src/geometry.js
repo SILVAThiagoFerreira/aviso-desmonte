@@ -247,6 +247,18 @@ export function intersectEntityWithContours(entity, contours = []) {
   return intersections;
 }
 
+export function differenceEntityWithContours(entity, contours = []) {
+  if (!entity?.closed || entity.type === 'circle' || (entity.points || []).length < 3 || !globalThis.polygonClipping?.difference) return [];
+  const ring = entity.points.map((point) => [point.x, point.y]);
+  if (ring.length && (ring[0][0] !== ring[ring.length - 1][0] || ring[0][1] !== ring[ring.length - 1][1])) ring.push(ring[0]);
+  let remaining = [[ring]];
+  contours.forEach((contour) => (contour.polygons || []).forEach((polygon) => {
+    if (!remaining.length) return;
+    try { remaining = globalThis.polygonClipping.difference(remaining, [polygon]) || []; } catch { /* mantém a geometria original em caso de falha opcional */ }
+  }));
+  return remaining;
+}
+
 function orientation(a, b, c) { return (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x); }
 function onSegment(a, b, point) { return Math.min(a.x, b.x) - 1e-9 <= point.x && point.x <= Math.max(a.x, b.x) + 1e-9 && Math.min(a.y, b.y) - 1e-9 <= point.y && point.y <= Math.max(a.y, b.y) + 1e-9; }
 function segmentsCross(a, b, c, d) {
