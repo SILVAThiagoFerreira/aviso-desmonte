@@ -41,11 +41,16 @@ assert.ok(parsedArea.entities.every((entity) => entity.closed), 'as áreas HATCH
 const structureCatalog = JSON.parse(await fs.readFile(new URL('../data/structures.json', import.meta.url), 'utf8'));
 const appConfig = JSON.parse(await fs.readFile(new URL('../config.json', import.meta.url), 'utf8'));
 const appHtml = await fs.readFile(new URL('../index.html', import.meta.url), 'utf8');
+const renderSource = await fs.readFile(new URL('../src/render.js', import.meta.url), 'utf8');
 const onlineBackend = await fs.readFile(new URL('../backend/Code.gs', import.meta.url), 'utf8');
 assert.equal(appConfig.onlineCatalog.enabled, true, 'o catálogo online precisa estar habilitado');
 assert.equal(appConfig.defaultPreset.observation, 'Setor Técnico de Operações - Enaex Brasil.');
 assert.deepEqual(appConfig.defaultPreset.pointIconSizes, { firing: 48, blocking: 20, card: 20 });
 assert.equal(appConfig.defaultPreset.areaNumberSize, 6);
+assert.match(renderSource, /showLabel = true/);
+assert.match(renderSource, /!structure\.polygonEntities\?\.length/);
+assert.match(renderSource, /rgba\(24,32,216,0\.42\)/, 'a cor azul de referência deve permanecer visível');
+assert.match(renderSource, /rgba\(237,28,36,0\.48\)/, 'a cor vermelha de referência deve permanecer visível');
 assert.equal(appConfig.defaultPreset.structurePointsSource.dxf, 'ESTRUTURAS PROXIMAS/ID - PONTOS.dxf');
 assert.equal(appConfig.areasProjeto.find((area) => area.id === 'estruturas-proximas')?.path, 'ESTRUTURAS PROXIMAS/ID - PONTOS + Pligonais das Estruturas Proximas.dxf');
 assert.equal(appConfig.ortomosaicos.length, 4, 'o catálogo deve conter o GeoTIFF principal e os três ortomosaicos atuais');

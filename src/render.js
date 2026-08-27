@@ -329,7 +329,8 @@ function structureInsideAffectedArea(point, model, contours) {
   return (model.areas || []).some((area) => (area.entities || []).some((entity) => pointInsideClosedEntity(point, entity) && areaIntersectsContours([entity], contours)));
 }
 
-function drawStructureMarker(ctx, structure, transform, colors, displayPoint = null, labelSize = 16) {
+function drawStructureMarker(ctx, structure, transform, colors, displayPoint = null, labelSize = 16, showLabel = true) {
+  if (!showLabel) return;
   const point = structure.point; const actualX = transform.x(point); const actualY = transform.y(point); const x = displayPoint?.x ?? actualX; const y = displayPoint?.y ?? actualY; const color = structure.status === 'evacuar' ? colors.red : colors.blue;
   ctx.save();
   // Os números ficam limpos sobre o croqui; não desenhar linhas-guia que
@@ -429,7 +430,7 @@ export function drawReport(canvas, model, config) {
     const structurePoints = (model.structures || []).map((structure) => ({ ...structure, point: projectStructurePoint(structure, bounds, model.structurePageMap, transform, map) }));
     structurePoints.forEach((structure) => { const polygonEntities = areaEntities.filter((entity) => entity.structureId === structure.id); const polygonInRadius = polygonEntities.length ? areaIntersectsContours(polygonEntities, model.radiusContours) : false; const pointInRadius = pointIntersectsContours(structure.point, model.radiusContours, model.structureBoundaryTolerance || 0); const automaticStatus = polygonEntities.length ? (polygonInRadius ? 'evacuar' : 'liberado') : (pointInRadius ? 'evacuar' : 'liberado'); structure.status = structure.statusOverride || automaticStatus; const target = model.structures.find((candidate) => candidate.id === structure.id); if (target) { target.status = structure.status; target.point = structure.point; target.polygonEntities = polygonEntities; } if (polygonEntities.length) drawStructurePolygonNumber(ctx, structure, polygonEntities, transform, structure.status, model.areaNumberSize); });
     const protectedPoints = [...(model.firingPoints || []), ...(model.blockingPoints || []), ...(model.cardPoints || [])];
-    placeStructureMarkers(structurePoints, transform, model.radiusContours || [], protectedPoints).forEach(({ structure, displayPoint }) => drawStructureMarker(ctx, structure, transform, colors, displayPoint, model.areaNumberSize));
+    placeStructureMarkers(structurePoints, transform, model.radiusContours || [], protectedPoints).forEach(({ structure, displayPoint }) => drawStructureMarker(ctx, structure, transform, colors, displayPoint, model.areaNumberSize, !structure.polygonEntities?.length));
     drawContours(ctx, model.radiusContours, transform, colors, model.radii);
     // As poligonais de desmonte ficam na camada operacional superior do croqui.
     sortedStrings(model.strings || []).reverse().forEach((item) => (item.entities || []).forEach((entity) => drawEntity(ctx, entity, transform, stringColor(item, colors))));
