@@ -27,6 +27,14 @@ const structurePolygonsDxf = await fs.readFile(new URL('../ESTRUTURAS PROXIMAS/P
 const structurePolygons = parseDxf(structurePolygonsDxf);
 assert.ok(structurePolygons.entities.length >= 54, 'as poligonais novas devem conter as áreas das estruturas');
 assert.ok(structurePolygons.entities.every((entity) => entity.closed && entity.points.length >= 3), 'cada poligonal de estrutura precisa ser fechada');
+const combinedStructureDxf = await fs.readFile(new URL('../ESTRUTURAS PROXIMAS/ID - PONTOS + Pligonais das Estruturas Proximas.dxf', import.meta.url), 'latin1');
+const combinedStructures = parseDxf(combinedStructureDxf);
+assert.ok(combinedStructures.entities.length >= 54, 'o DXF combinado precisa conter as poligonais das estruturas');
+assert.ok(combinedStructures.entities.every((entity) => entity.closed && entity.points.length >= 3), 'as poligonais combinadas precisam ser fechadas');
+for (const source of ['ID - PONTOS.dwg', 'ID - PONTOS.dxf']) {
+  const sourceStat = await fs.stat(new URL(`../ESTRUTURAS PROXIMAS/${source}`, import.meta.url));
+  assert.ok(sourceStat.size > 0, `${source} precisa existir como fonte dos pontos atualizados`);
+}
 const parsedArea = parseDxf(areaDxf);
 assert.ok(parsedArea.entities.length >= 10, 'o DXF de áreas de referência precisa ler os HATCHs');
 assert.ok(parsedArea.entities.every((entity) => entity.closed), 'as áreas HATCH precisam ser fechadas');
@@ -38,6 +46,8 @@ assert.equal(appConfig.onlineCatalog.enabled, true, 'o catálogo online precisa 
 assert.equal(appConfig.defaultPreset.observation, 'Setor Técnico de Operações - Enaex Brasil.');
 assert.deepEqual(appConfig.defaultPreset.pointIconSizes, { firing: 48, blocking: 20, card: 20 });
 assert.equal(appConfig.defaultPreset.areaNumberSize, 6);
+assert.equal(appConfig.defaultPreset.structurePointsSource.dxf, 'ESTRUTURAS PROXIMAS/ID - PONTOS.dxf');
+assert.equal(appConfig.areasProjeto.find((area) => area.id === 'estruturas-proximas')?.path, 'ESTRUTURAS PROXIMAS/ID - PONTOS + Pligonais das Estruturas Proximas.dxf');
 assert.equal(appConfig.ortomosaicos.length, 4, 'o catálogo deve conter o GeoTIFF principal e os três ortomosaicos atuais');
 for (const ortho of appConfig.ortomosaicos) assert.ok((await fs.stat(new URL(`../${ortho.path}`, import.meta.url))).size > 0, `o ortomosaico ${ortho.path} precisa existir`);
 assert.match(appHtml, /id="exportProjectButton"/);
@@ -49,6 +59,7 @@ assert.match(onlineBackend, /LockService\.getScriptLock\(\)/, 'a publicação on
 assert.equal(structureCatalog.structures.length, 54, 'o catálogo deve conter as 54 estruturas nomeadas da planilha');
 assert.equal(new Set(structureCatalog.structures.map((structure) => structure.id)).size, 54, 'os identificadores das estruturas devem ser únicos');
 assert.equal(structureCatalog.structures.reduce((total, structure) => total + structure.positions.length, 0), 59, 'o catálogo deve preservar todas as 59 posições fornecidas');
+assert.equal(structureCatalog.pointsSource.extractedPositions, 59, 'a origem dos pontos precisa registrar as 59 posições');
 assert.equal(structureCatalog.structures.find((structure) => structure.id === '41')?.name, 'PORTARIA');
 assert.equal(structureCatalog.structures.find((structure) => structure.id === '42')?.name, 'PILHA DE TOPSOIL');
 assert.equal(structureCatalog.structures.find((structure) => structure.id === '40')?.name, 'ACESSO PRINCIPAL');

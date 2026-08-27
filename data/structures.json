@@ -1,5 +1,12 @@
 {
-  "source": "ESTRUTURAS PROXIMAS/Lista de Nomes.xlsx + Nome - ID - Posição das Estruturas Proximas.xlsx",
+  "source": "ESTRUTURAS PROXIMAS/ID - PONTOS.dwg + ID - PONTOS.dxf + Nome - ID - Posição das Estruturas Proximas.xlsx",
+  "pointsSource": {
+    "dwg": "ESTRUTURAS PROXIMAS/ID - PONTOS.dwg",
+    "dxf": "ESTRUTURAS PROXIMAS/ID - PONTOS.dxf",
+    "tabularFallback": "ESTRUTURAS PROXIMAS/Nome - ID - Posição das Estruturas Proximas.csv",
+    "extractedPositions": 59,
+    "note": "Arquivos CAD Civil 3D; o catálogo preserva as coordenadas dos pontos nomeados para renderização web."
+  },
   "pageMap": {
     "x": 61,
     "y": 68,

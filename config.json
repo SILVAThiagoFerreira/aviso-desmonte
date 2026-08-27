@@ -14,7 +14,12 @@
     "observation": "Setor Técnico de Operações - Enaex Brasil.",
     "pointIconSizes": { "firing": 48, "blocking": 20, "card": 20 },
     "areaNumberSize": 6,
-    "structureCatalog": "data/structures.json"
+    "structureCatalog": "data/structures.json",
+    "structurePointsSource": {
+      "dwg": "ESTRUTURAS PROXIMAS/ID - PONTOS.dwg",
+      "dxf": "ESTRUTURAS PROXIMAS/ID - PONTOS.dxf",
+      "catalog": "data/structures.json"
+    }
   },
   "onlineCatalog": {
     "enabled": true,
@@ -35,7 +40,7 @@
   "areasProjeto": [
     { "id": "evacuar", "label": "Áreas de evacuação", "path": "ÁREA DE INFLUÊNCIA/DXF/EVACUAR.dxf" },
     { "id": "liberado", "label": "Áreas liberadas", "path": "ÁREA DE INFLUÊNCIA/DXF/LIBERADO.dxf" },
-    { "id": "estruturas-proximas", "label": "Poligonais das estruturas próximas", "path": "ESTRUTURAS PROXIMAS/Pligonais das Estruturas Proximas.dxf" }
+    { "id": "estruturas-proximas", "label": "Poligonais das estruturas próximas · pontos atualizados", "path": "ESTRUTURAS PROXIMAS/ID - PONTOS + Pligonais das Estruturas Proximas.dxf" }
   ],
   "report": {
     "canvasWidth": 1600,
