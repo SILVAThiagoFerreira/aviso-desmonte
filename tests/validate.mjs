@@ -14,7 +14,13 @@ assert.ok(parsed.entities.every((entity) => entity.points.length >= 2), 'cada st
 assert.ok(getStringEndpoints(parsed.entities).length >= 3, 'as extremidades devem ser identificadas');
 const contours = buildRadiusContours(parsed.entities, [700, 300]);
 assert.equal(contours.length, 2, 'os dois raios devem gerar dois contornos únicos');
-assert.ok(contours.every((contour) => contour.polygons.length >= 1), 'cada raio precisa ter uma união geométrica');
+assert.ok(contours.every((contour) => contour.polygons.length === 1), 'cada raio precisa gerar um único cerco unificado');
+const savedUnion = globalThis.polygonClipping.union;
+globalThis.polygonClipping.union = () => { throw new Error('falha de união simulada'); };
+const fallbackContours = buildRadiusContours(parsed.entities, [700]);
+assert.equal(fallbackContours[0].polygons.length, 1, 'uma falha de união não pode desenhar cápsulas individuais');
+assert.equal(fallbackContours[0].fallback, true, 'a falha de união precisa ser sinalizada como simplificação segura');
+globalThis.polygonClipping.union = savedUnion;
 globalThis.polygonClipping = { union: (...polygons) => polygons };
 assert.equal(unionContourPolygons([[[[0, 0], [10, 0], [10, 10], [0, 0]]], [[[5, 0], [15, 0], [15, 10], [5, 0]]]]).length, 2, 'a normalização precisa aceitar polígonos válidos sem criar raios extras');
 const bounds = boundsOf(parsed.entities);

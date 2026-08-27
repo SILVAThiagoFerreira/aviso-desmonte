@@ -151,13 +151,38 @@ function unionInBatches(pieces, batchSize = 24) {
 }
 
 export function unionContourPolygons(polygons = []) {
-  const valid = polygons.filter((polygon) => polygon?.[0]?.length >= 3);
+  const valid = polygons.map(normalizePolygon).filter(Boolean);
   if (valid.length <= 1 || !globalThis.polygonClipping?.union) return valid;
   try {
-    return globalThis.polygonClipping.union(...valid) || valid;
+    return (globalThis.polygonClipping.union(...valid) || []).map(normalizePolygon).filter(Boolean);
   } catch {
     return valid;
   }
+}
+
+function normalizeRing(ring = []) {
+  const points = [];
+  ring.forEach((point) => {
+    const x = Number(point?.[0]); const y = Number(point?.[1]);
+    if (!Number.isFinite(x) || !Number.isFinite(y)) return;
+    const previous = points.at(-1);
+    if (!previous || previous[0] !== x || previous[1] !== y) points.push([x, y]);
+  });
+  if (points.length < 3) return null;
+  const first = points[0]; const last = points.at(-1);
+  if (first[0] !== last[0] || first[1] !== last[1]) points.push([...first]);
+  const twiceArea = points.slice(1).reduce((total, point, index) => total + points[index][0] * point[1] - point[0] * points[index][1], 0);
+  return Math.abs(twiceArea) > 1e-8 ? points : null;
+}
+
+function normalizePolygon(polygon) {
+  if (!Array.isArray(polygon)) return null;
+  const rings = polygon.map(normalizeRing).filter(Boolean);
+  return rings.length ? rings : null;
+}
+
+function contourMask(contours = []) {
+  return unionContourPolygons(contours.flatMap((contour) => contour?.polygons || []));
 }
 
 function bufferPieces(entities, radius) {
@@ -200,8 +225,11 @@ export function buildRadiusContours(entities = [], radii = []) {
     const pieces = bufferPieces(entities, radius);
     if (!pieces.length) return { radius, polygons: [] };
     let polygons = [];
-    try { polygons = pieces.length > 120 ? unionContourPolygons(unionInBatches(pieces)) : unionContourPolygons(pieces); } catch { polygons = pieces; }
-    if (!polygons.length) return { radius, polygons: pieces, outline: roundedBoundsPolygon(entities, radius) };
+    try { polygons = pieces.length > 120 ? unionContourPolygons(unionInBatches(pieces)) : unionContourPolygons(pieces); } catch { polygons = []; }
+    // Um cerco operacional precisa ser um único limite. Nunca exponha as
+    // cápsulas de cada segmento quando uma união DXF não for possível: além de
+    // confundir a leitura, elas quebram as operações de interseção das áreas.
+    if (polygons.length !== 1) return { radius, polygons: roundedBoundsPolygon(entities, radius), fallback: true };
     return { radius, polygons };
   }).filter((item) => item.polygons.length);
 }
@@ -247,28 +275,18 @@ export function intersectEntityWithContours(entity, contours = []) {
   const ring = entity.points.map((point) => [point.x, point.y]);
   if (ring.length && (ring[0][0] !== ring[ring.length - 1][0] || ring[0][1] !== ring[ring.length - 1][1])) ring.push(ring[0]);
   const subject = [[ring]];
-  const intersections = [];
-  contours.forEach((contour) => (contour.polygons || []).forEach((polygon) => {
-    try {
-      const pieces = globalThis.polygonClipping.intersection(subject, [polygon]);
-      if (pieces?.length) intersections.push(...pieces);
-    } catch {
-      // Uma geometria opcional inválida não pode impedir a renderização da prancha.
-    }
-  }));
-  return intersections;
+  const mask = contourMask(contours);
+  if (!mask.length) return [];
+  try { return globalThis.polygonClipping.intersection(subject, mask) || []; } catch { return []; }
 }
 
 export function differenceEntityWithContours(entity, contours = []) {
   if (!entity?.closed || entity.type === 'circle' || (entity.points || []).length < 3 || !globalThis.polygonClipping?.difference) return [];
   const ring = entity.points.map((point) => [point.x, point.y]);
   if (ring.length && (ring[0][0] !== ring[ring.length - 1][0] || ring[0][1] !== ring[ring.length - 1][1])) ring.push(ring[0]);
-  let remaining = [[ring]];
-  contours.forEach((contour) => (contour.polygons || []).forEach((polygon) => {
-    if (!remaining.length) return;
-    try { remaining = globalThis.polygonClipping.difference(remaining, [polygon]) || []; } catch { /* mantém a geometria original em caso de falha opcional */ }
-  }));
-  return remaining;
+  const mask = contourMask(contours);
+  if (!mask.length) return [[ring]];
+  try { return globalThis.polygonClipping.difference([[ring]], mask) || []; } catch { return [[ring]]; }
 }
 
 function orientation(a, b, c) { return (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x); }
