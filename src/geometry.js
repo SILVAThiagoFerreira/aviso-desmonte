@@ -142,7 +142,9 @@ function unionInBatches(pieces, batchSize = 24) {
   while (pending.length > 1) {
     const next = [];
     for (let index = 0; index < pending.length; index += batchSize) next.push(...globalThis.polygonClipping.union(...pending.slice(index, index + batchSize)));
-    if (next.length >= pending.length) return next;
+    // A redução dentro de cada lote não garante que os lotes vizinhos foram
+    // unidos. Faça a união global antes de desenhar o contorno final.
+    if (next.length >= pending.length) return unionContourPolygons(next);
     pending = next;
   }
   return pending;
