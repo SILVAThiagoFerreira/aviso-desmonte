@@ -2,7 +2,7 @@
   "app": {
     "name": "Aviso de Desmonte",
     "eyebrow": "AVISO DE DESMONTE",
-    "version": "1.19.1"
+    "version": "1.19.2"
   },
   "defaultPreset": {
     "loadAllOrthomosaics": true,
@@ -51,7 +51,7 @@
     "pageHeightPt": 1126,
     "map": { "x": 28, "y": 35, "width": 1280, "height": 1422 },
     "panel": { "x": 1330, "y": 35, "width": 240, "height": 1422 },
-    "noticeTable": { "width": 1542, "height": 315 },
+    "noticeTable": { "width": 1542, "height": 250 },
     "colors": {
       "paper": "#ffffff",
       "ink": "#1f2f35",

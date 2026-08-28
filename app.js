@@ -2,7 +2,7 @@ import { parseDxf, parseGeoJson } from './src/dxf.js';
 import { boundsOfContours, buildRadiusContours, boundsOf, dedupeEntities, fitBoundsToAspect, flattenStringEntities, mergeBounds, paddedBounds, unionContourPolygons } from './src/geometry.js?v=1.18.4';
 import { decodeGeoTiff } from './src/geotiff.js';
 import { PROJECT_CRS } from './src/crs.js';
-import { drawNoticeTable, drawReport } from './src/render.js?v=1.19.0';
+import { drawNoticeTable, drawReport } from './src/render.js?v=1.19.2';
 import { downloadReportPdf } from './src/pdf.js';
 import { getOrthoOverride, listOrthoOverrides, removeOrthoOverride, saveOrthoOverride } from './src/ortho-store.js';
 
