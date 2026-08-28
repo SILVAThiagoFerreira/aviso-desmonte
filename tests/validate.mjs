@@ -74,6 +74,9 @@ assert.equal(appConfig.areasProjeto.find((area) => area.id === 'estruturas-proxi
 assert.equal(appConfig.ortomosaicos.length, 4, 'o catálogo deve conter o GeoTIFF principal e os três ortomosaicos atuais');
 for (const ortho of appConfig.ortomosaicos) assert.ok((await fs.stat(new URL(`../${ortho.path}`, import.meta.url))).size > 0, `o ortomosaico ${ortho.path} precisa existir`);
 assert.match(appHtml, /id="exportProjectButton"/);
+assert.match(appHtml, /id="blastNumber"/);
+assert.match(appHtml, /id="noticeImageButton"/);
+assert.match(renderSource, /drawNoticeFooter/);
 assert.match(appHtml, /id="importProjectFile"/);
 assert.match(appConfig.onlineCatalog.endpoint, /^https:\/\/script\.google\.com\/macros\/s\//, 'o endpoint online precisa ser um Web App do Apps Script');
 assert.match(onlineBackend, /function doGet\(event\)/, 'o backend precisa expor leitura online');

@@ -136,6 +136,7 @@ button { cursor: pointer; }
 .button span { margin-left: 8px; font-size: 16px; line-height: 0; }
 .preview-panel { min-width: 0; }
 .preview-toolbar { display: flex; justify-content: space-between; align-items: end; min-height: 64px; padding: 5px 3px 14px; }
+.preview-toolbar-actions { display: flex; align-items: end; gap: 14px; }
 .preview-toolbar p { margin: 8px 0 0; color: var(--muted); font-size: 12px; }
 .preview-metrics { display: flex; gap: 17px; color: var(--muted); font: 500 10px 'IBM Plex Mono', monospace; text-align: right; }
 .preview-metrics b { color: var(--ink); font-size: 14px; }
