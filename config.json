@@ -2,7 +2,7 @@
   "app": {
     "name": "Aviso de Desmonte",
     "eyebrow": "AVISO DE DESMONTE",
-    "version": "1.19.0"
+    "version": "1.19.1"
   },
   "defaultPreset": {
     "loadAllOrthomosaics": true,
@@ -44,14 +44,14 @@
   ],
   "report": {
     "canvasWidth": 1600,
-    "canvasHeight": 1615,
+    "canvasHeight": 1512,
     "outputScale": 1.5,
     "structureBoundaryTolerance": 20,
     "pageWidthPt": 1191,
     "pageHeightPt": 1126,
-    "map": { "x": 28, "y": 35, "width": 1280, "height": 1210 },
-    "panel": { "x": 1330, "y": 35, "width": 240, "height": 1210 },
-    "noticeFooter": { "x": 28, "y": 1270, "width": 1542, "height": 315 },
+    "map": { "x": 28, "y": 35, "width": 1280, "height": 1422 },
+    "panel": { "x": 1330, "y": 35, "width": 240, "height": 1422 },
+    "noticeTable": { "width": 1542, "height": 315 },
     "colors": {
       "paper": "#ffffff",
       "ink": "#1f2f35",

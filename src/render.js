@@ -416,6 +416,15 @@ function drawNoticeFooter(ctx, model, footer, colors) {
   const obsY = y + titleH + infoH; const obsHeaderH = 42; ctx.fillStyle = green; ctx.fillRect(x, obsY, w, obsHeaderH); ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.font = '700 19px Arial'; ctx.fillText('⚠ OBSERVAÇÕES ⚠', x + w / 2, obsY + 28); const lines = [model.meta.observation || 'O desmonte será realizado e monitorado na faixa do rádio.', 'Todos devem permanecer na área coberta (telhado) até que a mina seja liberada pela equipe de desmonte.', 'Qualquer anomalia observada durante o desmonte, deverá ser comunicada imediatamente ao responsável do desmonte.']; ctx.fillStyle = orange; ctx.font = '18px Arial'; lines.forEach((line, index) => { const ly = obsY + obsHeaderH + 30 + index * 31; ctx.strokeStyle = border; ctx.strokeRect(x, ly - 24, w, 31); ctx.fillText(fitCanvasText(ctx, line, w - 28), x + w / 2, ly - 2); }); ctx.restore();
 }
 
+export function drawNoticeTable(canvas, model, config) {
+  const table = config.report.noticeTable;
+  const outputScale = Math.max(1, Number(config.report.outputScale) || 1);
+  canvas.width = Math.round(table.width * outputScale); canvas.height = Math.round(table.height * outputScale);
+  const ctx = canvas.getContext('2d'); ctx.setTransform(outputScale, 0, 0, outputScale, 0, 0); ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
+  const normalizedModel = { ...model, meta: { ...model.meta, dateLabel: model.meta.date ? new Date(`${model.meta.date}T12:00:00`).toLocaleDateString('pt-BR') : 'DATA NÃO INFORMADA' } };
+  drawNoticeFooter(ctx, normalizedModel, { x: 0, y: 0, width: table.width, height: table.height }, config.report.colors);
+}
+
 export function drawReport(canvas, model, config) {
   const logicalWidth = config.report.canvasWidth; const logicalHeight = config.report.canvasHeight; const outputScale = Math.max(1, Number(config.report.outputScale) || 1); const width = logicalWidth; const height = logicalHeight; canvas.width = Math.round(width * outputScale); canvas.height = Math.round(height * outputScale);
   const ctx = canvas.getContext('2d'); ctx.setTransform(outputScale, 0, 0, outputScale, 0, 0); ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high'; const colors = config.report.colors; const map = config.report.map; const panel = config.report.panel; const stringEntities = flattenStringEntities(model.strings || []);
@@ -468,7 +477,6 @@ export function drawReport(canvas, model, config) {
     ctx.restore();
   }
   drawNorth(ctx, map); drawScale(ctx, map, transform, bounds); const legend = transform ? drawLegend(ctx, { ...model, areas: model.areas, statusAreas: model.structures?.length ? model.structures : model.areas }, map, colors, transform) : null; drawPanel(ctx, { ...model, meta: { ...model.meta, dateLabel: model.meta.date ? new Date(`${model.meta.date}T12:00:00`).toLocaleDateString('pt-BR') : 'DATA NÃO INFORMADA' } }, panel, colors);
-  drawNoticeFooter(ctx, { ...model, meta: { ...model.meta, dateLabel: model.meta.date ? new Date(`${model.meta.date}T12:00:00`).toLocaleDateString('pt-BR') : 'DATA NÃO INFORMADA' } }, config.report.noticeFooter, colors);
   ctx.fillStyle = colors.ink; ctx.font = '14px Arial'; ctx.textAlign = 'left'; ctx.fillText(model.meta.location || 'Local não informado', map.x + 8, height - 34); ctx.textAlign = 'right'; ctx.fillText(model.meta.observation || 'Valide os dados operacionais antes da emissão', width - 24, height - 34);
   return { bounds, map: { x: map.x * outputScale, y: map.y * outputScale, width: map.width * outputScale, height: map.height * outputScale }, transform, extentSource, legend, endpointCount: getStringEndpoints(stringEntities).length, areaStatuses: model.areas.map((area) => ({ id: area.id, status: area.status })) };
 }

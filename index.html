@@ -56,7 +56,7 @@
           <div class="form-actions"><button class="button button-secondary" type="button" id="clearButton">Limpar</button><button class="button button-primary" type="button" id="pdfButton">Gerar aviso em PDF <span>↗</span></button></div>
         </form>
       </aside>
-      <section class="preview-panel" aria-label="Pré-visualização do aviso"><div class="preview-toolbar"><div><span class="section-kicker">PRANCHA FINAL</span><p id="previewCaption">A prévia será atualizada conforme os dados forem preenchidos.</p></div><div class="preview-toolbar-actions"><div class="preview-metrics"><span><b id="geometryCount">0</b> entidades</span><span><b id="endpointCount">0</b> extremidades</span><span id="scaleWarning">extensão automática</span></div><button class="catalog-button" type="button" id="noticeImageButton">Exportar tabela PNG</button></div></div><div class="preview-stage"><canvas id="reportCanvas" width="1600" height="1615" aria-label="Prévia do aviso de desmonte"></canvas></div><p class="preview-note">A geração acontece localmente no navegador. A tabela inferior acompanha os dados do croqui e pode ser exportada como imagem.</p></section>
+      <section class="preview-panel" aria-label="Pré-visualização do aviso"><div class="preview-toolbar"><div><span class="section-kicker">PRANCHA FINAL</span><p id="previewCaption">A prévia será atualizada conforme os dados forem preenchidos.</p></div><div class="preview-metrics"><span><b id="geometryCount">0</b> entidades</span><span><b id="endpointCount">0</b> extremidades</span><span id="scaleWarning">extensão automática</span></div></div><div class="preview-stage"><canvas id="reportCanvas" width="1600" height="1512" aria-label="Prévia do aviso de desmonte"></canvas></div><p class="preview-note">A prancha do croqui permanece independente. Valide os dados operacionais e os limites geográficos antes de emitir o PDF.</p><section class="notice-output" aria-label="Tabela do aviso"><div class="notice-output-heading"><div><span class="section-kicker">IMAGEM INDEPENDENTE</span><h2>Tabela do aviso</h2><p>Esta imagem é gerada separadamente do croqui e acompanha os dados preenchidos.</p></div><button class="catalog-button" type="button" id="noticeImageButton">Exportar tabela PNG</button></div><div class="notice-stage"><canvas id="noticeCanvas" width="1542" height="315" aria-label="Tabela do aviso de desmonte"></canvas></div></section></section>
     </main>
   </div>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
@@ -64,6 +64,6 @@
   <script src="./vendor/polygon-clipping.min.js"></script>
   <script src="./vendor/proj4.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js" crossorigin="anonymous"></script>
-  <script type="module" src="app.js?v=1.19.0"></script>
+  <script type="module" src="app.js?v=1.19.1"></script>
 </body>
 </html>

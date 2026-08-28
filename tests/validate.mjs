@@ -76,7 +76,11 @@ for (const ortho of appConfig.ortomosaicos) assert.ok((await fs.stat(new URL(`..
 assert.match(appHtml, /id="exportProjectButton"/);
 assert.match(appHtml, /id="blastNumber"/);
 assert.match(appHtml, /id="noticeImageButton"/);
-assert.match(renderSource, /drawNoticeFooter/);
+assert.match(appHtml, /id="noticeCanvas"/);
+assert.match(renderSource, /export function drawNoticeTable/);
+assert.ok(!renderSource.includes('config.report.noticeFooter'), 'a tabela não pode ser renderizada dentro do croqui');
+assert.equal(appConfig.report.canvasHeight, 1512, 'o croqui deve preservar a altura original');
+assert.deepEqual(appConfig.report.map, { x: 28, y: 35, width: 1280, height: 1422 }, 'o mapa deve preservar o enquadramento original');
 assert.match(appHtml, /id="importProjectFile"/);
 assert.match(appConfig.onlineCatalog.endpoint, /^https:\/\/script\.google\.com\/macros\/s\//, 'o endpoint online precisa ser um Web App do Apps Script');
 assert.match(onlineBackend, /function doGet\(event\)/, 'o backend precisa expor leitura online');
