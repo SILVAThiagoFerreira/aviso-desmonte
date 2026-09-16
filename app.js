@@ -151,9 +151,9 @@ async function applyDefaultPreset() {
   if (preset.machineRadius != null) $('machineRadius').value = preset.machineRadius;
   $('observation').value = preset.observation || DEFAULT_OBSERVATION;
   $('firingPointSize').value = preset.pointIconSizes?.firing || 48;
-  $('blockingPointSize').value = preset.pointIconSizes?.blocking || 20;
-  $('cardPointSize').value = preset.pointIconSizes?.card || 20;
-  $('areaNumberSize').value = preset.areaNumberSize || 6;
+  $('blockingPointSize').value = preset.pointIconSizes?.blocking || 25;
+  $('cardPointSize').value = preset.pointIconSizes?.card || 30;
+  $('areaNumberSize').value = preset.areaNumberSize || 10;
   if (preset.loadAllOrthomosaics) { setLoadingProgress(35, 'Carregando ortomosaicos do projeto…'); await loadAllCatalogOrthomosaics(); }
   if (preset.loadProjectStrings) { setLoadingProgress(60, 'Importando poligonais de desmonte…'); await loadBundledStrings(); }
   if (preset.loadProjectAreas) { setLoadingProgress(75, 'Carregando áreas e estruturas…'); await loadBundledAreas(); }
