@@ -9,11 +9,12 @@ Gerador de pranchas de área de influência para avisos de desmonte. O site rece
 3. Escolha um dos ortomosaicos do catálogo (Mina, PDE ou Eetoques) e clique em `Carregar`, ou use `Carregar todas no mapa` para exibir as quatro camadas georreferenciadas em conjunto. O botão `Substituir / atualizar ortomosaico` grava uma versão local no navegador, sem alterar o TIFF original; `Restaurar original` remove essa substituição.
 4. Carregue uma imagem de fundo quando houver outro ortomosaico ou use a imagem de referência apenas para conferência visual.
 5. Use `Importar poligonais do projeto` para carregar os DXF já catalogados ou adicione uma ou várias poligonais DXF e renomeie cada entrada.
-6. Informe os raios para pessoas e máquinas. O sistema percorre cada segmento continuamente, une as áreas sobrepostas e exibe apenas o contorno final de cada raio.
+6. Confirme os raios para pessoas e máquinas (o preset inicial é 500 m e 700 m). O sistema percorre cada segmento continuamente, une as áreas sobrepostas e exibe apenas o contorno final de cada raio.
 7. O catálogo `data/structures.json` foi extraído da prancha PDF mais recente em `PDF/2026/08. Agosto/20260804 - Aviso de Detonação.pdf`. Ele contém os 54 pontos numerados e seus nomes; cada ponto é reclassificado automaticamente a cada alteração dos raios. Pontos dentro de qualquer raio ficam vermelhos (`EVACUAR`) e os demais ficam azuis (`LIBERADO`).
 8. Use a GeoTIFF do projeto ou carregue outra GeoTIFF georreferenciada. Com o ajuste automático ativo, a prancha enquadra toda a extensão dos ortomosaicos georreferenciados; os limites X/Y manuais continuam disponíveis para conferência.
-9. Em `Pontos operacionais`, escolha ponto de disparo, ponto de bloqueio ou entrega de cartões e clique no croqui para posicionar e nomear o símbolo.
-10. Confira a prancha e clique em `Gerar aviso em PDF`.
+9. Em `Pontos operacionais`, escolha ponto de disparo, ponto de bloqueio ou entrega de cartões e clique no croqui para posicionar e nomear o símbolo. Depois, arraste qualquer símbolo já inserido ou use `Mover` na sua linha para reposicioná-lo sem excluir o registro.
+10. Em `Strings de desmonte`, use `Desenhar string no croqui`, informe nome/tipo e clique para adicionar os vértices; finalize com duplo clique no último ponto ou `Concluir string`.
+11. Confira a prancha e clique em `Gerar aviso em PDF`.
 
 Os dados e os arquivos ficam no navegador. Substituições de ortomosaicos persistem no IndexedDB desta máquina para permitir atualização entre sessões; o original publicado permanece intacto. O projeto não envia DXF, imagens ou informações operacionais para um servidor.
 

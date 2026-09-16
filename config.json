@@ -2,18 +2,18 @@
   "app": {
     "name": "Aviso de Desmonte",
     "eyebrow": "AVISO DE DESMONTE",
-    "version": "1.19.2"
+    "version": "1.20.0"
   },
   "defaultPreset": {
     "loadAllOrthomosaics": true,
     "loadProjectStrings": true,
     "loadProjectAreas": true,
     "loadSatelliteBackground": true,
-    "peopleRadius": 700,
-    "machineRadius": 300,
+    "peopleRadius": 500,
+    "machineRadius": 700,
     "observation": "Setor Técnico de Operações - Enaex Brasil.",
-    "pointIconSizes": { "firing": 48, "blocking": 20, "card": 20 },
-    "areaNumberSize": 6,
+    "pointIconSizes": { "firing": 48, "blocking": 25, "card": 30 },
+    "areaNumberSize": 10,
     "structureCatalog": "data/structures.json",
     "structurePointsSource": {
       "dwg": "ESTRUTURAS PROXIMAS/ID - PONTOS.dwg",

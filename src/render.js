@@ -171,6 +171,26 @@ function drawStringThumbnail(ctx, item, x, y, width, height, color) {
   ctx.restore();
 }
 
+function drawStringDraft(ctx, draft, transform, colors) {
+  const points = draft?.points || [];
+  if (!transform || !points.length) return;
+  const projected = points.map((point) => ({ x: transform.x(point), y: transform.y(point) }));
+  if (draft.previewPoint && points.length) projected.push({ x: transform.x(draft.previewPoint), y: transform.y(draft.previewPoint) });
+  ctx.save();
+  ctx.strokeStyle = colors.orange;
+  ctx.fillStyle = '#ffffff';
+  ctx.lineWidth = 4;
+  ctx.setLineDash([12, 8]);
+  ctx.lineJoin = 'round';
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  projected.forEach((point, index) => { if (index) ctx.lineTo(point.x, point.y); else ctx.moveTo(point.x, point.y); });
+  ctx.stroke();
+  ctx.setLineDash([]);
+  projected.slice(0, points.length).forEach((point, index) => { ctx.beginPath(); ctx.arc(point.x, point.y, 7, 0, Math.PI * 2); ctx.fill(); ctx.strokeStyle = colors.orange; ctx.lineWidth = 3; ctx.stroke(); ctx.fillStyle = colors.orange; ctx.font = '700 11px Arial'; ctx.textAlign = 'center'; ctx.fillText(String(index + 1), point.x, point.y - 12); });
+  ctx.restore();
+}
+
 function wrapCanvasText(ctx, value, maxWidth, maxLines = 2) {
   const words = String(value || '').trim().split(/\s+/).filter(Boolean);
   if (!words.length) return [''];
@@ -405,7 +425,7 @@ function drawPanel(ctx, model, panel, colors) {
 }
 
 function noticeYear(meta) { return meta.date ? new Date(`${meta.date}T12:00:00`).getFullYear() : 'ANO'; }
-function noticeRegions(model) { const typeLabel = { production: 'PRODUÇÃO', precut: 'PRÉ-CORTE', regularization: 'BLOCOS/REGULARIZAÇÕES' }; return (model.strings || []).map((item) => `${item.label || item.name || 'REGIÃO'}; ${typeLabel[item.blastType] || 'PRODUÇÃO'}`).join(' · '); }
+function noticeRegions(model) { const typeLabel = { production: 'Produção', precut: 'Pré-Corte', regularization: 'Regularização/Bloco' }; return (model.strings || []).map((item) => `${item.label || item.name || 'REGIÃO'} (${typeLabel[item.blastType] || 'Produção'})`).join(' · '); }
 function drawNoticeFooter(ctx, model, footer, colors) {
   const x = footer.x; const y = footer.y; const w = footer.width; const green = '#477a5e'; const orange = '#f15b2a'; const border = '#111111';
   ctx.save(); ctx.fillStyle = '#fff'; ctx.fillRect(x, y, w, footer.height); ctx.strokeStyle = border; ctx.lineWidth = 1.5; ctx.strokeRect(x, y, w, footer.height);
@@ -474,6 +494,7 @@ export function drawReport(canvas, model, config) {
     (model.firingPoints || []).forEach((point) => drawPointMarker(ctx, point, transform, model.firingIcon, colors, 'firing', model.pointIconSizes));
     (model.blockingPoints || []).forEach((point) => drawPointMarker(ctx, point, transform, model.blockingIcon, colors, 'blocking', model.pointIconSizes));
     (model.cardPoints || []).forEach((point) => drawPointMarker(ctx, point, transform, model.cardIcon, colors, 'card', model.pointIconSizes));
+    drawStringDraft(ctx, model.stringDrawing, transform, colors);
     ctx.restore();
   }
   drawNorth(ctx, map); drawScale(ctx, map, transform, bounds); const legend = transform ? drawLegend(ctx, { ...model, areas: model.areas, statusAreas: model.structures?.length ? model.structures : model.areas }, map, colors, transform) : null; drawPanel(ctx, { ...model, meta: { ...model.meta, dateLabel: model.meta.date ? new Date(`${model.meta.date}T12:00:00`).toLocaleDateString('pt-BR') : 'DATA NÃO INFORMADA' } }, panel, colors);

@@ -111,6 +111,13 @@ button { cursor: pointer; }
 .project-file-state { margin: 9px 0 0; color: var(--muted); font: 500 10px/1.4 'IBM Plex Mono', monospace; }
 .status-override { min-height: 22px; max-width: 88px; border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; color: var(--ink); background: #f8fbfa; font: 700 8px 'IBM Plex Mono', monospace; }
 .string-type-select { width: 100%; min-height: 28px; margin-bottom: 4px; border: 1px solid var(--line); border-radius: 5px; padding: 0 7px; color: var(--ink); background: #f8fbfa; font: 700 10px 'IBM Plex Mono', monospace; }
+.string-drawing-tools { margin-top: 11px; border: 1px solid rgba(255,122,24,.36); border-radius: 8px; padding: 11px; background: #fff8f1; }
+.string-drawing-tools[hidden] { display: none; }
+.drawing-tools-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
+.drawing-tools-heading strong { display: block; margin-top: 4px; font-size: 12px; }
+.drawing-point-count { color: var(--orange); font: 700 9px 'IBM Plex Mono', monospace; white-space: nowrap; }
+.drawing-tools-actions { display: flex; align-items: center; gap: 12px; margin-top: 9px; }
+.drawing-tools-actions .text-button { margin-top: 0; }
 .area-item small, .string-item small { display: block; margin-top: 3px; overflow: hidden; color: var(--muted); font: 9px 'IBM Plex Mono', monospace; text-overflow: ellipsis; white-space: nowrap; }
 .area-status { display: inline-flex; align-items: center; min-height: 22px; border-radius: 4px; padding: 0 6px; font: 700 8px 'IBM Plex Mono', monospace; white-space: nowrap; }
 .area-status.evacuar { color: #fff; background: var(--red); }
@@ -156,7 +163,7 @@ button { cursor: pointer; }
 .point-actions { display: grid; grid-template-columns: 1fr; gap: 7px; margin-top: 10px; }
 .point-actions .text-button { margin-top: 0; text-align: left; }
 .point-list { display: grid; gap: 7px; margin-top: 10px; }
-.point-item { display: grid; grid-template-columns: 20px minmax(0, 1fr) 24px; align-items: center; gap: 8px; padding: 8px 9px; border: 1px solid var(--line); border-radius: 6px; background: #f8fafb; }
+.point-item { display: grid; grid-template-columns: 20px minmax(0, 1fr) auto 24px; align-items: center; gap: 8px; padding: 8px 9px; border: 1px solid var(--line); border-radius: 6px; background: #f8fafb; }
 .point-item-copy { min-width: 0; display: grid; gap: 2px; }
 .point-item-copy strong { font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .point-item-copy small { font: 9px/1.35 'IBM Plex Mono', monospace; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -164,7 +171,10 @@ button { cursor: pointer; }
 .point-swatch.firing { background: var(--orange); }
 .point-swatch.blocking { border-radius: 2px; background: linear-gradient(135deg, #ff7a18 0 40%, #fff 40% 60%, #ff7a18 60%); }
 .point-swatch.card { border-radius: 2px; background: #fff; border-color: var(--enaex-red); }
-#reportCanvas.placing-point { cursor: crosshair; outline: 3px solid rgba(237, 28, 36, .35); outline-offset: 4px; }
+#reportCanvas { touch-action: none; }
+#reportCanvas.placing-point, #reportCanvas.drawing-string { cursor: crosshair; outline: 3px solid rgba(237, 28, 36, .35); outline-offset: 4px; }
+#reportCanvas.drawing-string { outline-color: rgba(255, 122, 24, .5); }
+#reportCanvas.dragging-point { cursor: grabbing; }
 @media (max-width: 1100px) { .workspace { grid-template-columns: 360px 1fr; gap: 16px; padding: 16px; } .control-panel { padding: 18px; } .preview-metrics { gap: 9px; } }
 @media (max-width: 840px) { .topbar { min-height: 76px; height: auto; flex-wrap: wrap; gap: 8px; padding: 12px 18px; } .brand-lockup { min-width: 0; flex: 1 1 auto; } .enaex-logo { width: 116px; } .topbar-meta { font-size: 0; } .version { font-size: 10px; } .workspace { grid-template-columns: 1fr; } .control-panel { order: 2; } .preview-panel { order: 1; } .preview-toolbar, .notice-output-heading { align-items: start; gap: 12px; flex-direction: column; } .preview-metrics { flex-wrap: wrap; text-align: left; } }
 @media (max-width: 560px) { .brand-divider { display: none; } .blast-mark { width: 32px; height: 32px; flex-basis: 32px; border-radius: 8px; } .brand-lockup h1 { font-size: 20px; } .enaex-logo { width: 102px; } .catalog-row, .basemap-action-row { grid-template-columns: 1fr; } .catalog-button { width: 100%; } .area-item, .admin-active .structure-item { grid-template-columns: 1fr auto; } .area-status { grid-column: 1; justify-self: start; } .area-item .edit-button { grid-column: 1; justify-self: start; } .area-item .remove-button { grid-column: 2; grid-row: 1 / span 3; } .auth-card { padding: 24px; } }
