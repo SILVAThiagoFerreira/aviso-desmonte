@@ -1,5 +1,12 @@
 import { areaIntersectsContours, boundsOf, boundsOfContours, differenceEntityWithContours, fitBoundsToAspect, flattenStringEntities, formatNumber, getStringEndpoints, intersectEntityWithContours, mergeBounds, paddedBounds, pointIntersectsContours } from './geometry.js';
 
+const DEFAULT_STRING_FILL_OPACITY = 0.16;
+
+function normalizeOpacity(value, fallback = DEFAULT_STRING_FILL_OPACITY) {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? Math.max(0, Math.min(numeric, 1)) : fallback;
+}
+
 function drawCoverImage(ctx, image, box) {
   if (!image) return;
   const imageRatio = image.width / image.height;
@@ -92,9 +99,11 @@ function drawHatchedPolygon(ctx, polygon, transform, hatchColor, fill, outlineCo
   ctx.restore();
 }
 
-function drawEntity(ctx, entity, transform, color) {
-  if (entity.type === 'circle') { const center = entity.points[0]; ctx.beginPath(); ctx.arc(transform.x(center), transform.y(center), entity.radius * transform.scale, 0, Math.PI * 2); ctx.strokeStyle = color; ctx.lineWidth = 3; ctx.stroke(); return; }
+export function drawEntity(ctx, entity, transform, color, fillOpacity = 0) {
+  const opacity = normalizeOpacity(fillOpacity, 0);
+  if (entity.type === 'circle') { const center = entity.points[0]; ctx.beginPath(); ctx.arc(transform.x(center), transform.y(center), entity.radius * transform.scale, 0, Math.PI * 2); if (opacity) { ctx.save(); ctx.globalAlpha = opacity; ctx.fillStyle = color; ctx.fill(); ctx.restore(); } ctx.strokeStyle = color; ctx.lineWidth = 3; ctx.stroke(); return; }
   if (!entityPath(ctx, entity, transform)) return;
+  if (entity.closed && entity.points.length >= 3 && opacity) { ctx.save(); ctx.globalAlpha = opacity; ctx.fillStyle = color; ctx.fill(); ctx.restore(); }
   ctx.strokeStyle = color; ctx.lineWidth = 3; ctx.lineJoin = 'round'; ctx.lineCap = 'round'; ctx.stroke();
 }
 
@@ -150,10 +159,12 @@ function fitCanvasText(ctx, value, maxWidth) {
 }
 
 function stringColor(item, colors) { return colors[item?.blastType] || colors.production || colors.orange; }
+export function drawStringEntity(ctx, entity, transform, color, fillOpacity = DEFAULT_STRING_FILL_OPACITY) { drawEntity(ctx, entity, transform, color, normalizeOpacity(fillOpacity)); }
+function drawStringOutline(ctx, entity, transform, color) { drawEntity(ctx, entity, transform, color, 0); }
 const STRING_PRIORITY = { precut: 1, production: 2, regularization: 3 };
 function sortedStrings(strings = []) { return [...strings].sort((left, right) => (STRING_PRIORITY[left.blastType] || 2) - (STRING_PRIORITY[right.blastType] || 2) || String(left.label || left.name).localeCompare(String(right.label || right.name), 'pt-BR')); }
 
-function drawStringThumbnail(ctx, item, x, y, width, height, color) {
+function drawStringThumbnail(ctx, item, x, y, width, height, color, fillOpacity = DEFAULT_STRING_FILL_OPACITY) {
   const entities = item?.entities || [];
   const points = entities.flatMap((entity) => entity.points || []);
   if (!points.length) return;
@@ -165,8 +176,8 @@ function drawStringThumbnail(ctx, item, x, y, width, height, color) {
   ctx.save(); ctx.strokeStyle = color; ctx.fillStyle = color; ctx.lineWidth = 2; ctx.lineJoin = 'round'; ctx.lineCap = 'round';
   entities.forEach((entity) => {
     const entityPoints = entity.points || []; if (!entityPoints.length) return;
-    if (entity.type === 'circle') { const center = entityPoints[0]; const radius = Math.max(Number(entity.radius || 0) * scale, 2); ctx.beginPath(); ctx.arc(offsetX + (center.x - minX) * scale, offsetY + (maxY - center.y) * scale, radius, 0, Math.PI * 2); ctx.stroke(); return; }
-    ctx.beginPath(); entityPoints.forEach((point, index) => { const px = offsetX + (point.x - minX) * scale; const py = offsetY + (maxY - point.y) * scale; if (index) ctx.lineTo(px, py); else ctx.moveTo(px, py); }); if (entity.closed) ctx.closePath(); ctx.stroke();
+    if (entity.type === 'circle') { const center = entityPoints[0]; const radius = Math.max(Number(entity.radius || 0) * scale, 2); ctx.beginPath(); ctx.arc(offsetX + (center.x - minX) * scale, offsetY + (maxY - center.y) * scale, radius, 0, Math.PI * 2); if (fillOpacity) { ctx.save(); ctx.globalAlpha = fillOpacity; ctx.fillStyle = color; ctx.fill(); ctx.restore(); } ctx.stroke(); return; }
+    ctx.beginPath(); entityPoints.forEach((point, index) => { const px = offsetX + (point.x - minX) * scale; const py = offsetY + (maxY - point.y) * scale; if (index) ctx.lineTo(px, py); else ctx.moveTo(px, py); }); if (entity.closed) { ctx.closePath(); if (entityPoints.length >= 3 && fillOpacity) { ctx.save(); ctx.globalAlpha = fillOpacity; ctx.fillStyle = color; ctx.fill(); ctx.restore(); } } ctx.stroke();
   });
   ctx.restore();
 }
@@ -268,7 +279,7 @@ function chooseLegendPlacement(ctx, model, box, width, height, transform) {
   }).sort((a, b) => a.score - b.score)[0];
 }
 
-function drawLegend(ctx, model, box, colors, transform) {
+function drawLegend(ctx, model, box, colors, transform, stringFillOpacity = DEFAULT_STRING_FILL_OPACITY) {
   const strings = sortedStrings(model.strings || []);
   const statusAreas = model.statusAreas || model.areas || [];
   const radiusRows = (model.radiusContours || []).map((contour) => { const isPeople = contour.kind ? contour.kind === 'people' : Number(contour.radius) === Number(model.radii?.people); return { color: isPeople ? colors.cyan : colors.greenLight, dashed: false, label: `Cx(r)=${formatNumber(contour.radius, 0)} m · RAIO DE SEGURANÇA · ${isPeople ? 'PESSOAS' : 'MÁQUINAS E EQUIPAMENTOS'}` }; });
@@ -298,7 +309,7 @@ function drawLegend(ctx, model, box, colors, transform) {
   if (strings.length) {
     ctx.fillStyle = colors.ink; ctx.font = '700 12px Arial'; ctx.fillText('REGIÕES DE DESMONTE DE ROCHAS:', x + 18, rowY + 7); rowY += 26;
     const rowsPerColumn = Math.max(1, Math.ceil(shown.length / 2));
-    shown.forEach((item, index) => { const column = Math.floor(index / rowsPerColumn); const row = index % rowsPerColumn; const offset = column * (width / 2); const color = stringColor(item, colors); drawStringThumbnail(ctx, item, x + 14 + offset, rowY + row * 18 - 8, 38, 16, color); ctx.fillStyle = colors.ink; ctx.font = '10px Arial'; const type = item.blastType === 'precut' ? 'Pré-Corte' : item.blastType === 'regularization' ? 'Regularização/Bloco' : 'Produção'; ctx.fillText(fitCanvasText(ctx, `${String(index + 1).padStart(2, '0')} ${type}: ${item.label || item.name}`, width / 2 - 64), x + 50 + offset, rowY + row * 18 + 4); });
+    shown.forEach((item, index) => { const column = Math.floor(index / rowsPerColumn); const row = index % rowsPerColumn; const offset = column * (width / 2); const color = stringColor(item, colors); drawStringThumbnail(ctx, item, x + 14 + offset, rowY + row * 18 - 8, 38, 16, color, stringFillOpacity); ctx.fillStyle = colors.ink; ctx.font = '10px Arial'; const type = item.blastType === 'precut' ? 'Pré-Corte' : item.blastType === 'regularization' ? 'Regularização/Bloco' : 'Produção'; ctx.fillText(fitCanvasText(ctx, `${String(index + 1).padStart(2, '0')} ${type}: ${item.label || item.name}`, width / 2 - 64), x + 50 + offset, rowY + row * 18 + 4); });
     if (overflow) { ctx.fillStyle = colors.muted; ctx.font = '10px Arial'; ctx.fillText(`+ ${overflow} poligonal(is) não exibida(s) na legenda`, x + 18, y + height - 14); }
   }
   ctx.restore(); return placement;
@@ -447,7 +458,7 @@ export function drawNoticeTable(canvas, model, config) {
 
 export function drawReport(canvas, model, config) {
   const logicalWidth = config.report.canvasWidth; const logicalHeight = config.report.canvasHeight; const outputScale = Math.max(1, Number(config.report.outputScale) || 1); const width = logicalWidth; const height = logicalHeight; canvas.width = Math.round(width * outputScale); canvas.height = Math.round(height * outputScale);
-  const ctx = canvas.getContext('2d'); ctx.setTransform(outputScale, 0, 0, outputScale, 0, 0); ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high'; const colors = config.report.colors; const map = config.report.map; const panel = config.report.panel; const stringEntities = flattenStringEntities(model.strings || []);
+  const ctx = canvas.getContext('2d'); ctx.setTransform(outputScale, 0, 0, outputScale, 0, 0); ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high'; const colors = config.report.colors; const map = config.report.map; const panel = config.report.panel; const stringFillOpacity = normalizeOpacity(config.report.stringFillOpacity); const stringEntities = flattenStringEntities(model.strings || []);
   const geometryBounds = mergeBounds([boundsOf(stringEntities), ...model.areas.map((area) => boundsOf(area.entities || []))]);
   const contourBounds = boundsOfContours(model.radiusContours || []);
   const operationalBounds = mergeBounds([geometryBounds, contourBounds]);
@@ -487,8 +498,12 @@ export function drawReport(canvas, model, config) {
     const structurePoints = (model.structures || []).map((structure) => { const points = (structure.positions || []).map((position) => projectStructurePoint({ ...structure, worldX: position.x, worldY: position.y }, bounds, model.structurePageMap, transform, map)); const point = points[0] || projectStructurePoint(structure, bounds, model.structurePageMap, transform, map); return { ...structure, point, points: points.length ? points : [point] }; });
     structurePoints.forEach((structure) => { const polygonEntities = areaEntities.filter((entity) => entity.structureId === structure.id); const polygonInRadius = polygonEntities.length ? areaIntersectsContours(polygonEntities, model.radiusContours) : false; const pointInRadius = pointIntersectsContours(structure.point, model.radiusContours, model.structureBoundaryTolerance || 0); const automaticStatus = polygonEntities.length ? (polygonInRadius ? 'evacuar' : 'liberado') : (pointInRadius ? 'evacuar' : 'liberado'); structure.status = structure.statusOverride || automaticStatus; const target = model.structures.find((candidate) => candidate.id === structure.id); if (target) { target.status = structure.status; target.point = structure.point; target.points = structure.points; target.polygonEntities = polygonEntities; } });
     drawContours(ctx, model.radiusContours, transform, colors, model.radii);
-    // As poligonais de desmonte ficam na camada operacional superior do croqui.
-    sortedStrings(model.strings || []).reverse().forEach((item) => (item.entities || []).forEach((entity) => drawEntity(ctx, entity, transform, stringColor(item, colors))));
+    // Primeiro aplica o preenchimento transparente de todas as strings; em uma
+    // segunda passagem, redesenha todas as bordas para que nenhuma interseção
+    // entre poligonais reduza a nitidez do contorno operacional.
+    const blastStrings = sortedStrings(model.strings || []).reverse();
+    blastStrings.forEach((item) => (item.entities || []).forEach((entity) => drawStringEntity(ctx, entity, transform, stringColor(item, colors), stringFillOpacity)));
+    blastStrings.forEach((item) => (item.entities || []).forEach((entity) => drawStringOutline(ctx, entity, transform, stringColor(item, colors))));
     // O buffer já representa a extensão completa da poligonal. Não desenhar
     // círculos adicionais nas extremidades evita a aparência de raios sobrepostos.
     (model.firingPoints || []).forEach((point) => drawPointMarker(ctx, point, transform, model.firingIcon, colors, 'firing', model.pointIconSizes));
@@ -501,7 +516,7 @@ export function drawReport(canvas, model, config) {
     structurePoints.forEach((structure) => structure.points.forEach((point) => drawStructurePositionLabel(ctx, structure, point, transform, model.areaNumberSize)));
     ctx.restore();
   }
-  drawNorth(ctx, map); drawScale(ctx, map, transform, bounds); const legend = transform ? drawLegend(ctx, { ...model, areas: model.areas, statusAreas: model.structures?.length ? model.structures : model.areas }, map, colors, transform) : null; drawPanel(ctx, { ...model, meta: { ...model.meta, dateLabel: model.meta.date ? new Date(`${model.meta.date}T12:00:00`).toLocaleDateString('pt-BR') : 'DATA NÃO INFORMADA' } }, panel, colors);
+  drawNorth(ctx, map); drawScale(ctx, map, transform, bounds); const legend = transform ? drawLegend(ctx, { ...model, areas: model.areas, statusAreas: model.structures?.length ? model.structures : model.areas }, map, colors, transform, stringFillOpacity) : null; drawPanel(ctx, { ...model, meta: { ...model.meta, dateLabel: model.meta.date ? new Date(`${model.meta.date}T12:00:00`).toLocaleDateString('pt-BR') : 'DATA NÃO INFORMADA' } }, panel, colors);
   ctx.fillStyle = colors.ink; ctx.font = '14px Arial'; ctx.textAlign = 'left'; ctx.fillText(model.meta.location || 'Local não informado', map.x + 8, height - 34); ctx.textAlign = 'right'; ctx.fillText(model.meta.observation || 'Valide os dados operacionais antes da emissão', width - 24, height - 34);
   return { bounds, map: { x: map.x * outputScale, y: map.y * outputScale, width: map.width * outputScale, height: map.height * outputScale }, transform, extentSource, legend, endpointCount: getStringEndpoints(stringEntities).length, areaStatuses: model.areas.map((area) => ({ id: area.id, status: area.status })) };
 }

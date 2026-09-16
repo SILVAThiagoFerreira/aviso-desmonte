@@ -4,6 +4,7 @@ import vm from 'node:vm';
 import { parseDxf, parseGeoJson } from '../src/dxf.js';
 import { areaIntersectsContours, boundsOf, boundsOfContours, buildRadiusContours, dedupeEntities, differenceEntityWithContours, fitBoundsToAspect, flattenStringEntities, getStringEndpoints, intersectEntityWithContours, paddedBounds, pointIntersectsContours, unionContourPolygons } from '../src/geometry.js';
 import { safeFileName } from '../src/pdf.js';
+import { drawEntity, drawStringEntity } from '../src/render.js';
 
 const dxf = await fs.readFile(new URL('../POLIGONAIS/r030826.dxf', import.meta.url), 'latin1');
 const parsed = parseDxf(dxf);
@@ -58,12 +59,13 @@ const appSource = await fs.readFile(new URL('../app.js', import.meta.url), 'utf8
 const renderSource = await fs.readFile(new URL('../src/render.js', import.meta.url), 'utf8');
 const onlineBackend = await fs.readFile(new URL('../backend/Code.gs', import.meta.url), 'utf8');
 assert.equal(appConfig.onlineCatalog.enabled, true, 'o catálogo online precisa estar habilitado');
-assert.equal(appConfig.app.version, '1.20.1');
+assert.equal(appConfig.app.version, '1.20.2');
 assert.equal(appConfig.defaultPreset.observation, 'Setor Técnico de Operações - Enaex Brasil.');
 assert.equal(appConfig.defaultPreset.peopleRadius, 500);
 assert.equal(appConfig.defaultPreset.machineRadius, 700);
 assert.deepEqual(appConfig.defaultPreset.pointIconSizes, { firing: 48, blocking: 25, card: 30 });
 assert.equal(appConfig.defaultPreset.areaNumberSize, 10);
+assert.equal(appConfig.report.stringFillOpacity, 0.16);
 assert.match(renderSource, /showLabel = true/);
 assert.match(renderSource, /function drawStructurePositionLabel/);
 assert.match(renderSource, /structure\.positions \|\| \[\]/, 'os rótulos precisam usar as posições reais do catálogo');
@@ -73,6 +75,11 @@ const stringDraftOrder = renderSource.indexOf('drawStringDraft(ctx, model.string
 assert.ok(structureLabelOrder > stringDraftOrder, 'os números das áreas precisam ser desenhados depois de todas as camadas do croqui');
 assert.match(renderSource, /colors\.blueHatch/, 'a hachura azul deve usar a cor suavizada configurada');
 assert.match(renderSource, /colors\.redHatch/, 'a hachura vermelha deve usar a cor suavizada configurada');
+assert.match(renderSource, /const DEFAULT_STRING_FILL_OPACITY = 0\.16/, 'as strings precisam ter uma opacidade de preenchimento calibrada');
+assert.match(renderSource, /function drawStringEntity/, 'as strings devem ter uma rotina de desenho própria');
+assert.match(renderSource, /if \(entity\.closed && entity\.points\.length >= 3 && opacity\)/, 'somente poligonais fechadas com área devem receber preenchimento');
+assert.match(renderSource, /drawStringEntity\(ctx, entity, transform, stringColor\(item, colors\), stringFillOpacity\)/, 'o preenchimento precisa usar a mesma cor da string');
+assert.match(renderSource, /drawStringOutline\(ctx, entity, transform, stringColor\(item, colors\)\)/, 'as bordas precisam ser redesenhadas depois dos preenchimentos');
 assert.match(renderSource, /drawHatchedEntity\(ctx, entity, transform, colors\.blueHatch, colors\.blueSoft, colors\.blue\)/, 'o contorno azul deve permanecer destacado');
 assert.match(renderSource, /drawHatchedPolygon\(ctx, polygon, transform, colors\.redHatch, colors\.redSoft, colors\.red\)/, 'o contorno vermelho deve permanecer destacado');
 assert.match(renderSource, /const hatchEntities = model\.areas\.filter\(\(area\) => area\.catalogId === 'estruturas-proximas'\)/, 'as hachuras precisam usar o DXF atualizado das estruturas');
@@ -97,6 +104,54 @@ assert.match(renderSource, /export function drawNoticeTable/);
 assert.ok(!renderSource.includes('config.report.noticeFooter'), 'a tabela não pode ser renderizada dentro do croqui');
 assert.equal(appConfig.report.canvasHeight, 1512, 'o croqui deve preservar a altura original');
 assert.deepEqual(appConfig.report.map, { x: 28, y: 35, width: 1280, height: 1422 }, 'o mapa deve preservar o enquadramento original');
+
+function fakeCanvasContext() {
+  const calls = [];
+  const ctx = {
+    calls,
+    save: () => calls.push('save'),
+    restore: () => calls.push('restore'),
+    beginPath: () => calls.push('beginPath'),
+    moveTo: () => calls.push('moveTo'),
+    lineTo: () => calls.push('lineTo'),
+    closePath: () => calls.push('closePath'),
+    arc: () => calls.push('arc'),
+    fill: () => calls.push('fill'),
+    stroke: () => calls.push('stroke')
+  };
+  for (const property of ['globalAlpha', 'fillStyle', 'strokeStyle']) {
+    let value;
+    Object.defineProperty(ctx, property, { get: () => value, set: (next) => { value = next; calls.push(`${property}:${next}`); } });
+  }
+  return ctx;
+}
+
+const identityTransform = { x: (point) => point.x, y: (point) => point.y, scale: 1 };
+const closedString = { type: 'polyline', closed: true, points: [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 5, y: 10 }] };
+const closedContext = fakeCanvasContext();
+drawStringEntity(closedContext, closedString, identityTransform, '#ff1111');
+assert.equal(closedContext.calls.filter((call) => call === 'fill').length, 1, 'a poligonal fechada precisa receber preenchimento');
+assert.equal(closedContext.calls.filter((call) => call === 'stroke').length, 1, 'a poligonal fechada precisa manter o contorno');
+assert.ok(closedContext.calls.includes('globalAlpha:0.16'), 'o preenchimento precisa aplicar a opacidade configurada');
+assert.ok(closedContext.calls.includes('fillStyle:#ff1111'), 'o preenchimento precisa usar a mesma cor do contorno');
+assert.ok(closedContext.calls.includes('save') && closedContext.calls.includes('restore'), 'a opacidade precisa ficar isolada no estado do Canvas');
+
+const openContext = fakeCanvasContext();
+drawStringEntity(openContext, { type: 'polyline', closed: false, points: [{ x: 0, y: 0 }, { x: 10, y: 0 }] }, identityTransform, '#08df00');
+assert.equal(openContext.calls.filter((call) => call === 'fill').length, 0, 'uma linha aberta não pode receber preenchimento');
+assert.equal(openContext.calls.filter((call) => call === 'stroke').length, 1, 'uma linha aberta precisa manter o contorno');
+
+const circleContext = fakeCanvasContext();
+drawStringEntity(circleContext, { type: 'circle', points: [{ x: 5, y: 5 }], radius: 2 }, identityTransform, '#ffdd11');
+assert.equal(circleContext.calls.filter((call) => call === 'arc').length, 1, 'um círculo precisa ser desenhado como arco');
+assert.equal(circleContext.calls.filter((call) => call === 'fill').length, 1, 'um círculo de string precisa receber preenchimento');
+assert.equal(circleContext.calls.filter((call) => call === 'stroke').length, 1, 'um círculo de string precisa manter o contorno');
+
+const areaContext = fakeCanvasContext();
+drawEntity(areaContext, closedString, identityTransform, '#1820d8');
+assert.equal(areaContext.calls.filter((call) => call === 'fill').length, 0, 'áreas que não são strings não podem receber preenchimento de string');
+assert.equal(areaContext.calls.filter((call) => call === 'stroke').length, 1, 'áreas existentes precisam manter o contorno');
+
 assert.match(appHtml, /id="importProjectFile"/);
 assert.match(appConfig.onlineCatalog.endpoint, /^https:\/\/script\.google\.com\/macros\/s\//, 'o endpoint online precisa ser um Web App do Apps Script');
 assert.match(onlineBackend, /function doGet\(event\)/, 'o backend precisa expor leitura online');
