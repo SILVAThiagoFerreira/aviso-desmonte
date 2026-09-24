@@ -212,8 +212,8 @@ function renderPointPlacementControls() {
     const added = state.pointPlacementSessionPoints.filter((point) => pointCollection(activeKind).includes(point)).length;
     const quantity = `${added} ${added === 1 ? 'ponto inserido' : 'pontos inseridos'}`;
     status.textContent = added
-      ? `${pointTitle(activeKind)} · ${quantity}. Clique no croqui para continuar ou conclua.`
-      : `${pointTitle(activeKind)} selecionado · clique no croqui para inserir pontos.`;
+      ? `${pointTitle(activeKind)} · ${quantity}. Continue no croqui ou clique novamente no botão ativo para concluir.`
+      : `${pointTitle(activeKind)} ativo · marque pontos no croqui. Clique novamente no botão ativo para concluir.`;
   } else if (state.placementMode?.type === 'structure') {
     const structure = state.structures.find((item) => item.id === state.placementMode.structureId);
     status.textContent = `Reposicionamento ativo · clique no croqui para mover ${structure?.name || 'a estrutura'}.`;
@@ -229,11 +229,17 @@ function finishPointPlacement() {
   if (!['firing', 'blocking', 'card'].includes(state.placementMode)) return;
   const kind = state.placementMode;
   const added = state.pointPlacementSessionPoints.filter((point) => pointCollection(kind).includes(point)).length;
+  const returnFocus = document.activeElement === $('finishPointPlacementButton');
   state.placementMode = null;
   state.pointPlacementSessionPoints = [];
   $('reportCanvas').classList.remove('placing-point');
   renderPointPlacementControls();
+  if (returnFocus) document.querySelector(`[data-point-type="${kind}"]`)?.focus();
   notify(added ? `Inserção concluída · ${added} ${added === 1 ? 'ponto adicionado' : 'pontos adicionados'}.` : 'Inserção de pontos concluída.');
+}
+function togglePointPlacement(type) {
+  if (state.placementMode === type) { finishPointPlacement(); return; }
+  activatePlacement(type);
 }
 function updateStringDrawingControls() { const drawing = state.stringDrawing; const tools = $('stringDrawingTools'); const count = $('drawingPointCount'); const finish = $('finishStringButton'); if (!tools) return; tools.hidden = !drawing; if (count) count.textContent = `${drawing?.points.length || 0} ${(drawing?.points.length || 0) === 1 ? 'vértice' : 'vértices'}`; if (finish) finish.disabled = !drawing || drawing.points.length < 2; }
 function resetStringDrawingUi() { state.stringDrawing = null; updateStringDrawingControls(); const canvas = $('reportCanvas'); if (canvas) canvas.classList.remove('drawing-string'); if ($('drawStringName')) $('drawStringName').value = 'PP000000'; if ($('drawStringType')) $('drawStringType').value = 'production'; }
@@ -276,7 +282,7 @@ function activatePlacement(type) {
     notify(`Clique no croqui para mover ${pointTitle(type.kind).toLowerCase()} “${type.point.label || 'sem nome'}”.`);
     return;
   }
-  notify(`${pointTitle(type)} selecionado. Clique no croqui para inserir quantos pontos precisar e conclua ao terminar.`);
+  notify(`${pointTitle(type)} selecionado. Clique no croqui para inserir quantos pontos precisar; clique novamente neste botão para concluir.`);
 }
 function canvasPixelPoint(event) { const result = state.lastRender; const canvas = $('reportCanvas'); if (!result?.bounds || !result.map || !canvas) return null; const rect = canvas.getBoundingClientRect(); if (!rect.width || !rect.height) return null; return { x: (event.clientX - rect.left) * canvas.width / rect.width, y: (event.clientY - rect.top) * canvas.height / rect.height }; }
 function mapPixelTransform() { const result = state.lastRender; if (!result?.bounds || !result.map) return null; const bounds = result.bounds; const map = result.map; const worldWidth = Math.max(bounds.maxX - bounds.minX, 1); const worldHeight = Math.max(bounds.maxY - bounds.minY, 1); const scale = Math.min(map.width / worldWidth, map.height / worldHeight); return { scale, offsetX: map.x + (map.width - worldWidth * scale) / 2, offsetY: map.y + (map.height - worldHeight * scale) / 2, bounds, map }; }
@@ -336,7 +342,7 @@ function handleCanvasClick(event) {
   renderPointList();
   renderPointPlacementControls();
   render();
-  notify(`${title} ${number} marcado. Clique no croqui para adicionar outro ou conclua.`);
+  notify(`${title} ${number} marcado. Continue no croqui ou clique novamente no botão ativo para concluir.`);
 }
 function handleCanvasDoubleClick(event) { if (!state.stringDrawing) return; event.preventDefault(); finishStringDrawing(); }
 function handleCanvasPointerDown(event) { if ((event.pointerType !== 'touch' && event.button !== 0) || state.placementMode || state.stringDrawing) return; const hit = nearestOperationalPoint(event); if (!hit) return; event.preventDefault(); state.draggingPoint = { ...hit, pointerId: event.pointerId, moved: false }; const canvas = $('reportCanvas'); canvas.classList.add('dragging-point'); canvas.setPointerCapture?.(event.pointerId); notify(`Arraste ${pointTitle(hit.kind).toLowerCase()} para a nova posição.`); }
@@ -373,9 +379,9 @@ function wire() {
   $('cancelStringButton').addEventListener('click', () => cancelStringDrawing());
   $('areaFiles').addEventListener('change', async (event) => { for (const file of [...event.target.files]) { try { state.areas.push(await parseAreaFile(file)); } catch (error) { notify(`${file.name}: ${error.message}`, 'error'); } } renderAreaList(); render(); event.target.value = ''; });
   $('loadProjectAreasButton').addEventListener('click', async () => { try { await loadBundledAreas(); } catch (error) { notify(error.message, 'error'); } });
-  $('addFiringPointButton').addEventListener('click', () => activatePlacement('firing'));
-  $('addBlockingPointButton').addEventListener('click', () => activatePlacement('blocking'));
-  $('addCardPointButton').addEventListener('click', () => activatePlacement('card'));
+  $('addFiringPointButton').addEventListener('click', () => togglePointPlacement('firing'));
+  $('addBlockingPointButton').addEventListener('click', () => togglePointPlacement('blocking'));
+  $('addCardPointButton').addEventListener('click', () => togglePointPlacement('card'));
   $('finishPointPlacementButton').addEventListener('click', finishPointPlacement);
   document.addEventListener('keydown', (event) => { if (event.key === 'Escape' && ['firing', 'blocking', 'card'].includes(state.placementMode)) finishPointPlacement(); });
   $('reportCanvas').addEventListener('pointerdown', handleCanvasPointerDown);
