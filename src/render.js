@@ -456,8 +456,8 @@ export function drawNoticeTable(canvas, model, config) {
   drawNoticeFooter(ctx, normalizedModel, { x: 0, y: 0, width: table.width, height: table.height }, config.report.colors);
 }
 
-export function drawReport(canvas, model, config) {
-  const logicalWidth = config.report.canvasWidth; const logicalHeight = config.report.canvasHeight; const outputScale = Math.max(1, Number(config.report.outputScale) || 1); const width = logicalWidth; const height = logicalHeight; canvas.width = Math.round(width * outputScale); canvas.height = Math.round(height * outputScale);
+export function drawReport(canvas, model, config, options = {}) {
+  const logicalWidth = config.report.canvasWidth; const logicalHeight = config.report.canvasHeight; const requestedOutputScale = options.outputScale ?? config.report.outputScale; const outputScale = Math.max(1, Number(requestedOutputScale) || 1); const width = logicalWidth; const height = logicalHeight; canvas.width = Math.round(width * outputScale); canvas.height = Math.round(height * outputScale);
   const ctx = canvas.getContext('2d'); ctx.setTransform(outputScale, 0, 0, outputScale, 0, 0); ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high'; const colors = config.report.colors; const map = config.report.map; const panel = config.report.panel; const stringFillOpacity = normalizeOpacity(config.report.stringFillOpacity); const stringEntities = flattenStringEntities(model.strings || []);
   const geometryBounds = mergeBounds([boundsOf(stringEntities), ...model.areas.map((area) => boundsOf(area.entities || []))]);
   const contourBounds = boundsOfContours(model.radiusContours || []);

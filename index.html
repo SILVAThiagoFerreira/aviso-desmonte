@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=1.20.6">
+  <link rel="stylesheet" href="styles.css?v=1.20.7">
 </head>
 <body>
   <div class="loading-gate" id="loadingGate" role="status" aria-live="polite" aria-label="Carregando o Aviso de Desmonte">
@@ -40,7 +40,7 @@
   <div class="app-shell">
     <header class="topbar">
       <div class="brand-lockup"><img class="enaex-logo" src="assets/enaex-logo-white.png" alt="Enaex Brasil"><span class="brand-divider"></span><img class="blast-mark" src="assets/icone-aviso-de-desmonte.png" alt="Ícone do Aviso de Desmonte"><h1 id="appName">Aviso de Desmonte</h1></div>
-      <div class="topbar-meta"><span class="status-dot"></span><span id="statusText">Aguardando dados</span><span class="version" id="appVersion">v1.20.6</span><span class="admin-session" id="adminSession" hidden>ADMIN · EDITANDO</span><button class="logout-button" id="logoutButton" type="button" hidden>Sair</button></div>
+      <div class="topbar-meta"><span class="status-dot"></span><span id="statusText">Aguardando dados</span><span class="version" id="appVersion">v1.20.7</span><span class="admin-session" id="adminSession" hidden>ADMIN · EDITANDO</span><button class="logout-button" id="logoutButton" type="button" hidden>Sair</button></div>
     </header>
     <main class="workspace">
       <aside class="control-panel" aria-label="Dados do aviso">
@@ -56,7 +56,17 @@
           <div class="form-actions"><button class="button button-secondary" type="button" id="clearButton">Limpar</button><button class="button button-primary" type="button" id="pdfButton">Gerar aviso em PDF <span>↗</span></button></div>
         </form>
       </aside>
-      <section class="preview-panel" aria-label="Pré-visualização do aviso"><div class="preview-toolbar"><div><span class="section-kicker">PRANCHA FINAL</span><p id="previewCaption">A prévia será atualizada conforme os dados forem preenchidos.</p></div><div class="preview-metrics"><span><b id="geometryCount">0</b> entidades</span><span><b id="endpointCount">0</b> extremidades</span><span id="scaleWarning">extensão automática</span></div></div><section class="point-placement-toolbar" id="pointPlacementToolbar" aria-label="Inserção de pontos operacionais no croqui"><div class="point-placement-heading"><div><span class="section-kicker">EDIÇÃO DO CROQUI</span><strong>Inserir pontos operacionais</strong></div><p>Escolha um tipo e marque todas as posições no mapa.</p></div><div class="point-actions" role="group" aria-label="Tipo de ponto para inserir"><button class="point-action-button firing" type="button" id="addFiringPointButton" data-point-type="firing" aria-pressed="false"><span class="point-action-icon" aria-hidden="true">⊙</span><span>Ponto de disparo</span></button><button class="point-action-button blocking" type="button" id="addBlockingPointButton" data-point-type="blocking" aria-pressed="false"><span class="point-action-icon" aria-hidden="true">Ⅱ</span><span>Ponto de bloqueio</span></button><button class="point-action-button card" type="button" id="addCardPointButton" data-point-type="card" aria-pressed="false"><span class="point-action-icon" aria-hidden="true">▱</span><span>Entrega de cartões</span></button></div><div class="point-placement-footer"><p id="pointPlacementStatus" aria-live="polite">Selecione um tipo para começar a inserir pontos no croqui.</p><button class="finish-point-placement" id="finishPointPlacementButton" type="button" hidden>✓ Concluir inserção</button></div></section><div class="preview-stage"><canvas id="reportCanvas" width="1600" height="1512" aria-label="Prévia do aviso de desmonte"></canvas></div><p class="preview-note">A prancha do croqui permanece independente. Valide os dados operacionais e os limites geográficos antes de emitir o PDF.</p><section class="notice-output" aria-label="Tabela do aviso"><div class="notice-output-heading"><div><span class="section-kicker">IMAGEM INDEPENDENTE</span><h2>Tabela do aviso</h2><p>Esta imagem é gerada separadamente do croqui e acompanha os dados preenchidos.</p></div><button class="catalog-button" type="button" id="noticeImageButton">Exportar tabela PNG</button></div><div class="notice-stage"><canvas id="noticeCanvas" width="1542" height="250" aria-label="Tabela do aviso de desmonte"></canvas></div></section></section>
+      <section class="preview-panel" aria-label="Pré-visualização do aviso"><div class="preview-toolbar">
+  <div><span class="section-kicker">PRANCHA FINAL</span><p id="previewCaption">A prévia será atualizada conforme os dados forem preenchidos.</p></div>
+  <div class="preview-toolbar-actions">
+    <button class="export-image-button" type="button" id="exportReportPngButton" aria-label="Exportar croqui em PNG de alta qualidade" title="Exporta o croqui em alta resolução, com textos e geometrias redesenhados.">
+      <span class="export-image-icon" aria-hidden="true">↓</span>
+      <span class="export-image-label">Exportar croqui PNG</span>
+      <span class="export-image-scale" aria-hidden="true">3×</span>
+    </button>
+    <div class="preview-metrics"><span><b id="geometryCount">0</b> entidades</span><span><b id="endpointCount">0</b> extremidades</span><span id="scaleWarning">extensão automática</span></div>
+  </div>
+</div><section class="point-placement-toolbar" id="pointPlacementToolbar" aria-label="Inserção de pontos operacionais no croqui"><div class="point-placement-heading"><div><span class="section-kicker">EDIÇÃO DO CROQUI</span><strong>Inserir pontos operacionais</strong></div><p>Escolha um tipo e marque todas as posições no mapa.</p></div><div class="point-actions" role="group" aria-label="Tipo de ponto para inserir"><button class="point-action-button firing" type="button" id="addFiringPointButton" data-point-type="firing" aria-pressed="false"><span class="point-action-icon" aria-hidden="true">⊙</span><span>Ponto de disparo</span></button><button class="point-action-button blocking" type="button" id="addBlockingPointButton" data-point-type="blocking" aria-pressed="false"><span class="point-action-icon" aria-hidden="true">Ⅱ</span><span>Ponto de bloqueio</span></button><button class="point-action-button card" type="button" id="addCardPointButton" data-point-type="card" aria-pressed="false"><span class="point-action-icon" aria-hidden="true">▱</span><span>Entrega de cartões</span></button></div><div class="point-placement-footer"><p id="pointPlacementStatus" aria-live="polite">Selecione um tipo para começar a inserir pontos no croqui.</p><button class="finish-point-placement" id="finishPointPlacementButton" type="button" hidden>✓ Concluir inserção</button></div></section><div class="preview-stage"><canvas id="reportCanvas" width="1600" height="1512" aria-label="Prévia do aviso de desmonte"></canvas></div><p class="preview-note">A prancha do croqui permanece independente. Valide os dados operacionais e os limites geográficos antes de emitir o PDF.</p><section class="notice-output" aria-label="Tabela do aviso"><div class="notice-output-heading"><div><span class="section-kicker">IMAGEM INDEPENDENTE</span><h2>Tabela do aviso</h2><p>Esta imagem é gerada separadamente do croqui e acompanha os dados preenchidos.</p></div><button class="catalog-button" type="button" id="noticeImageButton">Exportar tabela PNG</button></div><div class="notice-stage"><canvas id="noticeCanvas" width="1542" height="250" aria-label="Tabela do aviso de desmonte"></canvas></div></section></section>
     </main>
   </div>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
@@ -64,6 +74,6 @@
   <script src="./vendor/polygon-clipping.min.js"></script>
   <script src="./vendor/proj4.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js" crossorigin="anonymous"></script>
-  <script type="module" src="app.js?v=1.20.6"></script>
+  <script type="module" src="app.js?v=1.20.7"></script>
 </body>
 </html>

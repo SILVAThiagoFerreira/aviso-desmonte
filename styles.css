@@ -143,11 +143,18 @@ button { cursor: pointer; }
 .button span { margin-left: 8px; font-size: 16px; line-height: 0; }
 .preview-panel { position: sticky; top: 16px; align-self: start; min-width: 0; max-height: calc(100vh - 32px); overflow-y: auto; scrollbar-width: thin; scrollbar-color: #c9d1d6 transparent; }
 .preview-toolbar { display: flex; justify-content: space-between; align-items: end; min-height: 64px; padding: 5px 3px 14px; }
-.preview-toolbar-actions { display: flex; align-items: end; gap: 14px; }
+.preview-toolbar-actions { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 10px; }
 .preview-toolbar p { margin: 8px 0 0; color: var(--muted); font-size: 12px; }
 .preview-metrics { display: flex; gap: 17px; color: var(--muted); font: 500 10px 'IBM Plex Mono', monospace; text-align: right; }
 .preview-metrics b { color: var(--ink); font-size: 14px; }
 .preview-metrics span:last-child { color: var(--green); }
+.export-image-button { display: inline-flex; align-items: center; gap: 7px; min-height: 36px; border: 1px solid #e7b1b6; border-left: 3px solid var(--enaex-red); border-radius: 6px; padding: 4px 9px; color: var(--ink); background: #fff; font: 700 10px 'IBM Plex Mono', monospace; white-space: nowrap; transition: border-color .16s, background .16s, box-shadow .16s; }
+.export-image-button:hover:not(:disabled) { border-color: var(--enaex-red); background: #fff5f6; }
+.export-image-button:focus-visible { outline: 3px solid rgba(238,27,47,.2); outline-offset: 2px; }
+.export-image-button:disabled { cursor: wait; opacity: .72; }
+.export-image-icon { display: grid; place-items: center; width: 22px; height: 22px; border: 1px solid #f0c6ca; border-radius: 5px; color: var(--enaex-red); background: #fff; font: 700 15px/1 Manrope, Arial, sans-serif; }
+.export-image-label { color: var(--ink); }
+.export-image-scale { border-radius: 3px; padding: 2px 4px; color: var(--enaex-red); background: #fff1f2; font: 700 9px 'IBM Plex Mono', monospace; }
 .preview-stage { width: min(100%, 1200px); overflow: hidden; margin: 0 auto; border: 1px solid rgba(23,39,46,.15); border-radius: 14px; padding: 8px; background: #dfe7e4; box-shadow: var(--shadow); }
 #reportCanvas { display: block; width: 100%; height: auto; max-width: 100%; max-height: none; margin: 0 auto; border: 1px solid rgba(23,39,46,.25); background: white; }
 .notice-output { margin-top: 28px; padding-top: 22px; border-top: 1px solid var(--line); }
@@ -190,7 +197,7 @@ button { cursor: pointer; }
 #reportCanvas.drawing-string { outline-color: rgba(255, 122, 24, .5); }
 #reportCanvas.dragging-point { cursor: grabbing; }
 @media (max-width: 1100px) { .workspace { grid-template-columns: 1fr; gap: 16px; padding: 16px; } .control-panel { order: 2; padding: 18px; } .preview-panel { position: static; order: 1; max-height: none; overflow: visible; } #reportCanvas { width: 100%; max-height: none; } .preview-metrics { gap: 9px; } }
-@media (max-width: 840px) { .topbar { min-height: 76px; height: auto; flex-wrap: wrap; gap: 8px; padding: 12px 18px; } .brand-lockup { min-width: 0; flex: 1 1 auto; } .enaex-logo { width: 116px; } .topbar-meta { font-size: 0; } .version { font-size: 10px; } .workspace { grid-template-columns: 1fr; } .control-panel { order: 2; } .preview-panel { position: static; order: 1; max-height: none; overflow: visible; } #reportCanvas { width: 100%; max-height: none; } .preview-toolbar, .notice-output-heading { align-items: start; gap: 12px; flex-direction: column; } .preview-metrics { flex-wrap: wrap; text-align: left; } }
+@media (max-width: 840px) { .topbar { min-height: 76px; height: auto; flex-wrap: wrap; gap: 8px; padding: 12px 18px; } .brand-lockup { min-width: 0; flex: 1 1 auto; } .enaex-logo { width: 116px; } .topbar-meta { font-size: 0; } .version { font-size: 10px; } .workspace { grid-template-columns: 1fr; } .control-panel { order: 2; } .preview-panel { position: static; order: 1; max-height: none; overflow: visible; } #reportCanvas { width: 100%; max-height: none; } .preview-toolbar, .notice-output-heading { align-items: start; gap: 12px; flex-direction: column; } .preview-toolbar-actions { width: 100%; justify-content: space-between; } .preview-metrics { flex-wrap: wrap; text-align: left; } }
 @media (max-width: 560px) { .point-placement-toolbar { gap: 5px; padding: 5px; } .point-actions { display: grid; flex: 1 1 100%; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; } .point-action-button { flex-direction: column; justify-content: center; gap: 3px; min-height: 52px; padding: 4px 3px; font-size: 9px; text-align: center; white-space: normal; } .point-action-icon { flex-basis: 20px; width: 20px; height: 20px; font-size: 14px; } .point-placement-footer { flex: 1 1 100%; justify-content: space-between; flex-direction: row; } .point-placement-footer p { flex: 1 1 170px; text-align: left; } }
 @media (max-width: 560px) { .brand-divider { display: none; } .blast-mark { width: 32px; height: 32px; flex-basis: 32px; border-radius: 8px; } .brand-lockup h1 { font-size: 20px; } .enaex-logo { width: 102px; } .catalog-row, .basemap-action-row { grid-template-columns: 1fr; } .catalog-button { width: 100%; } .area-item, .admin-active .structure-item { grid-template-columns: 1fr auto; } .area-status { grid-column: 1; justify-self: start; } .area-item .edit-button { grid-column: 1; justify-self: start; } .area-item .remove-button { grid-column: 2; grid-row: 1 / span 3; } .auth-card { padding: 24px; } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; } }
