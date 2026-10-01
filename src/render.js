@@ -1,6 +1,11 @@
 import { areaIntersectsContours, boundsOf, boundsOfContours, differenceEntityWithContours, fitBoundsToAspect, flattenStringEntities, formatNumber, getStringEndpoints, intersectEntityWithContours, mergeBounds, paddedBounds, pointIntersectsContours } from './geometry.js';
 
 const DEFAULT_STRING_FILL_OPACITY = 0.16;
+const NOTICE_LOGO_WIDTH = 315;
+const NOTICE_REGION_LABEL_WIDTH = 350;
+const NOTICE_REGION_RIGHT_PADDING = 10;
+const NOTICE_REGION_MAX_FONT_SIZE = 16;
+const NOTICE_REGION_MIN_FONT_SIZE = 8;
 
 function normalizeOpacity(value, fallback = DEFAULT_STRING_FILL_OPACITY) {
   const numeric = Number(value);
@@ -156,6 +161,26 @@ function fitCanvasText(ctx, value, maxWidth) {
   let result = text;
   while (result.length > 1 && ctx.measureText(`${result}…`).width > maxWidth) result = result.slice(0, -1);
   return `${result.trimEnd()}…`;
+}
+
+export function fitCanvasFontSize(ctx, value, maxWidth, maxSize = NOTICE_REGION_MAX_FONT_SIZE, minSize = NOTICE_REGION_MIN_FONT_SIZE) {
+  const text = String(value ?? '');
+  if (!text || maxWidth <= 0) return minSize;
+  const measureAt = (size) => {
+    ctx.font = `${size}px Arial`;
+    return ctx.measureText(text).width;
+  };
+  if (measureAt(maxSize) <= maxWidth) return maxSize;
+  if (measureAt(minSize) > maxWidth) return minSize;
+
+  let fittingSize = minSize;
+  let overflowingSize = maxSize;
+  for (let attempt = 0; attempt < 16; attempt += 1) {
+    const candidateSize = (fittingSize + overflowingSize) / 2;
+    if (measureAt(candidateSize) <= maxWidth) fittingSize = candidateSize;
+    else overflowingSize = candidateSize;
+  }
+  return fittingSize;
 }
 
 function stringColor(item, colors) { return colors[item?.blastType] || colors.production || colors.orange; }
@@ -441,19 +466,26 @@ function drawNoticeFooter(ctx, model, footer, colors) {
   const x = footer.x; const y = footer.y; const w = footer.width; const green = '#477a5e'; const orange = '#f15b2a'; const border = '#111111';
   ctx.save(); ctx.fillStyle = '#fff'; ctx.fillRect(x, y, w, footer.height); ctx.strokeStyle = border; ctx.lineWidth = 1.5; ctx.strokeRect(x, y, w, footer.height);
   const titleH = 30; ctx.fillStyle = green; ctx.fillRect(x, y, w, titleH); ctx.fillStyle = '#fff'; ctx.font = '700 17px Arial'; ctx.textAlign = 'center'; ctx.fillText(`AVISO DE DESMONTE - Nº ${model.meta.blastNumber || '____'}/${noticeYear(model.meta)}`, x + w / 2, y + 21);
-  const logoW = 315; const infoX = x + logoW; const infoH = 96; ctx.strokeStyle = border; ctx.strokeRect(x, y + titleH, logoW, infoH); ctx.strokeRect(infoX, y + titleH, w - logoW, infoH);
+  const logoW = NOTICE_LOGO_WIDTH; const infoX = x + logoW; const infoH = 96; ctx.strokeStyle = border; ctx.strokeRect(x, y + titleH, logoW, infoH); ctx.strokeRect(infoX, y + titleH, w - logoW, infoH);
   if (model.logoImage) { const ratio = Math.min((logoW - 52) / model.logoImage.width, (infoH - 18) / model.logoImage.height); const lw = model.logoImage.width * ratio; const lh = model.logoImage.height * ratio; ctx.drawImage(model.logoImage, x + (logoW - lw) / 2, y + titleH + (infoH - lh) / 2, lw, lh); }
-  const dateText = model.meta.date ? model.meta.dateLabel : 'Não informada'; const timeText = model.meta.time || 'Não informado'; const rowH = 32; ctx.strokeStyle = border; ctx.beginPath(); [1, 2].forEach((index) => { const rowY = y + titleH + rowH * index; ctx.moveTo(infoX, rowY); ctx.lineTo(x + w, rowY); }); ctx.stroke(); ctx.textAlign = 'left'; ctx.fillStyle = '#000'; ctx.font = '700 17px Arial'; ctx.fillText('DATA:', infoX + 8, y + titleH + 22); ctx.font = '17px Arial'; ctx.fillText(dateText, infoX + 78, y + titleH + 22); ctx.font = '700 17px Arial'; ctx.fillText('HORÁRIO:', infoX + 8, y + titleH + 54); ctx.font = '17px Arial'; ctx.fillText(timeText, infoX + 112, y + titleH + 54); ctx.font = '700 17px Arial'; ctx.fillText('REGIÕES DE DESMONTE DE ROCHA:', infoX + 8, y + titleH + 86); ctx.font = '16px Arial'; ctx.fillText(fitCanvasText(ctx, noticeRegions(model) || 'NÃO INFORMADAS', w - logoW - 360), infoX + 350, y + titleH + 86);
+  const dateText = model.meta.date ? model.meta.dateLabel : 'Não informada'; const timeText = model.meta.time || 'Não informado'; const rowH = 32; ctx.strokeStyle = border; ctx.beginPath(); [1, 2].forEach((index) => { const rowY = y + titleH + rowH * index; ctx.moveTo(infoX, rowY); ctx.lineTo(x + w, rowY); }); ctx.stroke(); ctx.textAlign = 'left'; ctx.fillStyle = '#000'; ctx.font = '700 17px Arial'; ctx.fillText('DATA:', infoX + 8, y + titleH + 22); ctx.font = '17px Arial'; ctx.fillText(dateText, infoX + 78, y + titleH + 22); ctx.font = '700 17px Arial'; ctx.fillText('HORÁRIO:', infoX + 8, y + titleH + 54); ctx.font = '17px Arial'; ctx.fillText(timeText, infoX + 112, y + titleH + 54); ctx.font = '700 17px Arial'; ctx.fillText('REGIÕES DE DESMONTE DE ROCHA:', infoX + 8, y + titleH + 86); const regionsText = noticeRegions(model) || 'NÃO INFORMADAS'; const regionsWidth = w - logoW - NOTICE_REGION_LABEL_WIDTH - NOTICE_REGION_RIGHT_PADDING; const regionsFontSize = fitCanvasFontSize(ctx, regionsText, regionsWidth); ctx.font = `${regionsFontSize}px Arial`; ctx.fillText(regionsText, infoX + NOTICE_REGION_LABEL_WIDTH, y + titleH + 86);
   const obsY = y + titleH + infoH; const obsHeaderH = 30; ctx.fillStyle = green; ctx.fillRect(x, obsY, w, obsHeaderH); ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.font = '700 17px Arial'; ctx.fillText('⚠ OBSERVAÇÕES ⚠', x + w / 2, obsY + 21); const lines = ['O Desmonte será realizado e monitorado na faixa 09 de rádio.', 'Todos devem permanecer na área coberta (telhado) até que a mina seja liberada pela equipe de desmonte.', 'Qualquer anomalia observada durante o desmonte, deverá ser comunicada imediatamente ao responsável do desmonte.']; ctx.fillStyle = orange; ctx.font = '16px Arial'; lines.forEach((line, index) => { const ly = obsY + obsHeaderH + index * 31; ctx.strokeStyle = border; ctx.strokeRect(x, ly, w, 31); ctx.fillText(fitCanvasText(ctx, line, w - 28), x + w / 2, ly + 22); }); ctx.restore();
 }
 
 export function drawNoticeTable(canvas, model, config) {
   const table = config.report.noticeTable;
   const outputScale = Math.max(1, Number(config.report.outputScale) || 1);
-  canvas.width = Math.round(table.width * outputScale); canvas.height = Math.round(table.height * outputScale);
-  const ctx = canvas.getContext('2d'); ctx.setTransform(outputScale, 0, 0, outputScale, 0, 0); ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
   const normalizedModel = { ...model, meta: { ...model.meta, dateLabel: model.meta.date ? new Date(`${model.meta.date}T12:00:00`).toLocaleDateString('pt-BR') : 'DATA NÃO INFORMADA' } };
-  drawNoticeFooter(ctx, normalizedModel, { x: 0, y: 0, width: table.width, height: table.height }, config.report.colors);
+  const ctx = canvas.getContext('2d');
+  const regionsText = noticeRegions(normalizedModel) || 'NÃO INFORMADAS';
+  const baseRegionsWidth = table.width - NOTICE_LOGO_WIDTH - NOTICE_REGION_LABEL_WIDTH - NOTICE_REGION_RIGHT_PADDING;
+  ctx.font = `${NOTICE_REGION_MIN_FONT_SIZE}px Arial`;
+  const requiredRegionsWidth = ctx.measureText(regionsText).width;
+  const logicalWidth = table.width + Math.max(0, Math.ceil(requiredRegionsWidth - baseRegionsWidth));
+  canvas.width = Math.round(logicalWidth * outputScale); canvas.height = Math.round(table.height * outputScale);
+  canvas.style.width = logicalWidth > table.width ? `${logicalWidth}px` : '';
+  ctx.setTransform(outputScale, 0, 0, outputScale, 0, 0); ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
+  drawNoticeFooter(ctx, normalizedModel, { x: 0, y: 0, width: logicalWidth, height: table.height }, config.report.colors);
 }
 
 export function drawReport(canvas, model, config, options = {}) {

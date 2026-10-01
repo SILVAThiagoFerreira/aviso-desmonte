@@ -4,7 +4,7 @@ import vm from 'node:vm';
 import { parseDxf, parseGeoJson } from '../src/dxf.js';
 import { areaIntersectsContours, boundsOf, boundsOfContours, buildRadiusContours, dedupeEntities, differenceEntityWithContours, fitBoundsToAspect, flattenStringEntities, getStringEndpoints, intersectEntityWithContours, paddedBounds, pointIntersectsContours, unionContourPolygons } from '../src/geometry.js';
 import { safeFileName } from '../src/pdf.js';
-import { drawEntity, drawStringEntity } from '../src/render.js';
+import { drawEntity, drawStringEntity, fitCanvasFontSize } from '../src/render.js';
 
 const dxf = await fs.readFile(new URL('../POLIGONAIS/r030826.dxf', import.meta.url), 'latin1');
 const parsed = parseDxf(dxf);
@@ -60,7 +60,7 @@ const appSource = await fs.readFile(new URL('../app.js', import.meta.url), 'utf8
 const renderSource = await fs.readFile(new URL('../src/render.js', import.meta.url), 'utf8');
 const onlineBackend = await fs.readFile(new URL('../backend/Code.gs', import.meta.url), 'utf8');
 assert.equal(appConfig.onlineCatalog.enabled, true, 'o catálogo online precisa estar habilitado');
-assert.equal(appConfig.app.version, '1.20.7');
+assert.equal(appConfig.app.version, '1.20.8');
 assert.equal(appConfig.defaultPreset.observation, 'Setor Técnico de Operações - Enaex Brasil.');
 assert.equal(appConfig.defaultPreset.peopleRadius, 500);
 assert.equal(appConfig.defaultPreset.machineRadius, 700);
@@ -116,9 +116,19 @@ assert.match(appSource, /type: 'point'/);
 assert.match(renderSource, /function drawStringDraft/);
 assert.match(renderSource, /\$\{item\.label \|\| item\.name \|\| 'REGIÃO'\} \(\$\{typeLabel\[item\.blastType\]/);
 assert.match(renderSource, /export function drawNoticeTable/);
+assert.match(renderSource, /ctx\.fillText\(regionsText, infoX \+ NOTICE_REGION_LABEL_WIDTH/);
+assert.doesNotMatch(renderSource, /fitCanvasText\(ctx, noticeRegions\(model\)/, 'a linha de regiões não pode mais eliminar planos com reticências');
 assert.ok(!renderSource.includes('config.report.noticeFooter'), 'a tabela não pode ser renderizada dentro do croqui');
 assert.equal(appConfig.report.canvasHeight, 1512, 'o croqui deve preservar a altura original');
 assert.deepEqual(appConfig.report.map, { x: 28, y: 35, width: 1280, height: 1422 }, 'o mapa deve preservar o enquadramento original');
+
+const noticePlans = ['PP461026_B (Produção)', 'PP601026 (Produção)', 'PP611026 (Produção)', 'REG451026 (Regularização/Bloco)', 'R021026 (Regularização/Bloco)'].join(' · ');
+const noticeMeasureContext = { font: '', measureText(text) { const size = Number.parseFloat(this.font); return { width: text.length * size * 0.55 }; } };
+const noticeFontSize = fitCanvasFontSize(noticeMeasureContext, noticePlans, 867);
+noticeMeasureContext.font = `${noticeFontSize}px Arial`;
+assert.ok(noticeFontSize < 16, 'a lista de planos do projeto deve reduzir automaticamente a fonte');
+assert.ok(noticeMeasureContext.measureText(noticePlans).width <= 867, 'os cinco planos completos precisam caber na linha');
+assert.ok(noticePlans.endsWith('R021026 (Regularização/Bloco)'), 'a última região deve permanecer íntegra');
 
 function fakeCanvasContext() {
   const calls = [];
