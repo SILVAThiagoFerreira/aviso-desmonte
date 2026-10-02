@@ -16,6 +16,9 @@
 - Áreas `evacuar` usam contorno/preenchimento hachurado vermelho. Áreas `liberado` usam contorno/preenchimento hachurado azul.
 - A extensão automática usa todas as geometrias e uma margem de 8%. A extensão manual é obrigatória para sobreposição espacial confiável com um ortomosaico georreferenciado.
 - O PDF é uma única prancha horizontal na proporção do exemplo fornecido, com mapa, legenda, norte, escala, título e listas laterais.
+- A legenda procura posições livres para não cobrir áreas hachuradas de evacuação ou liberação. Se necessário, reduz fonte e espaçamento para caber sem ampliar a caixa. Rótulos longos de raios são ajustados pela fonte.
+- Um ponto de disparo que cai sobre uma estrutura identificada inclui a estrutura na linha da legenda. A pilha de oxidado usa o rótulo `PDO`; a pilha de estéril usa `PDE`. O rótulo é calculado da geometria e não altera os pontos salvos.
+- A importação do projeto informa visualmente as etapas de leitura, validação, aplicação e atualização da prancha, inclusive em caso de erro.
 
 ## Não faz
 

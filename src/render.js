@@ -258,10 +258,23 @@ function pointInScreenPolygon(point, points) {
   return inside;
 }
 function entityOverlapsRect(entity, rect, transform) {
-  const points = (entity.points || []).map((point) => ({ x: transform.x(point), y: transform.y(point) }));
+  const points = entity.points || [];
   if (!points.length) return false;
+  const radius = entity.type === 'circle' ? Math.max(Number(entity.radius) || 0, 0) * transform.scale : 0;
+  let minX = Infinity; let maxX = -Infinity; let minY = Infinity; let maxY = -Infinity;
+  if (entity.screenBounds) {
+    ({ minX, maxX, minY, maxY } = entity.screenBounds);
+  } else {
+    points.forEach((point) => {
+      const x = transform.x(point); const y = transform.y(point);
+      minX = Math.min(minX, x); maxX = Math.max(maxX, x);
+      minY = Math.min(minY, y); maxY = Math.max(maxY, y);
+    });
+  }
+  minX -= radius; maxX += radius; minY -= radius; maxY += radius;
+  if (maxX < rect.x || minX > rect.x + rect.width || maxY < rect.y || minY > rect.y + rect.height) return false;
   if (entity.type === 'circle') {
-    const center = points[0]; const radius = Math.max(Number(entity.radius) || 0, 0) * transform.scale;
+    const center = points[0];
     const nearestX = Math.max(rect.x, Math.min(center.x, rect.x + rect.width)); const nearestY = Math.max(rect.y, Math.min(center.y, rect.y + rect.height));
     return Math.hypot(center.x - nearestX, center.y - nearestY) <= radius;
   }
@@ -274,34 +287,55 @@ function entityOverlapsRect(entity, rect, transform) {
   return false;
 }
 
-function chooseLegendPlacement(ctx, model, box, width, height, transform) {
+function chooseLegendPlacement(ctx, model, box, width, height, transform, settings = {}) {
   const margin = 24;
-  const candidates = [
-    { name: 'bottom-left', x: box.x + margin, y: box.y + box.height - height - margin, preference: -100 },
-    { name: 'bottom-center', x: box.x + (box.width - width) / 2, y: box.y + box.height - height - margin, preference: -50 },
-    { name: 'bottom-right', x: box.x + box.width - width - margin, y: box.y + box.height - height - margin, preference: -20 },
-    { name: 'middle-left', x: box.x + margin, y: box.y + (box.height - height) / 2, preference: 0 },
-    { name: 'middle-right', x: box.x + box.width - width - margin, y: box.y + (box.height - height) / 2, preference: 0 },
-    { name: 'top-left', x: box.x + margin, y: box.y + margin, preference: 10 },
-    { name: 'top-center', x: box.x + (box.width - width) / 2, y: box.y + margin, preference: 20 },
-    { name: 'top-right', x: box.x + box.width - width - margin, y: box.y + margin, preference: 30 }
-  ].map((item) => ({ ...item, width, height }));
+  const requestedSteps = Number(settings.placementGridSteps) || 5;
+  const steps = Math.max(3, Math.min(7, Math.round(requestedSteps)));
+  const availableX = Math.max(0, box.width - width - margin * 2);
+  const availableY = Math.max(0, box.height - height - margin * 2);
+  const candidates = [];
+  for (let row = 0; row < steps; row += 1) {
+    for (let column = 0; column < steps; column += 1) {
+      const bottomLeftPreference = row === steps - 1 && column === 0 ? -100 : 0;
+      const verticalPreference = (steps - 1 - row) * 8;
+      candidates.push({
+        name: `grid-${row + 1}-${column + 1}`,
+        x: box.x + margin + availableX * column / (steps - 1),
+        y: box.y + margin + availableY * row / (steps - 1),
+        width,
+        height,
+        preference: bottomLeftPreference + verticalPreference + column
+      });
+    }
+  }
   const protectedRects = [
     { x: box.x + 20, y: box.y + 18, width: 140, height: 120 },
     { x: box.x + box.width - 390, y: box.y + box.height - 86, width: 390, height: 86 }
   ];
-  const entities = flattenStringEntities(model.strings || []).concat((model.areas || []).flatMap((area) => area.entities || []));
-  const projectedPoints = entities.flatMap((entity) => (entity.points || []).map((point) => ({ x: transform.x(point), y: transform.y(point) })));
+  const projectEntity = (entity) => {
+    const points = (entity.points || []).map((point) => ({ x: transform.x(point), y: transform.y(point) }));
+    const screenBounds = points.reduce((bounds, point) => ({
+      minX: Math.min(bounds.minX, point.x), maxX: Math.max(bounds.maxX, point.x),
+      minY: Math.min(bounds.minY, point.y), maxY: Math.max(bounds.maxY, point.y)
+    }), { minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity });
+    return { ...entity, points, radius: (Number(entity.radius) || 0) * transform.scale, screenBounds };
+  };
+  const screenTransform = { x: (point) => point.x, y: (point) => point.y, scale: 1 };
+  const stringEntities = flattenStringEntities(model.strings || []).map(projectEntity);
+  const allAreaEntities = (model.areas || []).flatMap((area) => area.entities || []).map(projectEntity);
+  const projectedPoints = stringEntities.concat(allAreaEntities).flatMap((entity) => entity.points || []);
   const operationalPoints = (model.firingPoints || []).concat(model.blockingPoints || [], model.cardPoints || []).map((point) => ({ x: transform.x(point), y: transform.y(point) }));
+  const solidEntities = allAreaEntities.filter((entity) => entity.closed);
   return candidates.map((candidate) => {
     let score = protectedRects.reduce((total, rect) => total + rectOverlap(candidate, rect) / 1000, 0);
-    const areaEntities = (model.areas || []).flatMap((area) => area.entities || []);
-    areaEntities.forEach((entity) => { if (entityOverlapsRect(entity, candidate, transform)) score += 100000; });
+    let areaCollisions = 0;
+    solidEntities.forEach((entity) => { if (entityOverlapsRect(entity, candidate, screenTransform)) areaCollisions += 1; });
+    stringEntities.forEach((entity) => { if (entityOverlapsRect(entity, candidate, screenTransform)) score += 45; });
     projectedPoints.forEach((point) => { if (pointInRect(point, candidate)) score += 4; });
     operationalPoints.forEach((point) => { if (pointInRect(point, candidate)) score += 20; });
     score += candidate.preference;
-    return { ...candidate, score };
-  }).sort((a, b) => a.score - b.score)[0];
+    return { ...candidate, score, areaCollisions };
+  }).sort((a, b) => a.areaCollisions - b.areaCollisions || a.score - b.score)[0];
 }
 
 function drawLegend(ctx, model, box, colors, transform, stringFillOpacity = DEFAULT_STRING_FILL_OPACITY) {
@@ -312,30 +346,48 @@ function drawLegend(ctx, model, box, colors, transform, stringFillOpacity = DEFA
   if (strings.length) rows.push({ color: colors.ink, label: 'POLIGONAIS / STRINGS DE DESMONTE' });
   if (statusAreas.some((area) => area.status === 'evacuar')) rows.push({ swatch: 'evacuar', label: 'EVACUAR' });
   if (statusAreas.some((area) => area.status === 'liberado')) rows.push({ swatch: 'liberado', label: 'LIBERADO' });
-  if (model.firingPoints?.length) rows.push({ icon: 'firing', label: 'PONTOS DE DISPARO' });
+  if (model.firingPoints?.length) (model.firingPointLegendLabels?.length ? model.firingPointLegendLabels : ['PONTOS DE DISPARO']).forEach((label) => rows.push({ icon: 'firing', label }));
   if (model.blockingPoints?.length) rows.push({ icon: 'blocking', label: 'PONTOS DE BLOQUEIO' });
   if (model.cardPoints?.length) rows.push({ icon: 'card', label: 'ENTREGA DE CARTÕES DE BLOQUEIO' });
   const shown = strings.slice(0, 24); const nameRows = strings.length ? Math.ceil(shown.length / 2) : 0; const overflow = Math.max(strings.length - shown.length, 0);
-  const width = strings.length ? 470 : 430; const height = 54 + rows.length * 30 + (strings.length ? 34 + nameRows * 18 + (overflow ? 18 : 0) : 0);
-  const placement = chooseLegendPlacement(ctx, model, box, width, height, transform); const { x, y } = placement;
-  ctx.save(); ctx.globalAlpha = .96; ctx.fillStyle = '#ffffff'; ctx.fillRect(x, y, width, height); ctx.strokeStyle = colors.rule; ctx.lineWidth = 2; ctx.strokeRect(x, y, width, height); ctx.strokeStyle = '#aeb9b7'; ctx.lineWidth = 1; ctx.strokeRect(x + 7, y + 7, width - 14, height - 14);
-  ctx.fillStyle = colors.ink; ctx.font = '700 18px Arial'; ctx.textAlign = 'left'; ctx.fillText('LEGENDA:', x + 18, y + 31);
-  let rowY = y + 57;
+  const settings = model.legendSettings || {};
+  const baseWidth = strings.length ? 470 : 430;
+  const minimumScale = Math.max(.55, Math.min(1, Number(settings.minimumScale) || .68));
+  const scales = [];
+  for (let scale = 1; scale > minimumScale + .001; scale -= .08) scales.push(scale);
+  scales.push(minimumScale);
+  let scale = 1;
+  let width = baseWidth;
+  let height = 54 + rows.length * 30 + (strings.length ? 34 + nameRows * 18 + (overflow ? 18 : 0) : 0);
+  let placement = null;
+  for (const candidateScale of scales) {
+    scale = candidateScale;
+    width = baseWidth * scale;
+    height = (54 + rows.length * 30 + (strings.length ? 34 + nameRows * 18 + (overflow ? 18 : 0) : 0)) * scale;
+    placement = chooseLegendPlacement(ctx, model, box, width, height, transform, settings);
+    if (placement.areaCollisions === 0) break;
+  }
+  const { x, y } = placement;
+  ctx.save(); ctx.globalAlpha = placement.areaCollisions ? .84 : .96; ctx.fillStyle = '#ffffff'; ctx.fillRect(x, y, width, height); ctx.strokeStyle = colors.rule; ctx.lineWidth = 2 * scale; ctx.strokeRect(x, y, width, height); ctx.strokeStyle = '#aeb9b7'; ctx.lineWidth = scale; ctx.strokeRect(x + 7 * scale, y + 7 * scale, width - 14 * scale, height - 14 * scale);
+  ctx.fillStyle = colors.ink; ctx.font = `700 ${18 * scale}px Arial`; ctx.textAlign = 'left'; ctx.fillText('LEGENDA:', x + 18 * scale, y + 31 * scale);
+  let rowY = y + 57 * scale;
   rows.forEach((item) => {
-    const iconY = rowY - 7;
-    if (item.swatch === 'evacuar') drawHatchSwatch(ctx, x + 18, iconY, 44, 16, colors.redHatch, colors.redSoft);
-    else if (item.swatch === 'liberado') drawHatchSwatch(ctx, x + 18, iconY, 44, 16, colors.blueHatch, colors.blueSoft);
-    else if (item.icon === 'firing') drawLegendIcon(ctx, model.firingIcon, x + 18, rowY - 13, 26, (canvas, cx, cy, size) => { canvas.fillStyle = colors.orange; canvas.strokeStyle = colors.ink; canvas.lineWidth = 2; canvas.beginPath(); canvas.arc(cx, cy, size * .27, 0, Math.PI * 2); canvas.fill(); canvas.stroke(); });
-    else if (item.icon === 'blocking') drawLegendIcon(ctx, model.blockingIcon, x + 18, rowY - 13, 26, (canvas, cx, cy, size) => { canvas.strokeStyle = colors.red; canvas.lineWidth = 2; canvas.beginPath(); canvas.moveTo(cx - size * .25, cy + size * .28); canvas.lineTo(cx - size * .12, cy - size * .25); canvas.lineTo(cx + size * .12, cy - size * .25); canvas.lineTo(cx + size * .25, cy + size * .28); canvas.stroke(); });
-    else if (item.icon === 'card') drawLegendIcon(ctx, model.cardIcon, x + 18, rowY - 13, 26, (canvas, cx, cy, size) => { canvas.strokeStyle = colors.red; canvas.lineWidth = 2; canvas.strokeRect(cx - size * .3, cy - size * .2, size * .6, size * .4); canvas.fillStyle = colors.red; canvas.fillRect(cx - size * .22, cy - size * .05, size * .44, size * .08); });
-    else { ctx.strokeStyle = item.color; ctx.lineWidth = 3; ctx.setLineDash(item.dashed ? [10, 7] : []); ctx.beginPath(); ctx.moveTo(x + 18, rowY); ctx.lineTo(x + 62, rowY); ctx.stroke(); ctx.setLineDash([]); }
-    ctx.fillStyle = colors.ink; ctx.font = '12px Arial'; ctx.fillText(fitCanvasText(ctx, item.label, width - 98), x + 78, rowY + 5); rowY += 30;
+    const iconY = rowY - 7 * scale;
+    if (item.swatch === 'evacuar') drawHatchSwatch(ctx, x + 18 * scale, iconY, 44 * scale, 16 * scale, colors.redHatch, colors.redSoft);
+    else if (item.swatch === 'liberado') drawHatchSwatch(ctx, x + 18 * scale, iconY, 44 * scale, 16 * scale, colors.blueHatch, colors.blueSoft);
+    else if (item.icon === 'firing') drawLegendIcon(ctx, model.firingIcon, x + 18 * scale, rowY - 13 * scale, 26 * scale, (canvas, cx, cy, size) => { canvas.fillStyle = colors.orange; canvas.strokeStyle = colors.ink; canvas.lineWidth = 2 * scale; canvas.beginPath(); canvas.arc(cx, cy, size * .27, 0, Math.PI * 2); canvas.fill(); canvas.stroke(); });
+    else if (item.icon === 'blocking') drawLegendIcon(ctx, model.blockingIcon, x + 18 * scale, rowY - 13 * scale, 26 * scale, (canvas, cx, cy, size) => { canvas.strokeStyle = colors.red; canvas.lineWidth = 2 * scale; canvas.beginPath(); canvas.moveTo(cx - size * .25, cy + size * .28); canvas.lineTo(cx - size * .12, cy - size * .25); canvas.lineTo(cx + size * .12, cy - size * .25); canvas.lineTo(cx + size * .25, cy + size * .28); canvas.stroke(); });
+    else if (item.icon === 'card') drawLegendIcon(ctx, model.cardIcon, x + 18 * scale, rowY - 13 * scale, 26 * scale, (canvas, cx, cy, size) => { canvas.strokeStyle = colors.red; canvas.lineWidth = 2 * scale; canvas.strokeRect(cx - size * .3, cy - size * .2, size * .6, size * .4); canvas.fillStyle = colors.red; canvas.fillRect(cx - size * .22, cy - size * .05, size * .44, size * .08); });
+    else { ctx.strokeStyle = item.color; ctx.lineWidth = 3 * scale; ctx.setLineDash(item.dashed ? [10 * scale, 7 * scale] : []); ctx.beginPath(); ctx.moveTo(x + 18 * scale, rowY); ctx.lineTo(x + 62 * scale, rowY); ctx.stroke(); ctx.setLineDash([]); }
+    const labelWidth = width - 98 * scale;
+    const fontSize = fitCanvasFontSize(ctx, item.label, labelWidth, 12 * scale, Math.max(7, (Number(settings.radiusLabelMinFontSize) || 8) * scale));
+    ctx.fillStyle = colors.ink; ctx.font = `${fontSize}px Arial`; ctx.fillText(fitCanvasText(ctx, item.label, labelWidth), x + 78 * scale, rowY + 5 * scale); rowY += 30 * scale;
   });
   if (strings.length) {
-    ctx.fillStyle = colors.ink; ctx.font = '700 12px Arial'; ctx.fillText('REGIÕES DE DESMONTE DE ROCHAS:', x + 18, rowY + 7); rowY += 26;
+    ctx.fillStyle = colors.ink; ctx.font = `700 ${12 * scale}px Arial`; ctx.fillText('REGIÕES DE DESMONTE DE ROCHAS:', x + 18 * scale, rowY + 7 * scale); rowY += 26 * scale;
     const rowsPerColumn = Math.max(1, Math.ceil(shown.length / 2));
-    shown.forEach((item, index) => { const column = Math.floor(index / rowsPerColumn); const row = index % rowsPerColumn; const offset = column * (width / 2); const color = stringColor(item, colors); drawStringThumbnail(ctx, item, x + 14 + offset, rowY + row * 18 - 8, 38, 16, color, stringFillOpacity); ctx.fillStyle = colors.ink; ctx.font = '10px Arial'; const type = item.blastType === 'precut' ? 'Pré-Corte' : item.blastType === 'regularization' ? 'Regularização/Bloco' : 'Produção'; ctx.fillText(fitCanvasText(ctx, `${String(index + 1).padStart(2, '0')} ${type}: ${item.label || item.name}`, width / 2 - 64), x + 50 + offset, rowY + row * 18 + 4); });
-    if (overflow) { ctx.fillStyle = colors.muted; ctx.font = '10px Arial'; ctx.fillText(`+ ${overflow} poligonal(is) não exibida(s) na legenda`, x + 18, y + height - 14); }
+    shown.forEach((item, index) => { const column = Math.floor(index / rowsPerColumn); const row = index % rowsPerColumn; const offset = column * (width / 2); const color = stringColor(item, colors); drawStringThumbnail(ctx, item, x + 14 * scale + offset, rowY + row * 18 * scale - 8 * scale, 38 * scale, 16 * scale, color, stringFillOpacity); ctx.fillStyle = colors.ink; ctx.font = `${10 * scale}px Arial`; const type = item.blastType === 'precut' ? 'Pré-Corte' : item.blastType === 'regularization' ? 'Regularização/Bloco' : 'Produção'; ctx.fillText(fitCanvasText(ctx, `${String(index + 1).padStart(2, '0')} ${type}: ${item.label || item.name}`, width / 2 - 64 * scale), x + 50 * scale + offset, rowY + row * 18 * scale + 4 * scale); });
+    if (overflow) { ctx.fillStyle = colors.muted; ctx.font = `${10 * scale}px Arial`; ctx.fillText(`+ ${overflow} poligonal(is) não exibida(s) na legenda`, x + 18 * scale, y + height - 14 * scale); }
   }
   ctx.restore(); return placement;
 }
@@ -380,6 +432,59 @@ function pointInsideClosedEntity(point, entity) {
     if (crosses) inside = !inside;
   }
   return inside;
+}
+
+function pointNearEntityBoundary(point, entity, tolerance) {
+  if (!entity?.closed || !entity.points || entity.points.length < 3 || tolerance <= 0) return false;
+  const toleranceSquared = tolerance * tolerance;
+  for (let index = 0; index < entity.points.length; index += 1) {
+    const start = entity.points[index]; const end = entity.points[(index + 1) % entity.points.length];
+    const dx = end.x - start.x; const dy = end.y - start.y;
+    const lengthSquared = dx * dx + dy * dy;
+    const position = lengthSquared ? Math.max(0, Math.min(1, ((point.x - start.x) * dx + (point.y - start.y) * dy) / lengthSquared)) : 0;
+    const distanceX = point.x - (start.x + position * dx); const distanceY = point.y - (start.y + position * dy);
+    if (distanceX * distanceX + distanceY * distanceY <= toleranceSquared) return true;
+  }
+  return false;
+}
+
+function normalizedStructureText(value) {
+  return String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase();
+}
+
+function structureAtPoint(point, model, transform) {
+  const tolerance = 6 / Math.max(Number(transform?.scale) || 1, .0001);
+  const structures = model.structures || [];
+  const matches = (model.areas || []).flatMap((area) => area.entities || [])
+    .filter((entity) => entity.structureId && (pointInsideClosedEntity(point, entity) || pointNearEntityBoundary(point, entity, tolerance)))
+    .map((entity) => {
+      const id = String(entity.structureId).replace(/^structure-/, '');
+      const structure = structures.find((candidate) => String(candidate.id).replace(/^structure-/, '') === id);
+      const name = String(structure?.name || entity.structureName || '').trim();
+      const positions = structure?.positions?.length ? structure.positions : [structure].filter(Boolean);
+      const distance = positions.reduce((nearest, candidate) => {
+        const x = Number(candidate.x ?? candidate.worldX); const y = Number(candidate.y ?? candidate.worldY);
+        return Number.isFinite(x) && Number.isFinite(y) ? Math.min(nearest, Math.hypot(point.x - x, point.y - y)) : nearest;
+      }, Infinity);
+      return { name, distance };
+    })
+    .filter((candidate) => candidate.name);
+  return matches.sort((a, b) => a.distance - b.distance)[0]?.name || '';
+}
+
+function firingPointLegendLabels(model, settings, transform) {
+  const labels = new Set();
+  let unassociatedPoint = false;
+  const tags = settings?.firingPointStructureTags || [];
+  (model.firingPoints || []).forEach((point) => {
+    const structureName = structureAtPoint(point, model, transform);
+    if (!structureName) { unassociatedPoint = true; return; }
+    const normalizedName = normalizedStructureText(structureName);
+    const alias = tags.find((item) => item?.match && normalizedName.includes(normalizedStructureText(item.match)));
+    labels.add(`PONTO DE DISPARO (${String(alias?.tag || structureName).toUpperCase()})`);
+  });
+  if (unassociatedPoint) labels.add('PONTOS DE DISPARO');
+  return [...labels];
 }
 
 function structureInsideAffectedArea(point, model, contours) {
@@ -548,7 +653,7 @@ export function drawReport(canvas, model, config, options = {}) {
     structurePoints.forEach((structure) => structure.points.forEach((point) => drawStructurePositionLabel(ctx, structure, point, transform, model.areaNumberSize)));
     ctx.restore();
   }
-  drawNorth(ctx, map); drawScale(ctx, map, transform, bounds); const legend = transform ? drawLegend(ctx, { ...model, areas: model.areas, statusAreas: model.structures?.length ? model.structures : model.areas }, map, colors, transform, stringFillOpacity) : null; drawPanel(ctx, { ...model, meta: { ...model.meta, dateLabel: model.meta.date ? new Date(`${model.meta.date}T12:00:00`).toLocaleDateString('pt-BR') : 'DATA NÃO INFORMADA' } }, panel, colors);
+  drawNorth(ctx, map); drawScale(ctx, map, transform, bounds); const legend = transform ? drawLegend(ctx, { ...model, areas: model.areas, statusAreas: model.structures?.length ? model.structures : model.areas, legendSettings: config.report.legend, firingPointLegendLabels: firingPointLegendLabels(model, config.report.legend, transform) }, map, colors, transform, stringFillOpacity) : null; drawPanel(ctx, { ...model, meta: { ...model.meta, dateLabel: model.meta.date ? new Date(`${model.meta.date}T12:00:00`).toLocaleDateString('pt-BR') : 'DATA NÃO INFORMADA' } }, panel, colors);
   ctx.fillStyle = colors.ink; ctx.font = '14px Arial'; ctx.textAlign = 'left'; ctx.fillText(model.meta.location || 'Local não informado', map.x + 8, height - 34); ctx.textAlign = 'right'; ctx.fillText(model.meta.observation || 'Valide os dados operacionais antes da emissão', width - 24, height - 34);
   return { bounds, map: { x: map.x * outputScale, y: map.y * outputScale, width: map.width * outputScale, height: map.height * outputScale }, transform, extentSource, legend, endpointCount: getStringEndpoints(stringEntities).length, areaStatuses: model.areas.map((area) => ({ id: area.id, status: area.status })) };
 }

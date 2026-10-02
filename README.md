@@ -20,7 +20,7 @@ Os dados e os arquivos ficam no navegador. Substituições de ortomosaicos persi
 
 O fundo satelital automático usa o serviço World Imagery da Esri, com uma extensão calculada na mesma proporção do quadro cartográfico para cobrir todo o mapa. Não exige chave Google Maps nem configuração manual. Se a rede não responder, o aplicativo mantém a prancha funcionando com os GeoTIFFs locais já carregados.
 
-As áreas sólidas são renderizadas em duas partes: a diferença em relação aos raios fica azul e somente a interseção geométrica com qualquer cerco recebe hachura vermelha. A legenda procura primeiro o canto inferior esquerdo e rejeita posições que cruzem sólidos, pontos operacionais, norte ou escala.
+As áreas sólidas são renderizadas em duas partes: a diferença em relação aos raios fica azul e somente a interseção geométrica com qualquer cerco recebe hachura vermelha. A legenda percorre posições do mapa para evitar as áreas hachuradas e reduz o conjunto quando precisa caber em uma região livre. Os nomes longos dos raios diminuem a fonte para caber na largura disponível. Quando um ponto de disparo fica sobre a pilha de oxidado ou a pilha de estéril, a legenda identifica o ponto como `PONTO DE DISPARO (PDO)` ou `PONTO DE DISPARO (PDE)`, respectivamente. A importação de um projeto mostra o avanço da leitura, validação, aplicação dos dados e atualização da prancha.
 
 ## Desenvolvimento
 

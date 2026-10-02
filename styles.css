@@ -109,6 +109,19 @@ button { cursor: pointer; }
 .project-file-label { display: flex; align-items: center; justify-content: center; cursor: pointer; }
 .project-file-label input { display: none; }
 .project-file-state { margin: 9px 0 0; color: var(--muted); font: 500 10px/1.4 'IBM Plex Mono', monospace; }
+.project-import-progress { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 7px 12px; margin-top: 12px; border: 1px solid #f0c7cc; border-radius: 7px; padding: 10px 11px; background: #fffafb; }
+.project-import-progress[hidden] { display: none; }
+.project-import-progress-copy { display: grid; gap: 3px; min-width: 0; }
+.project-import-progress-copy strong { color: var(--ink); font: 700 10px 'IBM Plex Mono', monospace; }
+.project-import-progress-copy span { overflow: hidden; color: var(--muted); font-size: 10px; line-height: 1.35; text-overflow: ellipsis; white-space: nowrap; }
+.project-import-progress-track { position: relative; grid-column: 1 / -1; height: 8px; overflow: hidden; border-radius: 99px; background: #e9edef; }
+.project-import-progress-track > span { display: block; width: 0; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--enaex-red), #ff7a18); transition: width .24s ease; }
+.project-import-progress-track.is-active::after { position: absolute; inset: 0 auto 0 -38%; width: 38%; border-radius: inherit; background: linear-gradient(90deg, transparent, rgba(255,255,255,.72), transparent); content: ''; animation: project-import-shimmer 1.05s ease-in-out infinite; }
+.project-import-progress > output { color: var(--enaex-red); font: 700 9px 'IBM Plex Mono', monospace; }
+.project-import-progress.is-error { border-color: #e0b0b4; background: #fff6f6; }
+.project-import-progress.is-error .project-import-progress-copy strong, .project-import-progress.is-error > output { color: #a51d2a; }
+@keyframes project-import-shimmer { from { transform: translateX(0); } to { transform: translateX(365%); } }
+@media (prefers-reduced-motion: reduce) { .project-import-progress-track > span { transition: none; } .project-import-progress-track.is-active::after { animation: none; transform: translateX(100%); } }
 .status-override { min-height: 22px; max-width: 88px; border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; color: var(--ink); background: #f8fbfa; font: 700 8px 'IBM Plex Mono', monospace; }
 .string-type-select { width: 100%; min-height: 28px; margin-bottom: 4px; border: 1px solid var(--line); border-radius: 5px; padding: 0 7px; color: var(--ink); background: #f8fbfa; font: 700 10px 'IBM Plex Mono', monospace; }
 .string-drawing-tools { margin-top: 11px; border: 1px solid rgba(255,122,24,.36); border-radius: 8px; padding: 11px; background: #fff8f1; }

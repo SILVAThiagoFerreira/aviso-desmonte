@@ -15,3 +15,6 @@
 - [x] Recortar sólidos pela interseção real com os raios, preservando azul fora do cerco.
 - [x] Cobrir todo o quadro cartográfico com o fundo satelital automático.
 - [x] Revisar cabeçalho do painel e posicionar a legenda sem sobreposição geométrica.
+- [x] Evitar áreas hachuradas ao posicionar a legenda e reduzir sua tipografia quando o espaço livre exigir.
+- [x] Identificar na legenda pontos de disparo sobre as pilhas de oxidado (PDO) e estéril (PDE).
+- [x] Mostrar o andamento da importação do projeto na tela principal.
