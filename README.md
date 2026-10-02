@@ -22,6 +22,8 @@ O fundo satelital automático usa o serviço World Imagery da Esri, com uma exte
 
 As áreas sólidas são renderizadas em duas partes: a diferença em relação aos raios fica azul e somente a interseção geométrica com qualquer cerco recebe hachura vermelha. A legenda percorre posições do mapa para evitar as áreas hachuradas e reduz o conjunto quando precisa caber em uma região livre. Os nomes longos dos raios diminuem a fonte para caber na largura disponível. Quando um ponto de disparo fica sobre a pilha de oxidado ou a pilha de estéril, a legenda identifica o ponto como `PONTO DE DISPARO (PDO)` ou `PONTO DE DISPARO (PDE)`, respectivamente. A importação de um projeto mostra o avanço da leitura, validação, aplicação dos dados e atualização da prancha.
 
+A seta do norte mantém um recuo superior mais amplo em relação à moldura do mapa; os deslocamentos ficam em `report.northArrow` no `config.json`.
+
 ## Desenvolvimento
 
 ```powershell

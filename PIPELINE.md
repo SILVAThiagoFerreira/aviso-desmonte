@@ -5,6 +5,7 @@
 3. `src/geotiff.js` decodifica GeoTIFF RGBA e extrai o bounding box geográfico para posicionamento espacial.
 4. `src/geometry.js` identifica extensão, coleta todas as strings, cria buffers planares contínuos, une as sobreposições e testa a interseção das áreas.
 5. `src/render.js` compõe a prancha de conferência em canvas, sem substituir dados inválidos por fallback.
+   - O deslocamento da seta do norte é lido de `report.northArrow` para preservar a margem da moldura.
    - A legenda deriva o rótulo PDO/PDE pela estrutura sob o ponto de disparo, ajusta a fonte dos raios e tenta posições livres antes de compactar a caixa.
    - A importação de um arquivo de projeto atualiza o indicador de progresso entre a leitura, a validação, a aplicação dos dados e o redesenho.
 5. `src/pdf.js` transforma a mesma prancha em um PDF local.

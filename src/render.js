@@ -124,8 +124,8 @@ function drawContours(ctx, contours, transform, colors, radii) {
   });
 }
 
-function drawNorth(ctx, box) {
-  const x = box.x + 78; const y = box.y + 75;
+function drawNorth(ctx, box, settings = {}) {
+  const x = box.x + Number(settings.offsetX ?? 78); const y = box.y + Number(settings.offsetY ?? 100);
   ctx.save(); ctx.translate(x, y); ctx.strokeStyle = '#ffffff'; ctx.fillStyle = '#ffffff'; ctx.lineWidth = 4;
   ctx.beginPath(); ctx.moveTo(0, 42); ctx.lineTo(0, -35); ctx.stroke(); ctx.beginPath(); ctx.moveTo(0, -48); ctx.lineTo(-18, -8); ctx.lineTo(0, -18); ctx.lineTo(18, -8); ctx.closePath(); ctx.fill();
   ctx.font = '700 18px Arial'; ctx.textAlign = 'center'; ctx.fillText('N', 0, -58); ctx.restore();
@@ -653,7 +653,7 @@ export function drawReport(canvas, model, config, options = {}) {
     structurePoints.forEach((structure) => structure.points.forEach((point) => drawStructurePositionLabel(ctx, structure, point, transform, model.areaNumberSize)));
     ctx.restore();
   }
-  drawNorth(ctx, map); drawScale(ctx, map, transform, bounds); const legend = transform ? drawLegend(ctx, { ...model, areas: model.areas, statusAreas: model.structures?.length ? model.structures : model.areas, legendSettings: config.report.legend, firingPointLegendLabels: firingPointLegendLabels(model, config.report.legend, transform) }, map, colors, transform, stringFillOpacity) : null; drawPanel(ctx, { ...model, meta: { ...model.meta, dateLabel: model.meta.date ? new Date(`${model.meta.date}T12:00:00`).toLocaleDateString('pt-BR') : 'DATA NÃO INFORMADA' } }, panel, colors);
+  drawNorth(ctx, map, config.report.northArrow); drawScale(ctx, map, transform, bounds); const legend = transform ? drawLegend(ctx, { ...model, areas: model.areas, statusAreas: model.structures?.length ? model.structures : model.areas, legendSettings: config.report.legend, firingPointLegendLabels: firingPointLegendLabels(model, config.report.legend, transform) }, map, colors, transform, stringFillOpacity) : null; drawPanel(ctx, { ...model, meta: { ...model.meta, dateLabel: model.meta.date ? new Date(`${model.meta.date}T12:00:00`).toLocaleDateString('pt-BR') : 'DATA NÃO INFORMADA' } }, panel, colors);
   ctx.fillStyle = colors.ink; ctx.font = '14px Arial'; ctx.textAlign = 'left'; ctx.fillText(model.meta.location || 'Local não informado', map.x + 8, height - 34); ctx.textAlign = 'right'; ctx.fillText(model.meta.observation || 'Valide os dados operacionais antes da emissão', width - 24, height - 34);
   return { bounds, map: { x: map.x * outputScale, y: map.y * outputScale, width: map.width * outputScale, height: map.height * outputScale }, transform, extentSource, legend, endpointCount: getStringEndpoints(stringEntities).length, areaStatuses: model.areas.map((area) => ({ id: area.id, status: area.status })) };
 }

@@ -18,3 +18,4 @@
 - [x] Evitar áreas hachuradas ao posicionar a legenda e reduzir sua tipografia quando o espaço livre exigir.
 - [x] Identificar na legenda pontos de disparo sobre as pilhas de oxidado (PDO) e estéril (PDE).
 - [x] Mostrar o andamento da importação do projeto na tela principal.
+- [x] Aumentar o recuo da seta norte em relação à moldura do mapa.
