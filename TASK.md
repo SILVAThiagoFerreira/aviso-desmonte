@@ -21,4 +21,5 @@
 - [x] Dar a cada ponto de bloqueio uma cor aleatória e numerar a legenda como "Ponto de Bloqueio #n".
 - [x] Atribuir cor a pontos de bloqueio de projetos antigos ao importar, com aviso ao usuário.
 - [x] Redesenhar o cavalete de bloqueio em vetor, preservando a silhueta e as listras brancas, e escolher a paleta por distância perceptual.
+- [x] Escolher a cor de cada ponto de bloqueio pelo contraste com o fundo que o ícone cobre, revalidar ao mover e ao importar, e acrescentar halo branco.
 - [x] Aumentar o recuo da seta norte em relação à moldura do mapa.

@@ -184,8 +184,13 @@ function drawCavaleteIcon(ctx, cx, cy, size, color, icon) {
       ctx.restore();
     });
   };
+  // Camadas de dentro para fora: corpo, contorno e halo. O halo deixa o ícone
+  // legível sobre texturas de satélite, independentemente da cor escolhida.
+  const outline = icon.outline?.width > 0 ? icon.outline : null;
+  const halo = icon.halo?.width > 0 ? icon.halo : null;
   ctx.save();
-  if (icon.outline?.width > 0) paint(icon.outline.color, icon.outline.width, false);
+  if (halo) paint(halo.color, (outline ? outline.width : 0) + halo.width, false);
+  if (outline) paint(outline.color, outline.width, false);
   paint(color, 0, true);
   ctx.restore();
 }
@@ -194,6 +199,47 @@ function drawBlockingMarker(ctx, point, transform, icon, iconSizes) {
   const size = Number(iconSizes?.blocking);
   if (!(size > 0)) throw new Error('Tamanho do cavalete de bloqueio inválido.');
   drawCavaleteIcon(ctx, transform.x(point), transform.y(point), size, point.color, icon);
+}
+
+// Lê uma grade de cores [r, g, b] ao redor de (x, y), em pixels do canvas, para
+// medir o fundo que um ponto de bloqueio vai cobrir.
+export function sampleCanvasRegion(canvas, x, y, radius, step) {
+  const left = Math.max(0, Math.floor(x - radius)); const top = Math.max(0, Math.floor(y - radius));
+  const right = Math.min(canvas.width - 1, Math.ceil(x + radius)); const bottom = Math.min(canvas.height - 1, Math.ceil(y + radius));
+  const width = right - left + 1; const height = bottom - top + 1;
+  if (width <= 0 || height <= 0) return [];
+  const { data } = canvas.getContext('2d').getImageData(left, top, width, height);
+  const samples = [];
+  for (let row = 0; row < height; row += step) {
+    for (let column = 0; column < width; column += step) {
+      const index = (row * width + column) * 4;
+      samples.push([data[index], data[index + 1], data[index + 2]]);
+    }
+  }
+  return samples;
+}
+
+// Posição, em pixels do canvas, de um ponto do projeto no resultado de drawReport.
+export function geoToCanvasPosition(result, point) {
+  const { bounds, map } = result;
+  const worldWidth = Math.max(bounds.maxX - bounds.minX, 1); const worldHeight = Math.max(bounds.maxY - bounds.minY, 1);
+  const scale = Math.min(map.width / worldWidth, map.height / worldHeight);
+  const offsetX = map.x + (map.width - worldWidth * scale) / 2; const offsetY = map.y + (map.height - worldHeight * scale) / 2;
+  return { x: offsetX + (point.x - bounds.minX) * scale, y: offsetY + (bounds.maxY - point.y) * scale };
+}
+
+// Desenha o croqui sem pontos de bloqueio: é o fundo contra o qual cada cor será julgada.
+export function drawBlockingBackground(model, config) {
+  const canvas = document.createElement('canvas');
+  // drawReport atualiza o status de áreas e estruturas; trabalhamos com cópias, como em renderReportPng.
+  const result = drawReport(canvas, { ...model, areas: (model.areas || []).map((area) => ({ ...area })), structures: (model.structures || []).map((structure) => ({ ...structure })), blockingPoints: [] }, config);
+  return { canvas, result };
+}
+
+// Amostras [r, g, b] da área que o ícone do ponto vai cobrir, sobre o fundo sem pontos.
+export function sampleBlockingFootprint(background, point, radius, step) {
+  const position = geoToCanvasPosition(background.result, point);
+  return sampleCanvasRegion(background.canvas, position.x, position.y, radius, step);
 }
 
 function drawHatchSwatch(ctx, x, y, width, height, color, fill) {

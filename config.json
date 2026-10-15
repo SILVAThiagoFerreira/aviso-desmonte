@@ -2,7 +2,7 @@
   "app": {
     "name": "Aviso de Desmonte",
     "eyebrow": "AVISO DE DESMONTE",
-    "version": "1.20.12"
+    "version": "1.20.13"
   },
   "defaultPreset": {
     "loadAllOrthomosaics": true,
@@ -55,10 +55,12 @@
     "stringFillOpacity": 0.16,
     "northArrow": { "offsetX": 78, "offsetY": 100 },
     "blockingPointColors": ["#e4007c", "#3ddc84", "#00b0ff", "#8d5a2b", "#9c27b0", "#8bc200"],
+    "blockingPointContrast": { "minimumDeltaE": 30, "requiredShare": 0.95, "footprintRatio": 0.5, "sampleStep": 2 },
     "blockingIcon": {
       "viewBox": 100,
       "stripes": { "color": "#ffffff", "period": 23.3, "width": 10.3, "slope": -1.2 },
       "outline": { "color": "#1f2f35", "width": 1.2 },
+      "halo": { "color": "#ffffff", "width": 1.5 },
       "posts": [
         { "x": 23.5, "y": 0, "width": 5, "height": 8.5 },
         { "x": 75, "y": 0, "width": 5, "height": 8.5 }
