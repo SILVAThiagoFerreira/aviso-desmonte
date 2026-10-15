@@ -203,7 +203,7 @@ button { cursor: pointer; }
 .point-item-copy small { font: 9px/1.35 'IBM Plex Mono', monospace; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .point-swatch { display: block; width: 15px; height: 15px; border-radius: 50%; border: 2px solid var(--ink); background: var(--enaex-red); }
 .point-swatch.firing { background: var(--orange); }
-.point-swatch.blocking { border-radius: 2px; background: linear-gradient(135deg, #ff7a18 0 40%, #fff 40% 60%, #ff7a18 60%); }
+.point-swatch.blocking { border-radius: 2px; background: linear-gradient(135deg, var(--point-color, #ff7a18) 0 40%, #fff 40% 60%, var(--point-color, #ff7a18) 60%); }
 .point-swatch.card { border-radius: 2px; background: #fff; border-color: var(--enaex-red); }
 #reportCanvas { touch-action: none; }
 #reportCanvas.placing-point, #reportCanvas.drawing-string { cursor: crosshair; outline: 3px solid rgba(237, 28, 36, .35); outline-offset: 4px; }

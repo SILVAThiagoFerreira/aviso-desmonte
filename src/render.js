@@ -1,4 +1,5 @@
 import { areaIntersectsContours, boundsOf, boundsOfContours, differenceEntityWithContours, fitBoundsToAspect, flattenStringEntities, formatNumber, getStringEndpoints, intersectEntityWithContours, mergeBounds, paddedBounds, pointIntersectsContours } from './geometry.js';
+import { blockingPointLegendLabel } from './points.js';
 
 const DEFAULT_STRING_FILL_OPACITY = 0.16;
 const NOTICE_LOGO_WIDTH = 315;
@@ -146,6 +147,30 @@ function drawLegendIcon(ctx, image, x, y, size, fallback) {
     return;
   }
   fallback(ctx, x + size / 2, y + size / 2, size);
+}
+
+// Cada ponto de bloqueio usa o cavalete tingido com sua cor. A composição "color"
+// troca apenas a tonalidade, mantendo brilho (faixas brancas) e canal alfa do PNG.
+// O resultado é guardado por imagem e cor, para não recompor a cada redesenho.
+const tintedIconCache = new WeakMap();
+
+function tintedIcon(image, color) {
+  if (!image) return null;
+  if (!color) return image;
+  let byColor = tintedIconCache.get(image);
+  if (!byColor) { byColor = new Map(); tintedIconCache.set(image, byColor); }
+  if (!byColor.has(color)) byColor.set(color, createTintedIcon(image, color));
+  return byColor.get(color);
+}
+
+function createTintedIcon(image, color) {
+  const width = image.naturalWidth || image.width; const height = image.naturalHeight || image.height;
+  const canvas = document.createElement('canvas'); canvas.width = width; canvas.height = height;
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(image, 0, 0, width, height);
+  ctx.globalCompositeOperation = 'color'; ctx.fillStyle = color; ctx.fillRect(0, 0, width, height);
+  ctx.globalCompositeOperation = 'destination-in'; ctx.drawImage(image, 0, 0, width, height);
+  return canvas;
 }
 
 function drawHatchSwatch(ctx, x, y, width, height, color, fill) {
@@ -347,7 +372,7 @@ function drawLegend(ctx, model, box, colors, transform, stringFillOpacity = DEFA
   if (statusAreas.some((area) => area.status === 'evacuar')) rows.push({ swatch: 'evacuar', label: 'EVACUAR' });
   if (statusAreas.some((area) => area.status === 'liberado')) rows.push({ swatch: 'liberado', label: 'LIBERADO' });
   if (model.firingPoints?.length) (model.firingPointLegendLabels?.length ? model.firingPointLegendLabels : ['PONTOS DE DISPARO']).forEach((label) => rows.push({ icon: 'firing', label }));
-  if (model.blockingPoints?.length) rows.push({ icon: 'blocking', label: 'PONTOS DE BLOQUEIO' });
+  (model.blockingPoints || []).forEach((point, index) => rows.push({ icon: 'blocking', image: tintedIcon(model.blockingIcon, point.color), label: blockingPointLegendLabel(model.legendSettings?.blockingPointLabel, index + 1) }));
   if (model.cardPoints?.length) rows.push({ icon: 'card', label: 'ENTREGA DE CARTÕES DE BLOQUEIO' });
   const shown = strings.slice(0, 24); const nameRows = strings.length ? Math.ceil(shown.length / 2) : 0; const overflow = Math.max(strings.length - shown.length, 0);
   const settings = model.legendSettings || {};
@@ -376,7 +401,7 @@ function drawLegend(ctx, model, box, colors, transform, stringFillOpacity = DEFA
     if (item.swatch === 'evacuar') drawHatchSwatch(ctx, x + 18 * scale, iconY, 44 * scale, 16 * scale, colors.redHatch, colors.redSoft);
     else if (item.swatch === 'liberado') drawHatchSwatch(ctx, x + 18 * scale, iconY, 44 * scale, 16 * scale, colors.blueHatch, colors.blueSoft);
     else if (item.icon === 'firing') drawLegendIcon(ctx, model.firingIcon, x + 18 * scale, rowY - 13 * scale, 26 * scale, (canvas, cx, cy, size) => { canvas.fillStyle = colors.orange; canvas.strokeStyle = colors.ink; canvas.lineWidth = 2 * scale; canvas.beginPath(); canvas.arc(cx, cy, size * .27, 0, Math.PI * 2); canvas.fill(); canvas.stroke(); });
-    else if (item.icon === 'blocking') drawLegendIcon(ctx, model.blockingIcon, x + 18 * scale, rowY - 13 * scale, 26 * scale, (canvas, cx, cy, size) => { canvas.strokeStyle = colors.red; canvas.lineWidth = 2 * scale; canvas.beginPath(); canvas.moveTo(cx - size * .25, cy + size * .28); canvas.lineTo(cx - size * .12, cy - size * .25); canvas.lineTo(cx + size * .12, cy - size * .25); canvas.lineTo(cx + size * .25, cy + size * .28); canvas.stroke(); });
+    else if (item.icon === 'blocking') drawLegendIcon(ctx, item.image, x + 18 * scale, rowY - 13 * scale, 26 * scale, (canvas, cx, cy, size) => { canvas.strokeStyle = colors.red; canvas.lineWidth = 2 * scale; canvas.beginPath(); canvas.moveTo(cx - size * .25, cy + size * .28); canvas.lineTo(cx - size * .12, cy - size * .25); canvas.lineTo(cx + size * .12, cy - size * .25); canvas.lineTo(cx + size * .25, cy + size * .28); canvas.stroke(); });
     else if (item.icon === 'card') drawLegendIcon(ctx, model.cardIcon, x + 18 * scale, rowY - 13 * scale, 26 * scale, (canvas, cx, cy, size) => { canvas.strokeStyle = colors.red; canvas.lineWidth = 2 * scale; canvas.strokeRect(cx - size * .3, cy - size * .2, size * .6, size * .4); canvas.fillStyle = colors.red; canvas.fillRect(cx - size * .22, cy - size * .05, size * .44, size * .08); });
     else { ctx.strokeStyle = item.color; ctx.lineWidth = 3 * scale; ctx.setLineDash(item.dashed ? [10 * scale, 7 * scale] : []); ctx.beginPath(); ctx.moveTo(x + 18 * scale, rowY); ctx.lineTo(x + 62 * scale, rowY); ctx.stroke(); ctx.setLineDash([]); }
     const labelWidth = width - 98 * scale;
@@ -644,7 +669,7 @@ export function drawReport(canvas, model, config, options = {}) {
     // O buffer já representa a extensão completa da poligonal. Não desenhar
     // círculos adicionais nas extremidades evita a aparência de raios sobrepostos.
     (model.firingPoints || []).forEach((point) => drawPointMarker(ctx, point, transform, model.firingIcon, colors, 'firing', model.pointIconSizes));
-    (model.blockingPoints || []).forEach((point) => drawPointMarker(ctx, point, transform, model.blockingIcon, colors, 'blocking', model.pointIconSizes));
+    (model.blockingPoints || []).forEach((point) => drawPointMarker(ctx, point, transform, tintedIcon(model.blockingIcon, point.color), colors, 'blocking', model.pointIconSizes));
     (model.cardPoints || []).forEach((point) => drawPointMarker(ctx, point, transform, model.cardIcon, colors, 'card', model.pointIconSizes));
     drawStringDraft(ctx, model.stringDrawing, transform, colors);
     // Os números das áreas são a camada de identificação mais importante:

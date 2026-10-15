@@ -2,7 +2,7 @@
   "app": {
     "name": "Aviso de Desmonte",
     "eyebrow": "AVISO DE DESMONTE",
-    "version": "1.20.10"
+    "version": "1.20.11"
   },
   "defaultPreset": {
     "loadAllOrthomosaics": true,
@@ -54,10 +54,12 @@
     "noticeTable": { "width": 1542, "height": 250 },
     "stringFillOpacity": 0.16,
     "northArrow": { "offsetX": 78, "offsetY": 100 },
+    "blockingPointColors": ["#e6007e", "#7c4dff", "#00e0b0", "#c6ff00", "#ff4fa3", "#ffb300", "#9c27b0", "#00b0ff"],
     "legend": {
       "radiusLabelMinFontSize": 8,
       "minimumScale": 0.68,
       "placementGridSteps": 5,
+      "blockingPointLabel": "Ponto de Bloqueio #{number}",
       "firingPointStructureTags": [
         { "match": "OXIDADO", "tag": "PDO" },
         { "match": "ESTERIL", "tag": "PDE" }

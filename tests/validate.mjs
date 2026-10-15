@@ -4,6 +4,7 @@ import vm from 'node:vm';
 import { parseDxf, parseGeoJson } from '../src/dxf.js';
 import { areaIntersectsContours, boundsOf, boundsOfContours, buildRadiusContours, dedupeEntities, differenceEntityWithContours, fitBoundsToAspect, flattenStringEntities, getStringEndpoints, intersectEntityWithContours, paddedBounds, pointIntersectsContours, unionContourPolygons } from '../src/geometry.js';
 import { safeFileName } from '../src/pdf.js';
+import { assignMissingBlockingPointColors, blockingPointLegendLabel, isHexColor, pickBlockingPointColor, validateBlockingPointConfig } from '../src/points.js';
 import { drawEntity, drawStringEntity, fitCanvasFontSize } from '../src/render.js';
 
 const dxf = await fs.readFile(new URL('../POLIGONAIS/r030826.dxf', import.meta.url), 'latin1');
@@ -60,7 +61,7 @@ const appSource = await fs.readFile(new URL('../app.js', import.meta.url), 'utf8
 const renderSource = await fs.readFile(new URL('../src/render.js', import.meta.url), 'utf8');
 const onlineBackend = await fs.readFile(new URL('../backend/Code.gs', import.meta.url), 'utf8');
 assert.equal(appConfig.onlineCatalog.enabled, true, 'o catálogo online precisa estar habilitado');
-assert.equal(appConfig.app.version, '1.20.10');
+assert.equal(appConfig.app.version, '1.20.11');
 assert.equal(appConfig.defaultPreset.observation, 'Setor Técnico de Operações - Enaex Brasil.');
 assert.equal(appConfig.defaultPreset.peopleRadius, 500);
 assert.equal(appConfig.defaultPreset.machineRadius, 700);
@@ -211,4 +212,30 @@ assert.equal(intersectEntityWithContours({ closed: true, points: [{ x: 0, y: 0 }
 globalThis.polygonClipping = { difference: (subject) => subject };
 assert.equal(differenceEntityWithContours({ closed: true, points: [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 10 }, { x: 0, y: 0 }] }, contour).length, 1, 'a base azul precisa aceitar a diferença geométrica dos raios');
 assert.equal(safeFileName('Aviso de Detonação 04/08/2026'), 'aviso-de-detonacao-04-08-2026');
+// Pontos de bloqueio: cor por ponto, legenda numerada e importação sem erro silencioso.
+validateBlockingPointConfig(appConfig.report);
+assert.equal(blockingPointLegendLabel(appConfig.report.legend.blockingPointLabel, 1), 'Ponto de Bloqueio #1', 'a legenda deve numerar os pontos de bloqueio a partir de #1');
+assert.equal(blockingPointLegendLabel(appConfig.report.legend.blockingPointLabel, 12), 'Ponto de Bloqueio #12', 'a numeração da legenda não pode ter limite');
+assert.throws(() => validateBlockingPointConfig({ ...appConfig.report, blockingPointColors: ['#ff0000', '#FF0000'] }), /repetida/, 'a paleta não pode repetir cores');
+assert.throws(() => validateBlockingPointConfig({ ...appConfig.report, blockingPointColors: ['vermelho'] }), /Cor inválida/, 'a paleta precisa conter apenas cores hexadecimais');
+assert.throws(() => validateBlockingPointConfig({ ...appConfig.report, legend: { blockingPointLabel: 'Bloqueio' } }), /\{number\}/, 'o rótulo da legenda precisa conter o número');
+assert.ok(isHexColor('#00e0b0') && !isHexColor('#00e0b') && !isHexColor('verde'), 'somente cores #rrggbb são aceitas');
+const testPalette = ['#111111', '#222222', '#333333'];
+assert.equal(pickBlockingPointColor(testPalette, ['#111111'], () => 0), '#222222', 'o sorteio deve preferir cores ainda não usadas');
+assert.equal(pickBlockingPointColor(testPalette, ['#111111', '#222222'], () => 0.999), '#333333', 'o último sorteio precisa cair na última cor livre');
+assert.ok(testPalette.includes(pickBlockingPointColor(testPalette, testPalette, () => 0.5)), 'com a paleta esgotada, qualquer cor da paleta pode ser sorteada');
+const importedPoints = [{ x: 1, y: 1, label: 'Ponto de bloqueio 1' }, { x: 2, y: 2, label: 'Ponto de bloqueio 2', color: '#222222' }, { x: 3, y: 3, label: 'Ponto de bloqueio 3' }];
+assert.equal(assignMissingBlockingPointColors(importedPoints, testPalette, () => 0), 2, 'pontos de projetos antigos sem cor devem receber cor ao importar');
+assert.equal(importedPoints[1].color, '#222222', 'cores já salvas no projeto não podem ser trocadas');
+assert.notEqual(importedPoints[0].color, '#222222', 'o sorteio deve evitar a cor já usada por outro ponto');
+assert.notEqual(importedPoints[2].color, importedPoints[0].color, 'pontos importados sem cor devem ficar com cores distintas quando a paleta permitir');
+assert.throws(() => assignMissingBlockingPointColors([{ x: 1, y: 1, color: 'azul' }], testPalette), /cor inválida/, 'cor inválida na importação precisa interromper o processo');
+assert.match(renderSource, /blockingPointLegendLabel\(model\.legendSettings\?\.blockingPointLabel, index \+ 1\)/, 'a legenda deve ter uma linha numerada por ponto de bloqueio');
+assert.ok(!renderSource.includes("label: 'PONTOS DE BLOQUEIO'"), 'a legenda não pode mais agrupar os pontos de bloqueio em uma única linha');
+assert.match(renderSource, /tintedIcon\(model\.blockingIcon, point\.color\)/, 'cada ponto de bloqueio precisa desenhar o cavalete na própria cor');
+assert.match(renderSource, /globalCompositeOperation = 'color'/, 'o tingimento precisa preservar o brilho e as faixas do cavalete');
+assert.match(appSource, /pickBlockingPointColor\(state\.config\.report\.blockingPointColors/, 'cada ponto inserido precisa receber cor aleatória da paleta');
+assert.match(appSource, /validateBlockingPointConfig\(state\.config\.report\)/, 'a paleta precisa ser validada ao carregar a configuração');
+assert.match(appSource, /assignMissingBlockingPointColors\(/, 'projetos antigos precisam receber cores ao importar');
+assert.match(stylesSource, /\.point-swatch\.blocking \{[^}]*var\(--point-color/, 'a lista de pontos precisa mostrar a cor de cada ponto de bloqueio');
 console.log(`PASS: DXF ${parsed.entities.length} entidades, ${getStringEndpoints(parsed.entities).length} extremidades, GeoJSON e nome de arquivo validados.`);
