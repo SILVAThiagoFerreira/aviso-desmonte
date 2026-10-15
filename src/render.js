@@ -149,28 +149,51 @@ function drawLegendIcon(ctx, image, x, y, size, fallback) {
   fallback(ctx, x + size / 2, y + size / 2, size);
 }
 
-// Cada ponto de bloqueio usa o cavalete tingido com sua cor. A composição "color"
-// troca apenas a tonalidade, mantendo brilho (faixas brancas) e canal alfa do PNG.
-// O resultado é guardado por imagem e cor, para não recompor a cada redesenho.
-const tintedIconCache = new WeakMap();
-
-function tintedIcon(image, color) {
-  if (!image) return null;
-  if (!color) return image;
-  let byColor = tintedIconCache.get(image);
-  if (!byColor) { byColor = new Map(); tintedIconCache.set(image, byColor); }
-  if (!byColor.has(color)) byColor.set(color, createTintedIcon(image, color));
-  return byColor.get(color);
+// Cavalete de bloqueio desenhado em vetor, sem imagem: tábuas com listras
+// diagonais, suportes e pernas na cor do ponto. A geometria vem de
+// report.blockingIcon, já validada, e vale para um quadro viewBox × viewBox.
+function drawCavaleteIcon(ctx, cx, cy, size, color, icon) {
+  if (!color) throw new Error('Ponto de bloqueio sem cor não pode ser desenhado.');
+  const scale = size / icon.viewBox;
+  const left = cx - size / 2; const top = cy - size / 2;
+  // Com grow > 0 a forma é desenhada expandida, usada como contorno (halo).
+  const paint = (fill, grow, withStripes) => {
+    ctx.fillStyle = fill; ctx.strokeStyle = fill; ctx.lineCap = 'butt';
+    icon.posts.forEach((post) => ctx.fillRect(left + (post.x - grow) * scale, top + (post.y - grow) * scale, (post.width + 2 * grow) * scale, (post.height + 2 * grow) * scale));
+    icon.legs.forEach((leg) => {
+      // lineCap 'butt' não estende as pontas; o halo alonga a perna pelo mesmo grow.
+      const length = Math.hypot(leg.x2 - leg.x1, leg.y2 - leg.y1) || 1;
+      const ux = (leg.x2 - leg.x1) / length; const uy = (leg.y2 - leg.y1) / length;
+      ctx.lineWidth = (leg.width + 2 * grow) * scale; ctx.beginPath();
+      ctx.moveTo(left + (leg.x1 - ux * grow) * scale, top + (leg.y1 - uy * grow) * scale);
+      ctx.lineTo(left + (leg.x2 + ux * grow) * scale, top + (leg.y2 + uy * grow) * scale);
+      ctx.stroke();
+    });
+    icon.boards.forEach((board) => {
+      const x = left + (board.x - grow) * scale; const y = top + (board.y - grow) * scale;
+      const width = (board.width + 2 * grow) * scale; const height = (board.height + 2 * grow) * scale;
+      ctx.fillRect(x, y, width, height);
+      if (!withStripes) return;
+      // Listras inclinadas: o deslocamento horizontal entre topo e base é slope × altura.
+      const period = icon.stripes.period * scale; const stripeWidth = icon.stripes.width * scale; const shift = icon.stripes.slope * height;
+      ctx.save(); ctx.beginPath(); ctx.rect(x, y, width, height); ctx.clip(); ctx.fillStyle = icon.stripes.color;
+      const reach = Math.abs(shift) + period;
+      for (let stripeX = x - reach; stripeX < x + width + reach; stripeX += period) {
+        ctx.beginPath(); ctx.moveTo(stripeX, y); ctx.lineTo(stripeX + stripeWidth, y); ctx.lineTo(stripeX + stripeWidth + shift, y + height); ctx.lineTo(stripeX + shift, y + height); ctx.closePath(); ctx.fill();
+      }
+      ctx.restore();
+    });
+  };
+  ctx.save();
+  if (icon.outline?.width > 0) paint(icon.outline.color, icon.outline.width, false);
+  paint(color, 0, true);
+  ctx.restore();
 }
 
-function createTintedIcon(image, color) {
-  const width = image.naturalWidth || image.width; const height = image.naturalHeight || image.height;
-  const canvas = document.createElement('canvas'); canvas.width = width; canvas.height = height;
-  const ctx = canvas.getContext('2d');
-  ctx.drawImage(image, 0, 0, width, height);
-  ctx.globalCompositeOperation = 'color'; ctx.fillStyle = color; ctx.fillRect(0, 0, width, height);
-  ctx.globalCompositeOperation = 'destination-in'; ctx.drawImage(image, 0, 0, width, height);
-  return canvas;
+function drawBlockingMarker(ctx, point, transform, icon, iconSizes) {
+  const size = Number(iconSizes?.blocking);
+  if (!(size > 0)) throw new Error('Tamanho do cavalete de bloqueio inválido.');
+  drawCavaleteIcon(ctx, transform.x(point), transform.y(point), size, point.color, icon);
 }
 
 function drawHatchSwatch(ctx, x, y, width, height, color, fill) {
@@ -372,7 +395,7 @@ function drawLegend(ctx, model, box, colors, transform, stringFillOpacity = DEFA
   if (statusAreas.some((area) => area.status === 'evacuar')) rows.push({ swatch: 'evacuar', label: 'EVACUAR' });
   if (statusAreas.some((area) => area.status === 'liberado')) rows.push({ swatch: 'liberado', label: 'LIBERADO' });
   if (model.firingPoints?.length) (model.firingPointLegendLabels?.length ? model.firingPointLegendLabels : ['PONTOS DE DISPARO']).forEach((label) => rows.push({ icon: 'firing', label }));
-  (model.blockingPoints || []).forEach((point, index) => rows.push({ icon: 'blocking', image: tintedIcon(model.blockingIcon, point.color), label: blockingPointLegendLabel(model.legendSettings?.blockingPointLabel, index + 1) }));
+  (model.blockingPoints || []).forEach((point, index) => rows.push({ icon: 'blocking', color: point.color, label: blockingPointLegendLabel(model.legendSettings?.blockingPointLabel, index + 1) }));
   if (model.cardPoints?.length) rows.push({ icon: 'card', label: 'ENTREGA DE CARTÕES DE BLOQUEIO' });
   const shown = strings.slice(0, 24); const nameRows = strings.length ? Math.ceil(shown.length / 2) : 0; const overflow = Math.max(strings.length - shown.length, 0);
   const settings = model.legendSettings || {};
@@ -401,7 +424,7 @@ function drawLegend(ctx, model, box, colors, transform, stringFillOpacity = DEFA
     if (item.swatch === 'evacuar') drawHatchSwatch(ctx, x + 18 * scale, iconY, 44 * scale, 16 * scale, colors.redHatch, colors.redSoft);
     else if (item.swatch === 'liberado') drawHatchSwatch(ctx, x + 18 * scale, iconY, 44 * scale, 16 * scale, colors.blueHatch, colors.blueSoft);
     else if (item.icon === 'firing') drawLegendIcon(ctx, model.firingIcon, x + 18 * scale, rowY - 13 * scale, 26 * scale, (canvas, cx, cy, size) => { canvas.fillStyle = colors.orange; canvas.strokeStyle = colors.ink; canvas.lineWidth = 2 * scale; canvas.beginPath(); canvas.arc(cx, cy, size * .27, 0, Math.PI * 2); canvas.fill(); canvas.stroke(); });
-    else if (item.icon === 'blocking') drawLegendIcon(ctx, item.image, x + 18 * scale, rowY - 13 * scale, 26 * scale, (canvas, cx, cy, size) => { canvas.strokeStyle = colors.red; canvas.lineWidth = 2 * scale; canvas.beginPath(); canvas.moveTo(cx - size * .25, cy + size * .28); canvas.lineTo(cx - size * .12, cy - size * .25); canvas.lineTo(cx + size * .12, cy - size * .25); canvas.lineTo(cx + size * .25, cy + size * .28); canvas.stroke(); });
+    else if (item.icon === 'blocking') drawCavaleteIcon(ctx, x + 31 * scale, rowY, 26 * scale, item.color, model.blockingIconStyle);
     else if (item.icon === 'card') drawLegendIcon(ctx, model.cardIcon, x + 18 * scale, rowY - 13 * scale, 26 * scale, (canvas, cx, cy, size) => { canvas.strokeStyle = colors.red; canvas.lineWidth = 2 * scale; canvas.strokeRect(cx - size * .3, cy - size * .2, size * .6, size * .4); canvas.fillStyle = colors.red; canvas.fillRect(cx - size * .22, cy - size * .05, size * .44, size * .08); });
     else { ctx.strokeStyle = item.color; ctx.lineWidth = 3 * scale; ctx.setLineDash(item.dashed ? [10 * scale, 7 * scale] : []); ctx.beginPath(); ctx.moveTo(x + 18 * scale, rowY); ctx.lineTo(x + 62 * scale, rowY); ctx.stroke(); ctx.setLineDash([]); }
     const labelWidth = width - 98 * scale;
@@ -421,7 +444,6 @@ function drawPointMarker(ctx, point, transform, image, colors, kind, iconSizes =
   const x = transform.x(point); const y = transform.y(point); const size = Number(iconSizes[kind]) || 48;
   ctx.save(); ctx.globalAlpha = kind === 'firing' ? .82 : 1;
   drawLegendIcon(ctx, image, x - size / 2, y - size / 2, size, (canvas, cx, cy, markerSize) => {
-    if (kind === 'blocking') { canvas.strokeStyle = colors.red; canvas.lineWidth = 3; canvas.beginPath(); canvas.moveTo(cx - markerSize * .25, cy + markerSize * .3); canvas.lineTo(cx - markerSize * .12, cy - markerSize * .25); canvas.lineTo(cx + markerSize * .12, cy - markerSize * .25); canvas.lineTo(cx + markerSize * .25, cy + markerSize * .3); canvas.stroke(); return; }
     if (kind === 'card') { canvas.fillStyle = '#ffffff'; canvas.strokeStyle = colors.red; canvas.lineWidth = 3; canvas.fillRect(cx - markerSize * .3, cy - markerSize * .2, markerSize * .6, markerSize * .4); canvas.strokeRect(cx - markerSize * .3, cy - markerSize * .2, markerSize * .6, markerSize * .4); return; }
     canvas.fillStyle = colors.orange; canvas.strokeStyle = colors.ink; canvas.lineWidth = 2; canvas.beginPath(); canvas.arc(cx, cy, markerSize * .27, 0, Math.PI * 2); canvas.fill(); canvas.stroke();
   });
@@ -669,7 +691,7 @@ export function drawReport(canvas, model, config, options = {}) {
     // O buffer já representa a extensão completa da poligonal. Não desenhar
     // círculos adicionais nas extremidades evita a aparência de raios sobrepostos.
     (model.firingPoints || []).forEach((point) => drawPointMarker(ctx, point, transform, model.firingIcon, colors, 'firing', model.pointIconSizes));
-    (model.blockingPoints || []).forEach((point) => drawPointMarker(ctx, point, transform, tintedIcon(model.blockingIcon, point.color), colors, 'blocking', model.pointIconSizes));
+    (model.blockingPoints || []).forEach((point) => drawBlockingMarker(ctx, point, transform, config.report.blockingIcon, model.pointIconSizes));
     (model.cardPoints || []).forEach((point) => drawPointMarker(ctx, point, transform, model.cardIcon, colors, 'card', model.pointIconSizes));
     drawStringDraft(ctx, model.stringDrawing, transform, colors);
     // Os números das áreas são a camada de identificação mais importante:
@@ -678,7 +700,7 @@ export function drawReport(canvas, model, config, options = {}) {
     structurePoints.forEach((structure) => structure.points.forEach((point) => drawStructurePositionLabel(ctx, structure, point, transform, model.areaNumberSize)));
     ctx.restore();
   }
-  drawNorth(ctx, map, config.report.northArrow); drawScale(ctx, map, transform, bounds); const legend = transform ? drawLegend(ctx, { ...model, areas: model.areas, statusAreas: model.structures?.length ? model.structures : model.areas, legendSettings: config.report.legend, firingPointLegendLabels: firingPointLegendLabels(model, config.report.legend, transform) }, map, colors, transform, stringFillOpacity) : null; drawPanel(ctx, { ...model, meta: { ...model.meta, dateLabel: model.meta.date ? new Date(`${model.meta.date}T12:00:00`).toLocaleDateString('pt-BR') : 'DATA NÃO INFORMADA' } }, panel, colors);
+  drawNorth(ctx, map, config.report.northArrow); drawScale(ctx, map, transform, bounds); const legend = transform ? drawLegend(ctx, { ...model, areas: model.areas, statusAreas: model.structures?.length ? model.structures : model.areas, legendSettings: config.report.legend, blockingIconStyle: config.report.blockingIcon, firingPointLegendLabels: firingPointLegendLabels(model, config.report.legend, transform) }, map, colors, transform, stringFillOpacity) : null; drawPanel(ctx, { ...model, meta: { ...model.meta, dateLabel: model.meta.date ? new Date(`${model.meta.date}T12:00:00`).toLocaleDateString('pt-BR') : 'DATA NÃO INFORMADA' } }, panel, colors);
   ctx.fillStyle = colors.ink; ctx.font = '14px Arial'; ctx.textAlign = 'left'; ctx.fillText(model.meta.location || 'Local não informado', map.x + 8, height - 34); ctx.textAlign = 'right'; ctx.fillText(model.meta.observation || 'Valide os dados operacionais antes da emissão', width - 24, height - 34);
   return { bounds, map: { x: map.x * outputScale, y: map.y * outputScale, width: map.width * outputScale, height: map.height * outputScale }, transform, extentSource, legend, endpointCount: getStringEndpoints(stringEntities).length, areaStatuses: model.areas.map((area) => ({ id: area.id, status: area.status })) };
 }

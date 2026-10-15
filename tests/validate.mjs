@@ -61,7 +61,7 @@ const appSource = await fs.readFile(new URL('../app.js', import.meta.url), 'utf8
 const renderSource = await fs.readFile(new URL('../src/render.js', import.meta.url), 'utf8');
 const onlineBackend = await fs.readFile(new URL('../backend/Code.gs', import.meta.url), 'utf8');
 assert.equal(appConfig.onlineCatalog.enabled, true, 'o catálogo online precisa estar habilitado');
-assert.equal(appConfig.app.version, '1.20.11');
+assert.equal(appConfig.app.version, '1.20.12');
 assert.equal(appConfig.defaultPreset.observation, 'Setor Técnico de Operações - Enaex Brasil.');
 assert.equal(appConfig.defaultPreset.peopleRadius, 500);
 assert.equal(appConfig.defaultPreset.machineRadius, 700);
@@ -232,10 +232,41 @@ assert.notEqual(importedPoints[2].color, importedPoints[0].color, 'pontos import
 assert.throws(() => assignMissingBlockingPointColors([{ x: 1, y: 1, color: 'azul' }], testPalette), /cor inválida/, 'cor inválida na importação precisa interromper o processo');
 assert.match(renderSource, /blockingPointLegendLabel\(model\.legendSettings\?\.blockingPointLabel, index \+ 1\)/, 'a legenda deve ter uma linha numerada por ponto de bloqueio');
 assert.ok(!renderSource.includes("label: 'PONTOS DE BLOQUEIO'"), 'a legenda não pode mais agrupar os pontos de bloqueio em uma única linha');
-assert.match(renderSource, /tintedIcon\(model\.blockingIcon, point\.color\)/, 'cada ponto de bloqueio precisa desenhar o cavalete na própria cor');
-assert.match(renderSource, /globalCompositeOperation = 'color'/, 'o tingimento precisa preservar o brilho e as faixas do cavalete');
+assert.match(renderSource, /drawBlockingMarker\(ctx, point, transform, config\.report\.blockingIcon/, 'cada ponto de bloqueio precisa desenhar o cavalete com a geometria configurada');
+assert.match(renderSource, /paint\(color, 0, true\)/, 'o corpo do cavalete precisa usar a cor do ponto e receber as listras');
+assert.match(renderSource, /if \(icon\.outline\?\.width > 0\) paint/, 'o contorno do cavalete precisa ser opcional e vir da configuração');
+assert.ok(!appSource.includes('cavalete-bloqueio.png'), 'o cavalete agora é vetorial; o PNG antigo não pode mais ser carregado');
 assert.match(appSource, /pickBlockingPointColor\(state\.config\.report\.blockingPointColors/, 'cada ponto inserido precisa receber cor aleatória da paleta');
 assert.match(appSource, /validateBlockingPointConfig\(state\.config\.report\)/, 'a paleta precisa ser validada ao carregar a configuração');
 assert.match(appSource, /assignMissingBlockingPointColors\(/, 'projetos antigos precisam receber cores ao importar');
 assert.match(stylesSource, /\.point-swatch\.blocking \{[^}]*var\(--point-color/, 'a lista de pontos precisa mostrar a cor de cada ponto de bloqueio');
+// Distinção visual: ΔE CIE76 entre as cores dos pontos e contra as cores fixas que o croqui já usa.
+const labOf = (hex) => {
+  const lin = (c) => { const v = c / 255; return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; };
+  const [r, g, b] = [1, 3, 5].map((index) => lin(parseInt(hex.slice(index, index + 2), 16)));
+  const X = (r * 0.4124 + g * 0.3576 + b * 0.1805) / 0.95047;
+  const Y = r * 0.2126 + g * 0.7152 + b * 0.0722;
+  const Z = (r * 0.0193 + g * 0.1192 + b * 0.9505) / 1.08883;
+  const f = (t) => (t > 0.008856 ? Math.cbrt(t) : 7.787 * t + 16 / 116);
+  return [116 * f(Y) - 16, 500 * (f(X) - f(Y)), 200 * (f(Y) - f(Z))];
+};
+const colorDistance = (a, b) => { const [la, aa, ba] = labOf(a); const [lb, ab, bb] = labOf(b); return Math.hypot(la - lb, aa - ab, ba - bb); };
+const blockingPalette = appConfig.report.blockingPointColors;
+const fixedMapColors = Object.values(appConfig.report.colors).filter((value) => /^#[0-9a-f]{6}$/i.test(value));
+blockingPalette.forEach((color, index) => {
+  blockingPalette.slice(index + 1).forEach((other) => assert.ok(colorDistance(color, other) >= 40, `as cores ${color} e ${other} ficam parecidas demais para distinguir os pontos (ΔE < 40)`));
+  fixedMapColors.forEach((mapColor) => assert.ok(colorDistance(color, mapColor) >= 30, `a cor ${color} se confunde com a cor fixa ${mapColor} do croqui (ΔE < 30)`));
+});
+const blockingIcon = appConfig.report.blockingIcon;
+const insideIconFrame = (value) => value >= 0 && value <= blockingIcon.viewBox;
+assert.equal(blockingIcon.stripes.color, '#ffffff', 'as listras do cavalete precisam ser brancas, como na identidade original');
+blockingIcon.boards.forEach((board) => assert.ok([board.x, board.x + board.width].every(insideIconFrame) && [board.y, board.y + board.height].every(insideIconFrame), 'as tábuas do cavalete precisam caber no quadro'));
+blockingIcon.posts.forEach((post) => assert.ok([post.x, post.x + post.width].every(insideIconFrame) && [post.y, post.y + post.height].every(insideIconFrame), 'os suportes do cavalete precisam caber no quadro'));
+blockingIcon.legs.forEach((leg) => assert.ok([leg.x1, leg.x2, leg.y1, leg.y2].every(insideIconFrame), 'as pernas do cavalete precisam caber no quadro'));
+assert.throws(() => validateBlockingPointConfig({ ...appConfig.report, blockingIcon: { ...blockingIcon, stripes: { ...blockingIcon.stripes, color: 'branco' } } }), /stripes\.color/, 'a listra do cavalete precisa ter cor válida');
+assert.throws(() => validateBlockingPointConfig({ ...appConfig.report, blockingIcon: { ...blockingIcon, boards: [] } }), /pelo menos uma tábua/, 'o cavalete precisa ter pelo menos uma tábua');
+assert.throws(() => validateBlockingPointConfig({ ...appConfig.report, blockingIcon: { ...blockingIcon, stripes: { ...blockingIcon.stripes, period: 0.05 } } }), /pelo menos 1 unidade/, 'um período de listra muito pequeno travaria o desenho');
+assert.throws(() => validateBlockingPointConfig({ ...appConfig.report, blockingIcon: { ...blockingIcon, boards: [null] } }), /precisa ser um objeto/, 'itens nulos da geometria precisam ser recusados com o caminho do erro');
+assert.throws(() => validateBlockingPointConfig({ ...appConfig.report, blockingIcon: { ...blockingIcon, boards: [{ x: 150, y: 8, width: 10, height: 5 }] } }), /caber no quadro/, 'tábuas fora do quadro precisam ser recusadas');
+assert.throws(() => validateBlockingPointConfig({ ...appConfig.report, blockingIcon: { ...blockingIcon, legs: [{ x1: 10, y1: 29, x2: -40, y2: 90, width: 4 }] } }), /caber no quadro/, 'pernas fora do quadro precisam ser recusadas');
 console.log(`PASS: DXF ${parsed.entities.length} entidades, ${getStringEndpoints(parsed.entities).length} extremidades, GeoJSON e nome de arquivo validados.`);

@@ -2,7 +2,7 @@
   "app": {
     "name": "Aviso de Desmonte",
     "eyebrow": "AVISO DE DESMONTE",
-    "version": "1.20.11"
+    "version": "1.20.12"
   },
   "defaultPreset": {
     "loadAllOrthomosaics": true,
@@ -54,7 +54,26 @@
     "noticeTable": { "width": 1542, "height": 250 },
     "stringFillOpacity": 0.16,
     "northArrow": { "offsetX": 78, "offsetY": 100 },
-    "blockingPointColors": ["#e6007e", "#7c4dff", "#00e0b0", "#c6ff00", "#ff4fa3", "#ffb300", "#9c27b0", "#00b0ff"],
+    "blockingPointColors": ["#e4007c", "#3ddc84", "#00b0ff", "#8d5a2b", "#9c27b0", "#8bc200"],
+    "blockingIcon": {
+      "viewBox": 100,
+      "stripes": { "color": "#ffffff", "period": 23.3, "width": 10.3, "slope": -1.2 },
+      "outline": { "color": "#1f2f35", "width": 1.2 },
+      "posts": [
+        { "x": 23.5, "y": 0, "width": 5, "height": 8.5 },
+        { "x": 75, "y": 0, "width": 5, "height": 8.5 }
+      ],
+      "boards": [
+        { "x": 11, "y": 8, "width": 78, "height": 21 },
+        { "x": 3, "y": 59, "width": 96, "height": 9.5 }
+      ],
+      "legs": [
+        { "x1": 20.5, "y1": 29, "x2": 8.5, "y2": 95, "width": 4.5 },
+        { "x1": 29.5, "y1": 29, "x2": 36.5, "y2": 90, "width": 4.5 },
+        { "x1": 73.5, "y1": 29, "x2": 68.5, "y2": 96, "width": 4.5 },
+        { "x1": 80.5, "y1": 29, "x2": 86.5, "y2": 91, "width": 4.5 }
+      ]
+    },
     "legend": {
       "radiusLabelMinFontSize": 8,
       "minimumScale": 0.68,
