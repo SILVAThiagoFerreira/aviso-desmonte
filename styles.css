@@ -214,3 +214,13 @@ button { cursor: pointer; }
 @media (max-width: 560px) { .point-placement-toolbar { gap: 5px; padding: 5px; } .point-actions { display: grid; flex: 1 1 100%; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; } .point-action-button { flex-direction: column; justify-content: center; gap: 3px; min-height: 52px; padding: 4px 3px; font-size: 9px; text-align: center; white-space: normal; } .point-action-icon { flex-basis: 20px; width: 20px; height: 20px; font-size: 14px; } .point-placement-footer { flex: 1 1 100%; justify-content: space-between; flex-direction: row; } .point-placement-footer p { flex: 1 1 170px; text-align: left; } }
 @media (max-width: 560px) { .brand-divider { display: none; } .blast-mark { width: 32px; height: 32px; flex-basis: 32px; border-radius: 8px; } .brand-lockup h1 { font-size: 20px; } .enaex-logo { width: 102px; } .catalog-row, .basemap-action-row { grid-template-columns: 1fr; } .catalog-button { width: 100%; } .area-item, .admin-active .structure-item { grid-template-columns: 1fr auto; } .area-status { grid-column: 1; justify-self: start; } .area-item .edit-button { grid-column: 1; justify-self: start; } .area-item .remove-button { grid-column: 2; grid-row: 1 / span 3; } .auth-card { padding: 24px; } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; } }
+
+/* ---- Faixa superior Enaex (ferramentas, não hubs): fundo grafite, filete vermelho, logo, título e unidade ---- */
+.topbar { position: sticky; top: 0; z-index: 50; display: grid; grid-template-columns: 1fr minmax(0, auto) 1fr; align-items: center; gap: 16px; height: 50px; min-height: 50px; padding: 0 35px 0 45px; background: #3a434b; border-bottom: 3px solid #E20613; box-shadow: none; }
+.brand-lockup { min-width: 0; justify-self: start; }
+.enaex-logo { width: 90px; max-height: none; height: auto; }
+.topbar-title { min-width: 0; margin: 0; color: #fff; font: 700 20px/1 Arial, Helvetica, sans-serif; letter-spacing: 0; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.topbar-meta { justify-self: end; gap: 12px; color: #c4c7cb; font: 500 10.5px/1 Arial, Helvetica, sans-serif; letter-spacing: .14em; text-transform: uppercase; }
+.topbar-unit { font-size: 10.5px; letter-spacing: .14em; color: #c4c7cb; text-transform: uppercase; white-space: nowrap; }
+@media (max-width: 840px) { .topbar { height: 50px; min-height: 50px; grid-template-columns: auto minmax(0, 1fr) auto; gap: 10px; padding: 0 16px; } .topbar-title { font-size: 15px; } .topbar-unit { font-size: 9px; } }
+@media (max-width: 560px) { .topbar-title { font-size: 14px; } .enaex-logo { width: 64px; } }
