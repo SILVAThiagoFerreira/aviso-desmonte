@@ -433,7 +433,7 @@ function drawLegend(ctx, model, box, colors, transform, stringFillOpacity = DEFA
   // Com pontos inseridos, o PDE usa o rótulo derivado da estrutura e cada
   // ponto de bloqueio ganha a sua linha numerada na cor do cavalete.
   const legendSettings = model.legendSettings || {};
-  if (model.firingPoints?.length) (model.firingPointLegendLabels?.length ? model.firingPointLegendLabels : ['PONTOS DE DISPARO']).forEach((label) => rows.push({ icon: 'firing', label }));
+  if (model.firingPoints?.length) (model.firingPointLegendLabels?.length ? model.firingPointLegendLabels : [legendSettings.firingPointDefaultLabel]).forEach((label) => rows.push({ icon: 'firing', label }));
   else rows.push({ icon: 'firing', label: legendSettings.firingPointDefaultLabel });
   if (model.blockingPoints?.length) (model.blockingPoints).forEach((point, index) => rows.push({ icon: 'blocking', color: point.color, label: blockingPointLegendLabel(legendSettings.blockingPointLabel, index + 1) }));
   else rows.push({ icon: 'blocking', color: colors.ink, label: legendSettings.blockingPointDefaultLabel });
@@ -571,7 +571,7 @@ function firingPointLegendLabels(model, settings, transform) {
     const alias = tags.find((item) => item?.match && normalizedName.includes(normalizedStructureText(item.match)));
     labels.add(`PONTO DE DISPARO (${String(alias?.tag || structureName).toUpperCase()})`);
   });
-  if (unassociatedPoint) labels.add('PONTOS DE DISPARO');
+  if (unassociatedPoint) labels.add(settings.firingPointDefaultLabel);
   return [...labels];
 }
 

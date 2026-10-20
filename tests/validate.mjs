@@ -61,7 +61,7 @@ const appSource = await fs.readFile(new URL('../app.js', import.meta.url), 'utf8
 const renderSource = await fs.readFile(new URL('../src/render.js', import.meta.url), 'utf8');
 const onlineBackend = await fs.readFile(new URL('../backend/Code.gs', import.meta.url), 'utf8');
 assert.equal(appConfig.onlineCatalog.enabled, true, 'o catálogo online precisa estar habilitado');
-assert.equal(appConfig.app.version, '1.20.14');
+assert.equal(appConfig.app.version, '1.20.15');
 assert.equal(appConfig.defaultPreset.observation, 'Setor Técnico de Operações - Enaex Brasil.');
 assert.equal(appConfig.defaultPreset.peopleRadius, 500);
 assert.equal(appConfig.defaultPreset.machineRadius, 700);
@@ -231,6 +231,8 @@ assert.notEqual(importedPoints[0].color, '#222222', 'o sorteio deve evitar a cor
 assert.notEqual(importedPoints[2].color, importedPoints[0].color, 'pontos importados sem cor devem ficar com cores distintas quando a paleta permitir');
 assert.throws(() => assignMissingBlockingPointColors([{ x: 1, y: 1, color: 'azul' }], testPalette), /cor inválida/, 'cor inválida na importação precisa interromper o processo');
 assert.match(renderSource, /blockingPointLegendLabel\(legendSettings\.blockingPointLabel, index \+ 1\)/, 'a legenda deve ter uma linha numerada por ponto de bloqueio');
+assert.equal(appConfig.report.legend.firingPointDefaultLabel, 'PONTO DE DISPARO (PDE)', 'o rótulo do ponto de disparo sem estrutura deve ser PONTO DE DISPARO (PDE), como no aviso de referência');
+assert.ok(!renderSource.includes("'PONTOS DE DISPARO'"), 'o rótulo genérico PONTOS DE DISPARO não pode mais aparecer na legenda');
 assert.match(renderSource, /label: legendSettings\.blockingPointDefaultLabel/, 'sem pontos de bloqueio, a legenda mostra a entrada genérica configurada');
 assert.match(renderSource, /rows\.push\(\{ icon: 'card', label: legendSettings\.cardPointLabel \}\)/, 'a entrada de entrega de cartões deve sempre aparecer na legenda');
 assert.match(renderSource, /footerConfig\.locationLabel/, 'o rodapé deve usar o rótulo configurado para o ponto de entrega dos cartões');
