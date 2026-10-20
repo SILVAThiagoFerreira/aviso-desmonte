@@ -429,11 +429,17 @@ function drawLegend(ctx, model, box, colors, transform, stringFillOpacity = DEFA
   if (strings.length) rows.push({ color: colors.ink, label: 'POLIGONAIS / STRINGS DE DESMONTE' });
   if (statusAreas.some((area) => area.status === 'evacuar')) rows.push({ swatch: 'evacuar', label: 'EVACUAR' });
   if (statusAreas.some((area) => area.status === 'liberado')) rows.push({ swatch: 'liberado', label: 'LIBERADO' });
+  // As três entradas de símbolos aparecem sempre, como no aviso de referência.
+  // Com pontos inseridos, o PDE usa o rótulo derivado da estrutura e cada
+  // ponto de bloqueio ganha a sua linha numerada na cor do cavalete.
+  const legendSettings = model.legendSettings || {};
   if (model.firingPoints?.length) (model.firingPointLegendLabels?.length ? model.firingPointLegendLabels : ['PONTOS DE DISPARO']).forEach((label) => rows.push({ icon: 'firing', label }));
-  (model.blockingPoints || []).forEach((point, index) => rows.push({ icon: 'blocking', color: point.color, label: blockingPointLegendLabel(model.legendSettings?.blockingPointLabel, index + 1) }));
-  if (model.cardPoints?.length) rows.push({ icon: 'card', label: 'ENTREGA DE CARTÕES DE BLOQUEIO' });
+  else rows.push({ icon: 'firing', label: legendSettings.firingPointDefaultLabel });
+  if (model.blockingPoints?.length) (model.blockingPoints).forEach((point, index) => rows.push({ icon: 'blocking', color: point.color, label: blockingPointLegendLabel(legendSettings.blockingPointLabel, index + 1) }));
+  else rows.push({ icon: 'blocking', color: colors.ink, label: legendSettings.blockingPointDefaultLabel });
+  rows.push({ icon: 'card', label: legendSettings.cardPointLabel });
   const shown = strings.slice(0, 24); const nameRows = strings.length ? Math.ceil(shown.length / 2) : 0; const overflow = Math.max(strings.length - shown.length, 0);
-  const settings = model.legendSettings || {};
+  const settings = legendSettings;
   const baseWidth = strings.length ? 470 : 430;
   const minimumScale = Math.max(.55, Math.min(1, Number(settings.minimumScale) || .68));
   const scales = [];
@@ -451,7 +457,7 @@ function drawLegend(ctx, model, box, colors, transform, stringFillOpacity = DEFA
     if (placement.areaCollisions === 0) break;
   }
   const { x, y } = placement;
-  ctx.save(); ctx.globalAlpha = placement.areaCollisions ? .84 : .96; ctx.fillStyle = '#ffffff'; ctx.fillRect(x, y, width, height); ctx.strokeStyle = colors.rule; ctx.lineWidth = 1 * scale; ctx.strokeRect(x, y, width, height);
+  ctx.save(); ctx.globalAlpha = placement.areaCollisions ? .84 : .96; ctx.fillStyle = '#ffffff'; ctx.fillRect(x, y, width, height); ctx.strokeStyle = colors.rule; ctx.lineWidth = 2 * scale; ctx.strokeRect(x, y, width, height); ctx.strokeStyle = '#aeb9b7'; ctx.lineWidth = scale; ctx.strokeRect(x + 7 * scale, y + 7 * scale, width - 14 * scale, height - 14 * scale);
   ctx.fillStyle = colors.ink; ctx.font = `700 ${18 * scale}px Arial`; ctx.textAlign = 'left'; ctx.fillText('LEGENDA:', x + 18 * scale, y + 31 * scale);
   let rowY = y + 57 * scale;
   rows.forEach((item) => {
@@ -632,14 +638,14 @@ function placeStructureMarkers(structures, transform, contours = [], protectedPo
 
 function drawAreaGroup(ctx, areas, title, color, panel, colors, startY, groupHeight = null) {
   const x = panel.x + 10; const width = panel.width - 20; let y = startY; ctx.fillStyle = color; ctx.fillRect(x, y, width, 30); ctx.fillStyle = '#ffffff'; ctx.font = '700 17px Arial'; ctx.textAlign = 'center'; ctx.fillText(title, x + width / 2, y + 21); y += 34;
-  const height = groupHeight ?? Math.max(70, areas.length * 18 + 24); ctx.textAlign = 'left';
+  const height = groupHeight ?? Math.max(70, areas.length * 18 + 24); ctx.strokeStyle = color; ctx.lineWidth = 2; ctx.strokeRect(x, y, width, height); ctx.textAlign = 'left';
   if (!areas.length) { ctx.font = '12px Arial'; ctx.fillStyle = colors.muted; ctx.fillText('Nenhuma área', x + 10, y + 25); return y + height; }
   areas.forEach((area, index) => { const number = String(area.id || '').replace('structure-', '') || String(index + 1).padStart(2, '0'); const label = String(area.label || area.name); ctx.fillStyle = colors.ink; ctx.font = '700 11px Arial'; ctx.fillText(fitCanvasText(ctx, `${number}  ${label}`, width - 18), x + 9, y + 22 + index * 18); });
   return y + height;
 }
 
 function drawPanel(ctx, model, panel, colors) {
-  ctx.fillStyle = colors.paper; ctx.fillRect(panel.x, panel.y, panel.width, panel.height);
+  ctx.fillStyle = colors.paper; ctx.fillRect(panel.x, panel.y, panel.width, panel.height); ctx.strokeStyle = colors.rule; ctx.lineWidth = 2; ctx.strokeRect(panel.x, panel.y, panel.width, panel.height);
   const headerX = panel.x + 10; const headerWidth = panel.width - 20;
   if (model.logoImage) { const maxWidth = headerWidth - 12; const maxHeight = 58; const ratio = Math.min(maxWidth / model.logoImage.width, maxHeight / model.logoImage.height); const logoWidth = model.logoImage.width * ratio; const logoHeight = model.logoImage.height * ratio; ctx.drawImage(model.logoImage, panel.x + (panel.width - logoWidth) / 2, panel.y + 8, logoWidth, logoHeight); }
   ctx.fillStyle = colors.muted; ctx.textAlign = 'center'; ctx.font = '700 10px Arial'; wrapCanvasText(ctx, model.meta.company || 'EMPRESA / OPERAÇÃO', headerWidth - 8, 2).forEach((line, index) => ctx.fillText(line, panel.x + panel.width / 2, panel.y + 86 + index * 12));
@@ -651,12 +657,12 @@ function noticeYear(meta) { return meta.date ? new Date(`${meta.date}T12:00:00`)
 function noticeRegions(model) { const typeLabel = { production: 'Produção', precut: 'Pré-Corte', regularization: 'Regularização/Bloco' }; return (model.strings || []).map((item) => `${item.label || item.name || 'REGIÃO'} (${typeLabel[item.blastType] || 'Produção'})`).join(' · '); }
 function drawNoticeFooter(ctx, model, footer, colors) {
   const x = footer.x; const y = footer.y; const w = footer.width; const green = '#477a5e'; const orange = '#f15b2a'; const border = '#111111';
-  ctx.save(); ctx.fillStyle = '#fff'; ctx.fillRect(x, y, w, footer.height);
+  ctx.save(); ctx.fillStyle = '#fff'; ctx.fillRect(x, y, w, footer.height); ctx.strokeStyle = border; ctx.lineWidth = 1.5; ctx.strokeRect(x, y, w, footer.height);
   const titleH = 30; ctx.fillStyle = green; ctx.fillRect(x, y, w, titleH); ctx.fillStyle = '#fff'; ctx.font = '700 17px Arial'; ctx.textAlign = 'center'; ctx.fillText(`AVISO DE DESMONTE - Nº ${model.meta.blastNumber || '____'}/${noticeYear(model.meta)}`, x + w / 2, y + 21);
-  const logoW = NOTICE_LOGO_WIDTH; const infoX = x + logoW; const infoH = 96; 
+  const logoW = NOTICE_LOGO_WIDTH; const infoX = x + logoW; const infoH = 96; ctx.strokeStyle = border; ctx.strokeRect(x, y + titleH, logoW, infoH); ctx.strokeRect(infoX, y + titleH, w - logoW, infoH);
   if (model.logoImage) { const ratio = Math.min((logoW - 52) / model.logoImage.width, (infoH - 18) / model.logoImage.height); const lw = model.logoImage.width * ratio; const lh = model.logoImage.height * ratio; ctx.drawImage(model.logoImage, x + (logoW - lw) / 2, y + titleH + (infoH - lh) / 2, lw, lh); }
   const dateText = model.meta.date ? model.meta.dateLabel : 'Não informada'; const timeText = model.meta.time || 'Não informado'; const rowH = 32; ctx.strokeStyle = border; ctx.beginPath(); [1, 2].forEach((index) => { const rowY = y + titleH + rowH * index; ctx.moveTo(infoX, rowY); ctx.lineTo(x + w, rowY); }); ctx.stroke(); ctx.textAlign = 'left'; ctx.fillStyle = '#000'; ctx.font = '700 17px Arial'; ctx.fillText('DATA:', infoX + 8, y + titleH + 22); ctx.font = '17px Arial'; ctx.fillText(dateText, infoX + 78, y + titleH + 22); ctx.font = '700 17px Arial'; ctx.fillText('HORÁRIO:', infoX + 8, y + titleH + 54); ctx.font = '17px Arial'; ctx.fillText(timeText, infoX + 112, y + titleH + 54); ctx.font = '700 17px Arial'; ctx.fillText('REGIÕES DE DESMONTE DE ROCHA:', infoX + 8, y + titleH + 86); const regionsText = noticeRegions(model) || 'NÃO INFORMADAS'; const regionsWidth = w - logoW - NOTICE_REGION_LABEL_WIDTH - NOTICE_REGION_RIGHT_PADDING; const regionsFontSize = fitCanvasFontSize(ctx, regionsText, regionsWidth); ctx.font = `${regionsFontSize}px Arial`; ctx.fillText(regionsText, infoX + NOTICE_REGION_LABEL_WIDTH, y + titleH + 86);
-  const obsY = y + titleH + infoH; const obsHeaderH = 30; ctx.fillStyle = green; ctx.fillRect(x, obsY, w, obsHeaderH); ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.font = '700 17px Arial'; ctx.fillText('⚠ OBSERVAÇÕES ⚠', x + w / 2, obsY + 21); const lines = ['O Desmonte será realizado e monitorado na faixa 09 de rádio.', 'Todos devem permanecer na área coberta (telhado) até que a mina seja liberada pela equipe de desmonte.', 'Qualquer anomalia observada durante o desmonte, deverá ser comunicada imediatamente ao responsável do desmonte.']; ctx.fillStyle = orange; ctx.font = '16px Arial'; lines.forEach((line, index) => { const ly = obsY + obsHeaderH + index * 31; ctx.fillText(fitCanvasText(ctx, line, w - 28), x + w / 2, ly + 22); if (index < lines.length - 1) { ctx.strokeStyle = '#e3e3e3'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x, ly + 31); ctx.lineTo(x + w, ly + 31); ctx.stroke(); } }); ctx.restore();
+  const obsY = y + titleH + infoH; const obsHeaderH = 30; ctx.fillStyle = green; ctx.fillRect(x, obsY, w, obsHeaderH); ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.font = '700 17px Arial'; ctx.fillText('⚠ OBSERVAÇÕES ⚠', x + w / 2, obsY + 21); const lines = ['O Desmonte será realizado e monitorado na faixa 09 de rádio.', 'Todos devem permanecer na área coberta (telhado) até que a mina seja liberada pela equipe de desmonte.', 'Qualquer anomalia observada durante o desmonte, deverá ser comunicada imediatamente ao responsável do desmonte.']; ctx.fillStyle = orange; ctx.font = '16px Arial'; lines.forEach((line, index) => { const ly = obsY + obsHeaderH + index * 31; ctx.strokeStyle = border; ctx.strokeRect(x, ly, w, 31); ctx.fillText(fitCanvasText(ctx, line, w - 28), x + w / 2, ly + 22); }); ctx.restore();
 }
 
 export function drawNoticeTable(canvas, model, config) {
@@ -688,7 +694,7 @@ export function drawReport(canvas, model, config, options = {}) {
   const bounds = model.boundsMode === 'manual' ? model.manualBounds : fitBoundsToAspect(satelliteBounds ? rawBounds : paddedBounds(rawBounds), map.width / map.height);
   const extentSource = model.boundsMode === 'manual' ? 'manual' : operationalBounds ? (imageBounds ? 'georreferenciado' : 'geometria-e-raios') : 'imagem';
   const transform = makeTransform(bounds, map);
-  ctx.fillStyle = colors.paper; ctx.fillRect(0, 0, width, height);
+  ctx.fillStyle = colors.paper; ctx.fillRect(0, 0, width, height); ctx.strokeStyle = colors.rule; ctx.lineWidth = 2; ctx.strokeRect(16, 16, width - 32, height - 32);
   ctx.save(); ctx.beginPath(); ctx.rect(map.x, map.y, map.width, map.height); ctx.clip(); ctx.fillStyle = '#dde6e4'; ctx.fillRect(map.x, map.y, map.width, map.height);
   const georeferencedImages = baseImages.filter((image) => image?.bounds);
   const satelliteImage = georeferencedImages.find((image) => image.name === 'Esri World Imagery');
@@ -735,6 +741,6 @@ export function drawReport(canvas, model, config, options = {}) {
     ctx.restore();
   }
   drawNorth(ctx, map, config.report.northArrow); drawScale(ctx, map, transform, bounds); const legend = transform ? drawLegend(ctx, { ...model, areas: model.areas, statusAreas: model.structures?.length ? model.structures : model.areas, legendSettings: config.report.legend, blockingIconStyle: config.report.blockingIcon, firingPointLegendLabels: firingPointLegendLabels(model, config.report.legend, transform) }, map, colors, transform, stringFillOpacity) : null; drawPanel(ctx, { ...model, meta: { ...model.meta, dateLabel: model.meta.date ? new Date(`${model.meta.date}T12:00:00`).toLocaleDateString('pt-BR') : 'DATA NÃO INFORMADA' } }, panel, colors);
-  ctx.fillStyle = colors.ink; ctx.font = '14px Arial'; ctx.textAlign = 'left'; ctx.fillText(model.meta.location || 'Local não informado', map.x + 8, height - 34); ctx.textAlign = 'right'; ctx.fillText(model.meta.observation || 'Valide os dados operacionais antes da emissão', width - 24, height - 34);
+  ctx.fillStyle = colors.ink; ctx.font = '14px Arial'; ctx.textAlign = 'left'; const footerConfig = config.report.footer; const footerLocation = model.meta.location ? `${footerConfig.locationLabel} ${model.meta.location}` : `${footerConfig.locationLabel} ${footerConfig.missingLocationText}`; ctx.fillText(footerLocation, map.x + 8, height - 34); ctx.textAlign = 'right'; ctx.fillText(model.meta.observation || 'Valide os dados operacionais antes da emissão', width - 24, height - 34);
   return { bounds, map: { x: map.x * outputScale, y: map.y * outputScale, width: map.width * outputScale, height: map.height * outputScale }, transform, extentSource, legend, endpointCount: getStringEndpoints(stringEntities).length, areaStatuses: model.areas.map((area) => ({ id: area.id, status: area.status })) };
 }

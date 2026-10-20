@@ -22,6 +22,8 @@ O fundo satelital automático usa o serviço World Imagery da Esri, com uma exte
 
 As áreas sólidas são renderizadas em duas partes: a diferença em relação aos raios fica azul e somente a interseção geométrica com qualquer cerco recebe hachura vermelha. A legenda percorre posições do mapa para evitar as áreas hachuradas e reduz o conjunto quando precisa caber em uma região livre. Os nomes longos dos raios diminuem a fonte para caber na largura disponível. Quando um ponto de disparo fica sobre a pilha de oxidado ou a pilha de estéril, a legenda identifica o ponto como `PONTO DE DISPARO (PDO)` ou `PONTO DE DISPARO (PDE)`, respectivamente. A importação de um projeto mostra o avanço da leitura, validação, aplicação dos dados e atualização da prancha.
 
+A prancha tem moldura externa, moldura do painel lateral, caixas vermelha e azul sob EVACUAR e LIBERADO, e moldura na legenda e no rodapé. A legenda mostra as entradas PDE, pontos de bloqueio e entrega de cartões mesmo sem pontos inseridos. Os textos dessas entradas e o rótulo do rodapé (`Ponto de Entrega dos Cartões:`) ficam em `report.legend` e `report.footer` no `config.json`.
+
 A seta do norte mantém um recuo superior mais amplo em relação à moldura do mapa; os deslocamentos ficam em `report.northArrow` no `config.json`.
 
 ## Desenvolvimento

@@ -8,6 +8,7 @@
    - O deslocamento da seta do norte é lido de `report.northArrow` para preservar a margem da moldura.
    - A legenda deriva o rótulo PDO/PDE pela estrutura sob o ponto de disparo, ajusta a fonte dos raios e tenta posições livres antes de compactar a caixa.
    - A importação de um arquivo de projeto atualiza o indicador de progresso entre a leitura, a validação, a aplicação dos dados e o redesenho.
+   - As entradas fixas de símbolos (PDE, pontos de bloqueio genéricos e entrega de cartões) vêm de `report.legend` e são sempre adicionadas à legenda; o rodapé usa `report.footer`.
    - Cada ponto de bloqueio desenha o cavalete em vetor (`drawCavaleteIcon`) na própria cor, com a geometria de `report.blockingIcon`, e a legenda tem uma linha por ponto, numerada pela ordem de inserção.
    - A cor de cada ponto de bloqueio é escolhida pelo fundo que o ícone cobre: `drawBlockingBackground` desenha o croqui sem pontos de bloqueio, `sampleBlockingFootprint` amostra a área do ícone e `chooseBlockingPointColor` (em `src/points.js`) mede o ΔE CIELAB e sorteia entre as cores adequadas. O aplicativo revalida as cores ao inserir, ao mover um ponto e ao importar projeto; a decisão vem de `settleBlockingPointColor`, que mantém a cor atual enquanto ela se destaca e não se repete.
 5. `src/pdf.js` transforma a mesma prancha em um PDF local.

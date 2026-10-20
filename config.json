@@ -2,7 +2,7 @@
   "app": {
     "name": "Aviso de Desmonte",
     "eyebrow": "AVISO DE DESMONTE",
-    "version": "1.20.13"
+    "version": "1.20.14"
   },
   "defaultPreset": {
     "loadAllOrthomosaics": true,
@@ -76,11 +76,18 @@
         { "x1": 80.5, "y1": 29, "x2": 86.5, "y2": 91, "width": 4.5 }
       ]
     },
+    "footer": {
+      "locationLabel": "Ponto de Entrega dos Cartões:",
+      "missingLocationText": "não informado"
+    },
     "legend": {
       "radiusLabelMinFontSize": 8,
       "minimumScale": 0.68,
       "placementGridSteps": 5,
       "blockingPointLabel": "Ponto de Bloqueio #{number}",
+      "blockingPointDefaultLabel": "PONTOS DE BLOQUEIO",
+      "firingPointDefaultLabel": "PONTO DE DISPARO (PDE)",
+      "cardPointLabel": "ENTREGA DE CARTÕES DE BLOQUEIO",
       "firingPointStructureTags": [
         { "match": "OXIDADO", "tag": "PDO" },
         { "match": "ESTERIL", "tag": "PDE" }

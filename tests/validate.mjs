@@ -61,7 +61,7 @@ const appSource = await fs.readFile(new URL('../app.js', import.meta.url), 'utf8
 const renderSource = await fs.readFile(new URL('../src/render.js', import.meta.url), 'utf8');
 const onlineBackend = await fs.readFile(new URL('../backend/Code.gs', import.meta.url), 'utf8');
 assert.equal(appConfig.onlineCatalog.enabled, true, 'o catálogo online precisa estar habilitado');
-assert.equal(appConfig.app.version, '1.20.13');
+assert.equal(appConfig.app.version, '1.20.14');
 assert.equal(appConfig.defaultPreset.observation, 'Setor Técnico de Operações - Enaex Brasil.');
 assert.equal(appConfig.defaultPreset.peopleRadius, 500);
 assert.equal(appConfig.defaultPreset.machineRadius, 700);
@@ -230,8 +230,11 @@ assert.equal(importedPoints[1].color, '#222222', 'cores já salvas no projeto n�
 assert.notEqual(importedPoints[0].color, '#222222', 'o sorteio deve evitar a cor já usada por outro ponto');
 assert.notEqual(importedPoints[2].color, importedPoints[0].color, 'pontos importados sem cor devem ficar com cores distintas quando a paleta permitir');
 assert.throws(() => assignMissingBlockingPointColors([{ x: 1, y: 1, color: 'azul' }], testPalette), /cor inválida/, 'cor inválida na importação precisa interromper o processo');
-assert.match(renderSource, /blockingPointLegendLabel\(model\.legendSettings\?\.blockingPointLabel, index \+ 1\)/, 'a legenda deve ter uma linha numerada por ponto de bloqueio');
-assert.ok(!renderSource.includes("label: 'PONTOS DE BLOQUEIO'"), 'a legenda não pode mais agrupar os pontos de bloqueio em uma única linha');
+assert.match(renderSource, /blockingPointLegendLabel\(legendSettings\.blockingPointLabel, index \+ 1\)/, 'a legenda deve ter uma linha numerada por ponto de bloqueio');
+assert.match(renderSource, /label: legendSettings\.blockingPointDefaultLabel/, 'sem pontos de bloqueio, a legenda mostra a entrada genérica configurada');
+assert.match(renderSource, /rows\.push\(\{ icon: 'card', label: legendSettings\.cardPointLabel \}\)/, 'a entrada de entrega de cartões deve sempre aparecer na legenda');
+assert.match(renderSource, /footerConfig\.locationLabel/, 'o rodapé deve usar o rótulo configurado para o ponto de entrega dos cartões');
+assert.ok(!renderSource.includes("label: 'PONTOS DE BLOQUEIO'"), 'a legenda não pode agrupar os pontos de bloqueio inseridos em uma única linha');
 assert.match(renderSource, /drawBlockingMarker\(ctx, point, transform, config\.report\.blockingIcon/, 'cada ponto de bloqueio precisa desenhar o cavalete com a geometria configurada');
 assert.match(renderSource, /paint\(color, 0, true\)/, 'o corpo do cavalete precisa usar a cor do ponto e receber as listras');
 assert.match(renderSource, /if \(outline\) paint\(outline\.color, outline\.width, false\)/, 'o contorno do cavalete precisa ser opcional e vir da configuração');
