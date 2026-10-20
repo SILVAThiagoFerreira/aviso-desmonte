@@ -1,7 +1,7 @@
 import { areaIntersectsContours, boundsOf, boundsOfContours, differenceEntityWithContours, fitBoundsToAspect, flattenStringEntities, formatNumber, getStringEndpoints, intersectEntityWithContours, mergeBounds, paddedBounds, pointIntersectsContours } from './geometry.js';
 import { blockingPointLegendLabel } from './points.js';
 
-const DEFAULT_STRING_FILL_OPACITY = 0.16;
+const DEFAULT_STRING_FILL_OPACITY = 0.6;
 const NOTICE_LOGO_WIDTH = 315;
 const NOTICE_REGION_LABEL_WIDTH = 350;
 const NOTICE_REGION_RIGHT_PADDING = 10;
@@ -102,14 +102,19 @@ export function drawEntity(ctx, entity, transform, color, fillOpacity = 0) {
   ctx.strokeStyle = color; ctx.lineWidth = 3; ctx.lineJoin = 'round'; ctx.lineCap = 'round'; ctx.stroke();
 }
 
-function drawContours(ctx, contours, transform, colors, radii) {
-    contours.forEach((contour) => {
+// Círculos de raio: um halo escuro e discreto sob o traço melhora o contraste
+// sobre o satélite; a união de traço e halo usa junções arredondadas.
+function drawContours(ctx, contours, transform, colors, radii, stroke) {
+  contours.forEach((contour) => {
     const isPeople = contour.kind ? contour.kind === 'people' : Number(contour.radius) === Number(radii.people);
-    ctx.save(); ctx.strokeStyle = isPeople ? colors.cyan : colors.greenLight; ctx.lineWidth = 4; ctx.setLineDash([]);
-    (contour.outline || contour.polygons).forEach((polygon) => { const ring = polygon[0];
-      if (!ring.length) return;
-      ctx.beginPath(); ring.forEach(([x, y], index) => { const point = transform.x({ x, y }); const screenY = transform.y({ x, y }); if (index) ctx.lineTo(point, screenY); else ctx.moveTo(point, screenY); }); ctx.closePath(); ctx.stroke();
-    });
+    const color = isPeople ? colors.cyan : colors.greenLight;
+    const rings = (contour.outline || contour.polygons).map((polygon) => polygon[0]).filter((ring) => ring?.length);
+    const tracePath = (ring) => { ctx.beginPath(); ring.forEach(([x, y], index) => { const point = transform.x({ x, y }); const screenY = transform.y({ x, y }); if (index) ctx.lineTo(point, screenY); else ctx.moveTo(point, screenY); }); ctx.closePath(); };
+    ctx.save(); ctx.setLineDash([]); ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+    ctx.strokeStyle = stroke.haloColor; ctx.lineWidth = stroke.haloWidth;
+    rings.forEach((ring) => { tracePath(ring); ctx.stroke(); });
+    ctx.strokeStyle = color; ctx.lineWidth = stroke.width;
+    rings.forEach((ring) => { tracePath(ring); ctx.stroke(); });
     ctx.restore();
   });
 }
@@ -721,7 +726,7 @@ export function drawReport(canvas, model, config, options = {}) {
     hatchEntities.forEach((entity) => intersectEntityWithContours(entity, model.radiusContours).forEach((polygon) => drawHatchedPolygon(ctx, polygon, transform, colors.redHatch, colors.redSoft, colors.red)));
     const structurePoints = (model.structures || []).map((structure) => { const points = (structure.positions || []).map((position) => projectStructurePoint({ ...structure, worldX: position.x, worldY: position.y }, bounds, model.structurePageMap, transform, map)); const point = points[0] || projectStructurePoint(structure, bounds, model.structurePageMap, transform, map); return { ...structure, point, points: points.length ? points : [point] }; });
     structurePoints.forEach((structure) => { const polygonEntities = areaEntities.filter((entity) => entity.structureId === structure.id); const polygonInRadius = polygonEntities.length ? areaIntersectsContours(polygonEntities, model.radiusContours) : false; const pointInRadius = pointIntersectsContours(structure.point, model.radiusContours, model.structureBoundaryTolerance || 0); const automaticStatus = polygonEntities.length ? (polygonInRadius ? 'evacuar' : 'liberado') : (pointInRadius ? 'evacuar' : 'liberado'); structure.status = structure.statusOverride || automaticStatus; const target = model.structures.find((candidate) => candidate.id === structure.id); if (target) { target.status = structure.status; target.point = structure.point; target.points = structure.points; target.polygonEntities = polygonEntities; } });
-    drawContours(ctx, model.radiusContours, transform, colors, model.radii);
+    drawContours(ctx, model.radiusContours, transform, colors, model.radii, config.report.radiusStroke);
     // Primeiro aplica o preenchimento transparente de todas as strings; em uma
     // segunda passagem, redesenha todas as bordas para que nenhuma interseção
     // entre poligonais reduza a nitidez do contorno operacional.

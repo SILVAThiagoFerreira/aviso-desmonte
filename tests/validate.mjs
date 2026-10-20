@@ -61,13 +61,15 @@ const appSource = await fs.readFile(new URL('../app.js', import.meta.url), 'utf8
 const renderSource = await fs.readFile(new URL('../src/render.js', import.meta.url), 'utf8');
 const onlineBackend = await fs.readFile(new URL('../backend/Code.gs', import.meta.url), 'utf8');
 assert.equal(appConfig.onlineCatalog.enabled, true, 'o catálogo online precisa estar habilitado');
-assert.equal(appConfig.app.version, '1.20.15');
+assert.equal(appConfig.app.version, '1.20.16');
 assert.equal(appConfig.defaultPreset.observation, 'Setor Técnico de Operações - Enaex Brasil.');
 assert.equal(appConfig.defaultPreset.peopleRadius, 500);
-assert.equal(appConfig.defaultPreset.machineRadius, 700);
+assert.equal(appConfig.defaultPreset.machineRadius, 300, 'o raio padrão para máquinas e equipamentos deve ser 300 m');
+assert.ok(appConfig.report.radiusStroke.haloWidth > appConfig.report.radiusStroke.width, 'o halo dos raios precisa ser mais largo que o traço');
+assert.ok(appConfig.report.stringFillOpacity > 0 && appConfig.report.stringFillOpacity <= 1, 'a opacidade do preenchimento das regiões deve estar entre 0 e 1');
 assert.deepEqual(appConfig.defaultPreset.pointIconSizes, { firing: 48, blocking: 25, card: 30 });
 assert.equal(appConfig.defaultPreset.areaNumberSize, 10);
-assert.equal(appConfig.report.stringFillOpacity, 0.16);
+assert.equal(appConfig.report.stringFillOpacity, 0.6, 'o preenchimento das regiões de desmonte deve ter opacidade de 0,6 (40% de transparência)');
 assert.match(renderSource, /showLabel = true/);
 assert.match(renderSource, /function drawStructurePositionLabel/);
 assert.match(renderSource, /structure\.positions \|\| \[\]/, 'os rótulos precisam usar as posições reais do catálogo');
@@ -77,7 +79,7 @@ const stringDraftOrder = renderSource.indexOf('drawStringDraft(ctx, model.string
 assert.ok(structureLabelOrder > stringDraftOrder, 'os números das áreas precisam ser desenhados depois de todas as camadas do croqui');
 assert.match(renderSource, /colors\.blueHatch/, 'a hachura azul deve usar a cor suavizada configurada');
 assert.match(renderSource, /colors\.redHatch/, 'a hachura vermelha deve usar a cor suavizada configurada');
-assert.match(renderSource, /const DEFAULT_STRING_FILL_OPACITY = 0\.16/, 'as strings precisam ter uma opacidade de preenchimento calibrada');
+assert.match(renderSource, /const DEFAULT_STRING_FILL_OPACITY = 0\.6/, 'as strings precisam ter uma opacidade de preenchimento calibrada');
 assert.match(renderSource, /function drawStringEntity/, 'as strings devem ter uma rotina de desenho própria');
 assert.match(renderSource, /if \(entity\.closed && entity\.points\.length >= 3 && opacity\)/, 'somente poligonais fechadas com área devem receber preenchimento');
 assert.match(renderSource, /drawStringEntity\(ctx, entity, transform, stringColor\(item, colors\), stringFillOpacity\)/, 'o preenchimento precisa usar a mesma cor da string');
@@ -158,7 +160,7 @@ const closedContext = fakeCanvasContext();
 drawStringEntity(closedContext, closedString, identityTransform, '#ff1111');
 assert.equal(closedContext.calls.filter((call) => call === 'fill').length, 1, 'a poligonal fechada precisa receber preenchimento');
 assert.equal(closedContext.calls.filter((call) => call === 'stroke').length, 1, 'a poligonal fechada precisa manter o contorno');
-assert.ok(closedContext.calls.includes('globalAlpha:0.16'), 'o preenchimento precisa aplicar a opacidade configurada');
+assert.ok(closedContext.calls.includes('globalAlpha:0.6'), 'o preenchimento precisa aplicar a opacidade configurada');
 assert.ok(closedContext.calls.includes('fillStyle:#ff1111'), 'o preenchimento precisa usar a mesma cor do contorno');
 assert.ok(closedContext.calls.includes('save') && closedContext.calls.includes('restore'), 'a opacidade precisa ficar isolada no estado do Canvas');
 

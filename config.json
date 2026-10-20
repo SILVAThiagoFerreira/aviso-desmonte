@@ -2,7 +2,7 @@
   "app": {
     "name": "Aviso de Desmonte",
     "eyebrow": "AVISO DE DESMONTE",
-    "version": "1.20.15"
+    "version": "1.20.16"
   },
   "defaultPreset": {
     "loadAllOrthomosaics": true,
@@ -10,7 +10,7 @@
     "loadProjectAreas": true,
     "loadSatelliteBackground": true,
     "peopleRadius": 500,
-    "machineRadius": 700,
+    "machineRadius": 300,
     "observation": "Setor Técnico de Operações - Enaex Brasil.",
     "pointIconSizes": { "firing": 48, "blocking": 25, "card": 30 },
     "areaNumberSize": 10,
@@ -52,7 +52,8 @@
     "map": { "x": 28, "y": 35, "width": 1280, "height": 1422 },
     "panel": { "x": 1330, "y": 35, "width": 240, "height": 1422 },
     "noticeTable": { "width": 1542, "height": 250 },
-    "stringFillOpacity": 0.16,
+    "stringFillOpacity": 0.6,
+    "radiusStroke": { "width": 4, "haloWidth": 7, "haloColor": "rgba(10,20,25,0.35)" },
     "northArrow": { "offsetX": 78, "offsetY": 100 },
     "blockingPointColors": ["#e4007c", "#3ddc84", "#00b0ff", "#8d5a2b", "#9c27b0", "#8bc200"],
     "blockingPointContrast": { "minimumDeltaE": 30, "requiredShare": 0.95, "footprintRatio": 0.5, "sampleStep": 2 },
