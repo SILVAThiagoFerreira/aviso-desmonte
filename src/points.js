@@ -64,6 +64,11 @@ export function validateBlockingIconConfig(icon) {
     assertNumber(icon.outline.width, 'report.blockingIcon.outline.width');
     if (icon.outline.width < 0) throw new Error('report.blockingIcon.outline.width não pode ser negativo.');
   }
+  if (!icon.shadow || typeof icon.shadow.color !== 'string' || !icon.shadow.color.trim()) throw new Error('report.blockingIcon.shadow.color precisa ser uma cor CSS (ex.: rgba(0,0,0,0.45)).');
+  assertNumber(icon.shadow.blur, 'report.blockingIcon.shadow.blur');
+  if (icon.shadow.blur < 0) throw new Error('report.blockingIcon.shadow.blur não pode ser negativo.');
+  assertNumber(icon.shadow.offsetX, 'report.blockingIcon.shadow.offsetX');
+  assertNumber(icon.shadow.offsetY, 'report.blockingIcon.shadow.offsetY');
   if (icon.halo) {
     if (!isHexColor(icon.halo.color)) throw new Error('report.blockingIcon.halo.color precisa ser uma cor #rrggbb.');
     assertNumber(icon.halo.width, 'report.blockingIcon.halo.width');

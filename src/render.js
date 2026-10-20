@@ -183,7 +183,14 @@ function drawCavaleteIcon(ctx, cx, cy, size, color, icon) {
   const outline = icon.outline?.width > 0 ? icon.outline : null;
   const halo = icon.halo?.width > 0 ? icon.halo : null;
   ctx.save();
-  if (halo) paint(halo.color, (outline ? outline.width : 0) + halo.width, false);
+  // A sombra vem da silhueta externa (halo), com desfoque e deslocamento de
+  // report.blockingIcon.shadow. Ela é limpa antes do contorno e do corpo.
+  const shadow = icon.shadow;
+  if (halo) {
+    ctx.shadowColor = shadow.color; ctx.shadowBlur = shadow.blur; ctx.shadowOffsetX = shadow.offsetX; ctx.shadowOffsetY = shadow.offsetY;
+    paint(halo.color, (outline ? outline.width : 0) + halo.width, false);
+    ctx.shadowColor = 'rgba(0,0,0,0)'; ctx.shadowBlur = 0; ctx.shadowOffsetX = 0; ctx.shadowOffsetY = 0;
+  }
   if (outline) paint(outline.color, outline.width, false);
   paint(color, 0, true);
   ctx.restore();

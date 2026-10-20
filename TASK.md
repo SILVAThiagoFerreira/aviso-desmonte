@@ -24,3 +24,4 @@
 - [x] Escolher a cor de cada ponto de bloqueio pelo contraste com o fundo que o ícone cobre, revalidar ao mover e ao importar, e acrescentar halo branco.
 - [x] Aumentar o recuo da seta norte em relação à moldura do mapa.
 - [x] Restaurar molduras, caixas de EVACUAR/LIBERADO, legenda fixa de símbolos e rótulo do ponto de entrega dos cartões no rodapé, perdidos na remoção de caixas (0d93d2a).
+- [x] Acrescentar sombra discreta configurável ao cavalete de bloqueio, no croqui e na legenda, para contraste sobre o satélite.

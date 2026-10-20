@@ -61,11 +61,13 @@ const appSource = await fs.readFile(new URL('../app.js', import.meta.url), 'utf8
 const renderSource = await fs.readFile(new URL('../src/render.js', import.meta.url), 'utf8');
 const onlineBackend = await fs.readFile(new URL('../backend/Code.gs', import.meta.url), 'utf8');
 assert.equal(appConfig.onlineCatalog.enabled, true, 'o catálogo online precisa estar habilitado');
-assert.equal(appConfig.app.version, '1.20.16');
+assert.equal(appConfig.app.version, '1.20.17');
 assert.equal(appConfig.defaultPreset.observation, 'Setor Técnico de Operações - Enaex Brasil.');
 assert.equal(appConfig.defaultPreset.peopleRadius, 500);
 assert.equal(appConfig.defaultPreset.machineRadius, 300, 'o raio padrão para máquinas e equipamentos deve ser 300 m');
-assert.ok(appConfig.report.radiusStroke.haloWidth > appConfig.report.radiusStroke.width, 'o halo dos raios precisa ser mais largo que o traço');
+assert.ok(appConfig.report.blockingIcon.shadow.blur >= 0 && appConfig.report.blockingIcon.shadow.blur <= 4, 'a sombra do cavalete deve ser discreta (desfoque de 0 a 4 px)');
+assert.match(renderSource, /shadowBlur = shadow\.blur/, 'o cavalete precisa aplicar a sombra configurada na silhueta externa');
+assert.ok(appConfig.report.radiusStroke.haloWidth > appConfig.report.radiusStroke.width,'o halo dos raios precisa ser mais largo que o traço');
 assert.ok(appConfig.report.stringFillOpacity > 0 && appConfig.report.stringFillOpacity <= 1, 'a opacidade do preenchimento das regiões deve estar entre 0 e 1');
 assert.deepEqual(appConfig.defaultPreset.pointIconSizes, { firing: 48, blocking: 25, card: 30 });
 assert.equal(appConfig.defaultPreset.areaNumberSize, 10);
@@ -248,7 +250,7 @@ assert.match(appSource, /sampleBlockingFootprint\(background, point, blockingFoo
 assert.match(appSource, /settleBlockingPointColor\(\{/, 'a decisão de cor precisa usar a regra pura de points.js');
 assert.match(appSource, /if \(contrast && !contrast\.adequate\) notify\(LOW_CONTRAST_MESSAGE/, 'o aviso de baixo contraste precisa ser a única mensagem do gesto');
 assert.match(appSource, /ensureContours\(\); annotateStructurePolygons\(\); return drawBlockingBackground/, 'o fundo precisa usar anéis e anotações atuais antes de medir');
-assert.match(renderSource, /if \(halo\) paint\(halo\.color/, 'o halo precisa desenhar uma camada por fora do contorno');
+assert.match(renderSource, /if \(halo\) \{[\s\S]*?paint\(halo\.color/,'o halo precisa desenhar uma camada por fora do contorno');
 assert.match(appSource, /validateBlockingPointConfig\(state\.config\.report\)/, 'a paleta precisa ser validada ao carregar a configuração');
 assert.match(appSource, /assignMissingBlockingPointColors\(/, 'projetos antigos precisam receber cores ao importar');
 assert.match(stylesSource, /\.point-swatch\.blocking \{[^}]*var\(--point-color/, 'a lista de pontos precisa mostrar a cor de cada ponto de bloqueio');
