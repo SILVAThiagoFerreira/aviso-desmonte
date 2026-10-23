@@ -219,10 +219,13 @@ function bufferPieces(entities, radius) {
 }
 
 export function buildRadiusContours(entities = [], radii = []) {
+  // Geometrias idênticas (mesma string adicionada duas vezes) geram arestas coincidentes; a união
+  // do polygon-clipping lança erro nesses casos e o cerco cairia no retângulo de segurança.
+  const uniqueEntities = dedupeEntities(entities);
   const values = [...new Set(radii.map(Number).filter((value) => Number.isFinite(value) && value > 0))].sort((a, b) => b - a);
   if (!values.length || !entities.length || !globalThis.polygonClipping?.union) return [];
   return values.map((radius) => {
-    const pieces = bufferPieces(entities, radius);
+    const pieces = bufferPieces(uniqueEntities, radius);
     if (!pieces.length) return { radius, polygons: [] };
     let polygons = [];
     try { polygons = pieces.length > 120 ? unionContourPolygons(unionInBatches(pieces)) : unionContourPolygons(pieces); } catch { polygons = []; }
@@ -321,4 +324,30 @@ export function areaIntersectsContours(entities = [], contours = []) {
 
 export function formatNumber(value, fractionDigits = 2) {
   return new Intl.NumberFormat('pt-BR', { maximumFractionDigits: fractionDigits, minimumFractionDigits: 0 }).format(value);
+}
+
+// Sobreposição entre duas strings: cruzamento ou sobreposição colinear de segmentos, ou um vértice de uma
+// string dentro de um polígono fechado da outra. Tolerância em metros.
+const OVERLAP_TOLERANCE = 1e-6;
+function segmentsOfString(item) {
+  return (item?.entities || []).filter((entity) => entity.type !== 'circle' && entity.points?.length >= 2).flatMap((entity) => {
+    const points = entity.points; const count = entity.closed ? points.length : points.length - 1;
+    return Array.from({ length: count }, (_, index) => [points[index], points[(index + 1) % points.length]]).filter(([a, b]) => a.x !== b.x || a.y !== b.y);
+  });
+}
+function signedDistance(a, b, p) { const length = Math.hypot(b.x - a.x, b.y - a.y) || 1; return ((b.x - a.x) * (p.y - a.y) - (b.y - a.y) * (p.x - a.x)) / length; }
+function withinSegmentBox(a, b, p) { return Math.min(a.x, b.x) - OVERLAP_TOLERANCE <= p.x && p.x <= Math.max(a.x, b.x) + OVERLAP_TOLERANCE && Math.min(a.y, b.y) - OVERLAP_TOLERANCE <= p.y && p.y <= Math.max(a.y, b.y) + OVERLAP_TOLERANCE; }
+function segmentsTouch([p1, p2], [q1, q2]) {
+  const d1 = signedDistance(q1, q2, p1); const d2 = signedDistance(q1, q2, p2); const d3 = signedDistance(p1, p2, q1); const d4 = signedDistance(p1, p2, q2);
+  const t = OVERLAP_TOLERANCE;
+  if (((d1 > t && d2 < -t) || (d1 < -t && d2 > t)) && ((d3 > t && d4 < -t) || (d3 < -t && d4 > t))) return true;
+  return (Math.abs(d1) <= t && withinSegmentBox(q1, q2, p1)) || (Math.abs(d2) <= t && withinSegmentBox(q1, q2, p2)) || (Math.abs(d3) <= t && withinSegmentBox(p1, p2, q1)) || (Math.abs(d4) <= t && withinSegmentBox(p1, p2, q2));
+}
+export function stringsOverlap(left, right) {
+  const leftSegments = segmentsOfString(left); const rightSegments = segmentsOfString(right);
+  if (leftSegments.some((segment) => rightSegments.some((other) => segmentsTouch(segment, other)))) return true;
+  const rings = (item) => (item?.entities || []).filter((entity) => entity.type !== 'circle' && entity.points?.length >= 3).map((entity) => entity.points.map((point) => [point.x, point.y]));
+  const vertices = (item) => (item?.entities || []).flatMap((entity) => (entity.type === 'circle' ? [] : entity.points || []));
+  return vertices(left).some((point) => rings(right).some((ring) => pointInRing({ x: point.x, y: point.y }, ring)))
+    || vertices(right).some((point) => rings(left).some((ring) => pointInRing({ x: point.x, y: point.y }, ring)));
 }

@@ -26,4 +26,5 @@
 - [x] Restaurar molduras, caixas de EVACUAR/LIBERADO, legenda fixa de símbolos e rótulo do ponto de entrega dos cartões no rodapé, perdidos na remoção de caixas (0d93d2a).
 - [x] Acrescentar sombra discreta configurável ao cavalete de bloqueio, no croqui e na legenda, para contraste sobre o satélite.
 - [x] Preencher polilinhas de desmonte com 3 ou mais vértices mesmo quando não marcadas como fechadas.
-- [x] Dividir o preenchimento e alternar as cores do contorno quando strings com a mesma geometria têm tipos diferentes.
+- [x] Sobreposição de Pré-Corte/Regularização com Produção: preenchimento vermelho e contorno sólido da classificação por cima.
+- [x] Corrigir raio alterado ao adicionar a mesma poligonal duas vezes (duplicatas removidas antes da união).
