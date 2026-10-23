@@ -2,6 +2,7 @@ import { areaIntersectsContours, boundsOf, boundsOfContours, differenceEntityWit
 import { blockingPointLegendLabel } from './points.js';
 
 const DEFAULT_STRING_FILL_OPACITY = 0.6;
+const SHARED_STRING_DASH = 12;
 const NOTICE_LOGO_WIDTH = 315;
 const NOTICE_REGION_LABEL_WIDTH = 350;
 const NOTICE_REGION_RIGHT_PADDING = 10;
@@ -279,10 +280,50 @@ export function fitCanvasFontSize(ctx, value, maxWidth, maxSize = NOTICE_REGION_
 }
 
 function stringColor(item, colors) { return colors[item?.blastType] || colors.production || colors.orange; }
-export function drawStringEntity(ctx, entity, transform, color, fillOpacity = DEFAULT_STRING_FILL_OPACITY) { drawEntity(ctx, entity, transform, color, normalizeOpacity(fillOpacity)); }
+// Strings são áreas de desmonte: qualquer polilinha com 3 ou mais vértices recebe preenchimento,
+// fechada ou não (o preenchimento fecha o caminho implicitamente); o traço continua como desenhado.
+export function drawStringEntity(ctx, entity, transform, color, fillOpacity = DEFAULT_STRING_FILL_OPACITY) { const opacity = normalizeOpacity(fillOpacity); if (entity.type === 'circle') { drawEntity(ctx, entity, transform, color, opacity); return; } if (entity.points?.length >= 3 && opacity && entityPath(ctx, entity, transform)) { ctx.save(); ctx.globalAlpha = opacity; ctx.fillStyle = color; ctx.fill(); ctx.restore(); } drawEntity(ctx, entity, transform, color, 0); }
 function drawStringOutline(ctx, entity, transform, color) { drawEntity(ctx, entity, transform, color, 0); }
 const STRING_PRIORITY = { precut: 1, production: 2, regularization: 3 };
 function sortedStrings(strings = []) { return [...strings].sort((left, right) => (STRING_PRIORITY[left.blastType] || 2) - (STRING_PRIORITY[right.blastType] || 2) || String(left.label || left.name).localeCompare(String(right.label || right.name), 'pt-BR')); }
+
+// Pontos de uma string para comparação: vértices de todas as entidades, sem o vértice de fechamento repetido.
+function stringGeometryPoints(item) {
+  return (item?.entities || []).flatMap((entity) => { const points = (entity.points || []).map((point) => ({ x: Number(point.x), y: Number(point.y) })); if (entity.type !== 'circle' && points.length > 1 && Math.hypot(points.at(-1).x - points[0].x, points.at(-1).y - points[0].y) <= 0.5) points.pop(); return points; });
+}
+// Mesma geometria: mesmo número de vértices e cada vértice tem par único a até `tolerance` metros.
+export function sameStringGeometry(left, right, tolerance = 0.5) {
+  const a = stringGeometryPoints(left); const b = stringGeometryPoints(right);
+  if (!a.length || a.length !== b.length) return false;
+  const used = new Array(b.length).fill(false);
+  return a.every((point) => { const index = b.findIndex((other, position) => !used[position] && Math.hypot(point.x - other.x, point.y - other.y) <= tolerance); if (index < 0) return false; used[index] = true; return true; });
+}
+// Agrupa strings que compartilham a mesma linha, preservando a ordem de desenho.
+export function groupStringsByGeometry(strings = [], tolerance = 0.5) {
+  const groups = [];
+  strings.forEach((item) => { const group = groups.find((candidate) => sameStringGeometry(candidate[0], item, tolerance)); if (group) group.push(item); else groups.push([item]); });
+  return groups;
+}
+// Tipos distintos de um grupo, na ordem da legenda (Pré-Corte, Produção, Regularização).
+function sharedStringTypes(group, colors) { return [...new Set(group.map((item) => (colors[item?.blastType] ? item.blastType : 'production')))].sort((a, b) => (STRING_PRIORITY[a] || 2) - (STRING_PRIORITY[b] || 2)); }
+// Preenchimento dividido em faixas iguais, uma por tipo, com a cor de cada tipo na opacidade configurada.
+function drawSharedStringFill(ctx, entity, transform, colorList, fillOpacity) {
+  const opacity = normalizeOpacity(fillOpacity);
+  if (entity.type === 'circle' || !(entity.points?.length >= 3) || !opacity) return;
+  const xs = entity.points.map((point) => transform.x(point)); const ys = entity.points.map((point) => transform.y(point));
+  const minX = Math.min(...xs); const maxX = Math.max(...xs); const minY = Math.min(...ys); const maxY = Math.max(...ys);
+  const slice = Math.max(maxX - minX, 1) / colorList.length;
+  ctx.save(); entityPath(ctx, entity, transform); ctx.clip(); ctx.globalAlpha = opacity;
+  colorList.forEach((color, index) => { ctx.fillStyle = color; ctx.beginPath(); ctx.rect(minX + index * slice, minY - 2, slice, maxY - minY + 4); ctx.fill(); });
+  ctx.restore();
+}
+// Contorno tracejado alternando as cores dos tipos, para que a mesma linha mostre todas as classificações.
+function drawSharedStringOutline(ctx, entity, transform, colorList) {
+  if (entity.type === 'circle') { colorList.forEach((color) => drawStringOutline(ctx, entity, transform, color)); return; }
+  ctx.save(); ctx.lineWidth = 3; ctx.lineJoin = 'round'; ctx.lineCap = 'butt';
+  colorList.forEach((color, index) => { if (!entityPath(ctx, entity, transform)) return; ctx.setLineDash([SHARED_STRING_DASH, SHARED_STRING_DASH * (colorList.length - 1)]); ctx.lineDashOffset = index * SHARED_STRING_DASH; ctx.strokeStyle = color; ctx.stroke(); });
+  ctx.restore();
+}
 
 function drawStringThumbnail(ctx, item, x, y, width, height, color, fillOpacity = DEFAULT_STRING_FILL_OPACITY) {
   const entities = item?.entities || [];
@@ -297,7 +338,7 @@ function drawStringThumbnail(ctx, item, x, y, width, height, color, fillOpacity 
   entities.forEach((entity) => {
     const entityPoints = entity.points || []; if (!entityPoints.length) return;
     if (entity.type === 'circle') { const center = entityPoints[0]; const radius = Math.max(Number(entity.radius || 0) * scale, 2); ctx.beginPath(); ctx.arc(offsetX + (center.x - minX) * scale, offsetY + (maxY - center.y) * scale, radius, 0, Math.PI * 2); if (fillOpacity) { ctx.save(); ctx.globalAlpha = fillOpacity; ctx.fillStyle = color; ctx.fill(); ctx.restore(); } ctx.stroke(); return; }
-    ctx.beginPath(); entityPoints.forEach((point, index) => { const px = offsetX + (point.x - minX) * scale; const py = offsetY + (maxY - point.y) * scale; if (index) ctx.lineTo(px, py); else ctx.moveTo(px, py); }); if (entity.closed) { ctx.closePath(); if (entityPoints.length >= 3 && fillOpacity) { ctx.save(); ctx.globalAlpha = fillOpacity; ctx.fillStyle = color; ctx.fill(); ctx.restore(); } } ctx.stroke();
+    ctx.beginPath(); entityPoints.forEach((point, index) => { const px = offsetX + (point.x - minX) * scale; const py = offsetY + (maxY - point.y) * scale; if (index) ctx.lineTo(px, py); else ctx.moveTo(px, py); }); if (entity.closed) ctx.closePath(); if (entityPoints.length >= 3 && fillOpacity) { ctx.save(); ctx.globalAlpha = fillOpacity; ctx.fillStyle = color; ctx.fill(); ctx.restore(); } ctx.stroke();
   });
   ctx.restore();
 }
@@ -737,9 +778,10 @@ export function drawReport(canvas, model, config, options = {}) {
     // Primeiro aplica o preenchimento transparente de todas as strings; em uma
     // segunda passagem, redesenha todas as bordas para que nenhuma interseção
     // entre poligonais reduza a nitidez do contorno operacional.
-    const blastStrings = sortedStrings(model.strings || []).reverse();
-    blastStrings.forEach((item) => (item.entities || []).forEach((entity) => drawStringEntity(ctx, entity, transform, stringColor(item, colors), stringFillOpacity)));
-    blastStrings.forEach((item) => (item.entities || []).forEach((entity) => drawStringOutline(ctx, entity, transform, stringColor(item, colors))));
+    // Strings com a mesma geometria mas tipos diferentes dividem o preenchimento e alternam as cores no contorno.
+    const blastGroups = groupStringsByGeometry(sortedStrings(model.strings || []).reverse()).map((group) => ({ group, types: sharedStringTypes(group, colors) }));
+    blastGroups.forEach(({ group, types }) => { if (types.length < 2) group.forEach((item) => (item.entities || []).forEach((entity) => drawStringEntity(ctx, entity, transform, stringColor(item, colors), stringFillOpacity))); else (group[0].entities || []).forEach((entity) => drawSharedStringFill(ctx, entity, transform, types.map((key) => colors[key]), stringFillOpacity)); });
+    blastGroups.forEach(({ group, types }) => { if (types.length < 2) group.forEach((item) => (item.entities || []).forEach((entity) => drawStringOutline(ctx, entity, transform, stringColor(item, colors)))); else (group[0].entities || []).forEach((entity) => drawSharedStringOutline(ctx, entity, transform, types.map((key) => colors[key]))); });
     // O buffer já representa a extensão completa da poligonal. Não desenhar
     // círculos adicionais nas extremidades evita a aparência de raios sobrepostos.
     (model.firingPoints || []).forEach((point) => drawPointMarker(ctx, point, transform, model.firingIcon, colors, 'firing', model.pointIconSizes));

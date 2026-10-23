@@ -12,6 +12,8 @@
 
 - O DXF é validado antes do desenho. Arquivo vazio, entidade sem coordenadas ou extensão inválida gera erro visível.
 - As extremidades são o primeiro e o último vértice de cada string linear; pontos duplicados são removidos.
+- Strings são preenchidas com a cor do seu tipo e `report.stringFillOpacity` (0,6, ou seja 40% de transparência) quando têm três ou mais vértices, fechadas ou não; o traço segue a forma original.
+- Strings com a mesma geometria (mesmos vértices, com tolerância de 0,5 m, independentemente da ordem) e tipos diferentes formam um grupo: o preenchimento é dividido em faixas iguais, uma por tipo, e o contorno alterna tracejados das cores de cada tipo. Grupos com um único tipo são desenhados como antes. A legenda e o painel continuam listando cada string.
 - Um raio informado é desenhado em cada extremidade, em metros, usando a escala da extensão do mapa.
 - Áreas `evacuar` usam contorno/preenchimento hachurado vermelho. Áreas `liberado` usam contorno/preenchimento hachurado azul.
 - A extensão automática usa todas as geometrias e uma margem de 8%. A extensão manual é obrigatória para sobreposição espacial confiável com um ortomosaico georreferenciado.

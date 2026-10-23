@@ -5,7 +5,7 @@ import { parseDxf, parseGeoJson } from '../src/dxf.js';
 import { areaIntersectsContours, boundsOf, boundsOfContours, buildRadiusContours, dedupeEntities, differenceEntityWithContours, fitBoundsToAspect, flattenStringEntities, getStringEndpoints, intersectEntityWithContours, paddedBounds, pointIntersectsContours, unionContourPolygons } from '../src/geometry.js';
 import { safeFileName } from '../src/pdf.js';
 import { assignMissingBlockingPointColors, blockingPointLegendLabel, chooseBlockingPointColor, hasAdequateContrast, hexToRgb, isHexColor, pickBlockingPointColor, rgbToLab, settleBlockingPointColor, validateBlockingPointConfig } from '../src/points.js';
-import { drawEntity, drawStringEntity, fitCanvasFontSize } from '../src/render.js';
+import { drawEntity, drawStringEntity, fitCanvasFontSize, groupStringsByGeometry } from '../src/render.js';
 
 const dxf = await fs.readFile(new URL('../POLIGONAIS/r030826.dxf', import.meta.url), 'latin1');
 const parsed = parseDxf(dxf);
@@ -61,7 +61,7 @@ const appSource = await fs.readFile(new URL('../app.js', import.meta.url), 'utf8
 const renderSource = await fs.readFile(new URL('../src/render.js', import.meta.url), 'utf8');
 const onlineBackend = await fs.readFile(new URL('../backend/Code.gs', import.meta.url), 'utf8');
 assert.equal(appConfig.onlineCatalog.enabled, true, 'o catálogo online precisa estar habilitado');
-assert.equal(appConfig.app.version, '1.20.17');
+assert.equal(appConfig.app.version, '1.20.18');
 assert.equal(appConfig.defaultPreset.observation, 'Setor Técnico de Operações - Enaex Brasil.');
 assert.equal(appConfig.defaultPreset.peopleRadius, 500);
 assert.equal(appConfig.defaultPreset.machineRadius, 300, 'o raio padrão para máquinas e equipamentos deve ser 300 m');
@@ -83,9 +83,17 @@ assert.match(renderSource, /colors\.blueHatch/, 'a hachura azul deve usar a cor 
 assert.match(renderSource, /colors\.redHatch/, 'a hachura vermelha deve usar a cor suavizada configurada');
 assert.match(renderSource, /const DEFAULT_STRING_FILL_OPACITY = 0\.6/, 'as strings precisam ter uma opacidade de preenchimento calibrada');
 assert.match(renderSource, /function drawStringEntity/, 'as strings devem ter uma rotina de desenho própria');
-assert.match(renderSource, /if \(entity\.closed && entity\.points\.length >= 3 && opacity\)/, 'somente poligonais fechadas com área devem receber preenchimento');
+assert.match(renderSource, /if \(entity\.points\?\.length >= 3 && opacity && entityPath/,'poligonais com 3 ou mais vértices devem receber preenchimento, fechadas ou não');
 assert.match(renderSource, /drawStringEntity\(ctx, entity, transform, stringColor\(item, colors\), stringFillOpacity\)/, 'o preenchimento precisa usar a mesma cor da string');
 assert.match(renderSource, /drawStringOutline\(ctx, entity, transform, stringColor\(item, colors\)\)/, 'as bordas precisam ser redesenhadas depois dos preenchimentos');
+assert.match(renderSource, /drawSharedStringFill\(ctx, entity, transform, types\.map/, 'strings com a mesma geometria devem dividir o preenchimento por tipo');
+assert.match(renderSource, /ctx\.lineDashOffset = index \* SHARED_STRING_DASH/, 'o contorno compartilhado deve alternar as cores dos tipos');
+const sharedGeometry = [
+  { name: 'PP561026', blastType: 'production', entities: [{ type: 'polyline', closed: false, points: [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 5, y: 8 }, { x: 0, y: 0 }] }] },
+  { name: 'PC561026', blastType: 'precut', entities: [{ type: 'polyline', closed: true, points: [{ x: 0.2, y: 0 }, { x: 10, y: 0.3 }, { x: 5, y: 8 }] }] },
+  { name: 'PP999999', blastType: 'production', entities: [{ type: 'polyline', closed: false, points: [{ x: 50, y: 50 }, { x: 60, y: 50 }] }] },
+];
+assert.deepEqual(groupStringsByGeometry(sharedGeometry).map((group) => group.map((item) => item.name)), [['PP561026', 'PC561026'], ['PP999999']], 'strings com a mesma geometria e tipos diferentes devem formar um único grupo');
 assert.match(renderSource, /drawHatchedEntity\(ctx, entity, transform, colors\.blueHatch, colors\.blueSoft, colors\.blue\)/, 'o contorno azul deve permanecer destacado');
 assert.match(renderSource, /drawHatchedPolygon\(ctx, polygon, transform, colors\.redHatch, colors\.redSoft, colors\.red\)/, 'o contorno vermelho deve permanecer destacado');
 assert.match(renderSource, /const hatchEntities = model\.areas\.filter\(\(area\) => area\.catalogId === 'estruturas-proximas'\)/, 'as hachuras precisam usar o DXF atualizado das estruturas');
