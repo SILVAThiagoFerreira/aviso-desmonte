@@ -101,7 +101,9 @@ button { cursor: pointer; }
 .area-item input, .string-item input { width: 100%; min-width: 0; border: 0; outline: 0; color: var(--ink); background: transparent; font-size: 11px; }
 .area-item input, .string-item input { font-weight: 600; }
 .radius-file-button { display: inline-flex; align-items: center; width: fit-content; margin-top: 5px; border: 1px solid var(--line); border-radius: 5px; padding: 5px 8px; color: var(--ink); background: #f8fbfa; font: 700 9px 'IBM Plex Mono', monospace; cursor: pointer; }
-.radius-generated-button { display: inline-flex; align-items: center; width: fit-content; margin: 5px 0 0 4px; min-height: 27px; border: 1px solid rgba(20,122,89,.35); border-radius: 5px; padding: 0 8px; color: var(--green); background: #f2faf7; font: 700 9px 'IBM Plex Mono', monospace; cursor: pointer; }
+.radius-generated-button { display: inline-flex; align-items: center; width: fit-content; margin: 5px 0 0; border: 1px solid var(--line); border-radius: 5px; padding: 5px 8px; color: var(--ink); background: #f8fbfa; font: 700 9px 'IBM Plex Mono', monospace; cursor: pointer; }
+.radius-generated-button:hover { border-color: var(--ink); }
+.radius-generated-button:active { border-color: var(--ink); color: #fff; background: var(--ink); }
 .radius-file-button input { display: none; }
 .radius-file-state { display: block; margin-top: 4px; overflow: hidden; color: var(--muted); font: 9px/1.35 'IBM Plex Mono', monospace; text-overflow: ellipsis; white-space: nowrap; }
 .point-size-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-top: 12px; }
@@ -137,8 +139,8 @@ button { cursor: pointer; }
 .area-status.liberado { color: #fff; background: var(--blue); }
 .remove-button { width: 24px; height: 24px; border: 1px solid var(--line); border-radius: 5px; color: var(--muted); background: #f6f8f7; font-size: 18px; line-height: 1; }
 .remove-button:hover { border-color: var(--red); color: var(--red); background: #fff3f3; }
-.edit-button { min-height: 24px; border: 1px solid rgba(20,122,89,.3); border-radius: 5px; padding: 0 7px; color: var(--green); background: #f2faf7; font: 700 9px 'IBM Plex Mono', monospace; }
-.edit-button:hover { border-color: var(--green); color: #fff; background: var(--green); }
+.edit-button { min-height: 24px; border: 1px solid var(--line); border-radius: 5px; padding: 0 7px; color: var(--ink); background: #f8fbfa; font: 700 9px 'IBM Plex Mono', monospace; }
+.edit-button:hover { border-color: var(--ink); color: var(--ink); background: #eef1f3; }
 .switch-row { display: flex; align-items: center; gap: 9px; cursor: pointer; }
 .switch-row input { position: absolute; opacity: 0; }
 .switch { position: relative; flex: 0 0 34px; width: 34px; height: 20px; border-radius: 99px; background: #c8d2d0; transition: .2s; }

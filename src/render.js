@@ -281,11 +281,11 @@ function fitCanvasText(ctx, value, maxWidth) {
   return `${result.trimEnd()}…`;
 }
 
-export function fitCanvasFontSize(ctx, value, maxWidth, maxSize = NOTICE_REGION_MAX_FONT_SIZE, minSize = NOTICE_REGION_MIN_FONT_SIZE) {
+export function fitCanvasFontSize(ctx, value, maxWidth, maxSize = NOTICE_REGION_MAX_FONT_SIZE, minSize = NOTICE_REGION_MIN_FONT_SIZE, fontWeight = null) {
   const text = String(value ?? '');
   if (!text || maxWidth <= 0) return minSize;
   const measureAt = (size) => {
-    ctx.font = `${size}px Arial`;
+    ctx.font = `${fontWeight ? `${fontWeight} ` : ''}${size}px Arial`;
     return ctx.measureText(text).width;
   };
   if (measureAt(maxSize) <= maxWidth) return maxSize;
@@ -469,7 +469,7 @@ function chooseLegendPlacement(ctx, model, box, width, height, transform, settin
 function drawLegend(ctx, model, box, colors, transform, stringFillOpacity = DEFAULT_STRING_FILL_OPACITY) {
   const strings = sortedStrings(model.strings || []);
   const statusAreas = model.statusAreas || model.areas || [];
-  const radiusRows = (model.radiusContours || []).flatMap((contour) => { const sameGeneratedRadius = !contour.kind && Number(model.radii?.people) === Number(model.radii?.machine) && Number(contour.radius) === Number(model.radii?.people); const kinds = sameGeneratedRadius ? ['people', 'machine'] : [contour.kind || (Number(contour.radius) === Number(model.radii?.people) ? 'people' : 'machine')]; return kinds.map((kind) => { const isPeople = kind === 'people'; const reduced = Boolean(model.reducedRadii?.[kind]); return { color: isPeople ? colors.cyan : colors.greenLight, dashed: false, reduced, label: `Cx(r)=${formatNumber(contour.radius, 0)} m · RAIO ${reduced ? 'REDUZIDO' : 'DE SEGURANÇA'} · ${isPeople ? 'PESSOAS' : 'MÁQUINAS E EQUIPAMENTOS'}` }; }); });
+  const radiusRows = (model.radiusContours || []).flatMap((contour) => { const sameGeneratedRadius = !contour.kind && Number(model.radii?.people) === Number(model.radii?.machine) && Number(contour.radius) === Number(model.radii?.people); const kinds = sameGeneratedRadius ? ['people', 'machine'] : [contour.kind || (Number(contour.radius) === Number(model.radii?.people) ? 'people' : 'machine')]; return kinds.map((kind) => { const isPeople = kind === 'people'; const reduced = Boolean(model.reducedRadii?.[kind]); return { color: isPeople ? colors.cyan : colors.greenLight, dashed: false, reduced, label: `Cx(r)=${formatNumber(contour.radius, 0)} m · ${reduced ? 'RAIO DE SEGURANÇA REDUZIDO' : 'RAIO DE SEGURANÇA'} · ${isPeople ? 'PESSOAS' : 'MÁQUINAS E EQUIPAMENTOS'}` }; }); });
   const rows = [...radiusRows];
   if (strings.length) rows.push({ color: colors.ink, label: 'POLIGONAIS / STRINGS DE DESMONTE' });
   if (statusAreas.some((area) => area.status === 'evacuar')) rows.push({ swatch: 'evacuar', label: 'EVACUAR' });
@@ -514,11 +514,9 @@ function drawLegend(ctx, model, box, colors, transform, stringFillOpacity = DEFA
     else if (item.icon === 'card') drawLegendIcon(ctx, model.cardIcon, x + 18 * scale, rowY - 13 * scale, 26 * scale, (canvas, cx, cy, size) => { canvas.strokeStyle = colors.red; canvas.lineWidth = 2 * scale; canvas.strokeRect(cx - size * .3, cy - size * .2, size * .6, size * .4); canvas.fillStyle = colors.red; canvas.fillRect(cx - size * .22, cy - size * .05, size * .44, size * .08); });
     else { ctx.strokeStyle = item.color; ctx.lineWidth = 3 * scale; ctx.setLineDash(item.dashed ? [10 * scale, 7 * scale] : []); ctx.beginPath(); ctx.moveTo(x + 18 * scale, rowY); ctx.lineTo(x + 62 * scale, rowY); ctx.stroke(); ctx.setLineDash([]); }
     const labelWidth = width - 98 * scale;
-    const fontSize = fitCanvasFontSize(ctx, item.label, labelWidth, 12 * scale, Math.max(7, (Number(settings.radiusLabelMinFontSize) || 8) * scale));
-    ctx.font = `${fontSize}px Arial`; const labelText = fitCanvasText(ctx, item.label, labelWidth); const labelX = x + 78 * scale;
-    // Realce amarelo só atrás do texto da linha reduzida, como marca-texto sobre a impressão.
-    if (item.reduced) { ctx.fillStyle = colors.reducedHighlight; ctx.fillRect(labelX - 3 * scale, rowY - 8 * scale, ctx.measureText(labelText).width + 6 * scale, 17 * scale); }
-    ctx.fillStyle = colors.ink; ctx.fillText(labelText, labelX, rowY + 5 * scale); rowY += 30 * scale;
+    const labelWeight = item.reduced ? 700 : null; const fontSize = fitCanvasFontSize(ctx, item.label, labelWidth, 12 * scale, Math.max(7, (Number(settings.radiusLabelMinFontSize) || 8) * scale), labelWeight);
+    ctx.font = item.reduced ? `700 ${fontSize}px Arial` : `${fontSize}px Arial`; const labelText = fitCanvasText(ctx, item.label, labelWidth); const labelX = x + 78 * scale;
+    ctx.fillStyle = item.reduced ? colors.reducedHighlight : colors.ink; ctx.fillText(labelText, labelX, rowY + 5 * scale); rowY += 30 * scale;
   });
   if (strings.length) {
     ctx.fillStyle = colors.ink; ctx.font = `700 ${12 * scale}px Arial`; ctx.fillText('REGIÕES DE DESMONTE DE ROCHAS:', x + 18 * scale, rowY + 7 * scale); rowY += 26 * scale;
