@@ -28,3 +28,4 @@
 - [x] Preencher polilinhas de desmonte com 3 ou mais vértices mesmo quando não marcadas como fechadas.
 - [x] Sobreposição de Pré-Corte/Regularização com Produção: preenchimento vermelho e contorno sólido da classificação por cima.
 - [x] Corrigir raio alterado ao adicionar a mesma poligonal duas vezes (duplicatas removidas antes da união).
+- [x] Trocar os botões verdes e amarelos por ícone de olho, caixa "Raio reduzido" ao lado de Importar DXF e realce da legenda só atrás do texto (`report.colors.reducedHighlight`).

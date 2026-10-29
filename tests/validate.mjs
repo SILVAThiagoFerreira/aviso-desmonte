@@ -69,7 +69,8 @@ const appSource = await fs.readFile(new URL('../app.js', import.meta.url), 'utf8
 const renderSource = await fs.readFile(new URL('../src/render.js', import.meta.url), 'utf8');
 const onlineBackend = await fs.readFile(new URL('../backend/Code.gs', import.meta.url), 'utf8');
 assert.equal(appConfig.onlineCatalog.enabled, true, 'o catálogo online precisa estar habilitado');
-assert.equal(appConfig.app.version, '1.20.20');
+assert.equal(appConfig.app.version, '1.20.21');
+assert.equal(appConfig.report.colors.reducedHighlight, '#ffe14d', 'o realce do raio reduzido na legenda precisa vir do config.json');
 assert.equal(appConfig.defaultPreset.observation, 'Setor Técnico de Operações - Enaex Brasil.');
 assert.equal(appConfig.defaultPreset.peopleRadius, 500);
 assert.equal(appConfig.defaultPreset.machineRadius, 300, 'o raio padrão para máquinas e equipamentos deve ser 300 m');
@@ -125,6 +126,8 @@ assert.match(appHtml, /id="noticeCanvas"/);
 assert.match(appHtml, /id="drawStringButton"/);
 assert.match(appHtml, /id="finishStringButton"/);
 assert.match(appHtml, /id="cancelStringButton"/);
+assert.match(appHtml, /<input type="checkbox" id="peopleRadiusReduced"/, 'o raio reduzido de pessoas precisa ser uma caixa de seleção');
+assert.match(appHtml, /<input type="checkbox" id="machineRadiusReduced"/, 'o raio reduzido de máquinas precisa ser uma caixa de seleção');
 assert.match(appHtml, /id="pointPlacementToolbar"/);
 assert.match(appHtml, /id="finishPointPlacementButton"/);
 assert.match(appHtml, /aria-live="polite"/);
@@ -262,6 +265,8 @@ assert.throws(() => assignMissingBlockingPointColors([{ x: 1, y: 1, color: 'azul
 assert.match(renderSource, /blockingPointLegendLabel\(legendSettings\.blockingPointLabel, index \+ 1\)/, 'a legenda deve ter uma linha numerada por ponto de bloqueio');
 assert.equal(appConfig.report.legend.firingPointDefaultLabel, 'PONTO DE DISPARO (PDE NORTE)', 'o rótulo do ponto de disparo sem estrutura deve ser PONTO DE DISPARO (PDE NORTE), como no aviso de referência');
 assert.ok(!renderSource.includes("'PONTOS DE DISPARO'"), 'o rótulo genérico PONTOS DE DISPARO não pode mais aparecer na legenda');
+assert.match(renderSource, /ctx\.fillStyle = colors\.reducedHighlight;/, 'o realce do raio reduzido deve vir de colors e ficar só atrás do texto');
+assert.doesNotMatch(renderSource, /ffe36b/, 'a faixa amarela cheia da legenda não pode voltar');
 assert.match(renderSource, /label: legendSettings\.blockingPointDefaultLabel/, 'sem pontos de bloqueio, a legenda mostra a entrada genérica configurada');
 assert.match(renderSource, /rows\.push\(\{ icon: 'card', label: legendSettings\.cardPointLabel \}\)/, 'a entrada de entrega de cartões deve sempre aparecer na legenda');
 assert.match(renderSource, /footerConfig\.locationLabel/, 'o rodapé deve usar o rótulo configurado para o ponto de entrega dos cartões');

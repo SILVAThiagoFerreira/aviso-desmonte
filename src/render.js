@@ -506,7 +506,6 @@ function drawLegend(ctx, model, box, colors, transform, stringFillOpacity = DEFA
   ctx.fillStyle = colors.ink; ctx.font = `700 ${18 * scale}px Arial`; ctx.textAlign = 'left'; ctx.fillText('LEGENDA:', x + 18 * scale, y + 31 * scale);
   let rowY = y + 57 * scale;
   rows.forEach((item) => {
-    if (item.reduced) { ctx.fillStyle = '#ffe36b'; ctx.fillRect(x + 12 * scale, rowY - 12 * scale, width - 24 * scale, 23 * scale); }
     const iconY = rowY - 7 * scale;
     if (item.swatch === 'evacuar') drawHatchSwatch(ctx, x + 18 * scale, iconY, 44 * scale, 16 * scale, colors.redHatch, colors.redSoft);
     else if (item.swatch === 'liberado') drawHatchSwatch(ctx, x + 18 * scale, iconY, 44 * scale, 16 * scale, colors.blueHatch, colors.blueSoft);
@@ -516,7 +515,10 @@ function drawLegend(ctx, model, box, colors, transform, stringFillOpacity = DEFA
     else { ctx.strokeStyle = item.color; ctx.lineWidth = 3 * scale; ctx.setLineDash(item.dashed ? [10 * scale, 7 * scale] : []); ctx.beginPath(); ctx.moveTo(x + 18 * scale, rowY); ctx.lineTo(x + 62 * scale, rowY); ctx.stroke(); ctx.setLineDash([]); }
     const labelWidth = width - 98 * scale;
     const fontSize = fitCanvasFontSize(ctx, item.label, labelWidth, 12 * scale, Math.max(7, (Number(settings.radiusLabelMinFontSize) || 8) * scale));
-    ctx.fillStyle = colors.ink; ctx.font = `${fontSize}px Arial`; ctx.fillText(fitCanvasText(ctx, item.label, labelWidth), x + 78 * scale, rowY + 5 * scale); rowY += 30 * scale;
+    ctx.font = `${fontSize}px Arial`; const labelText = fitCanvasText(ctx, item.label, labelWidth); const labelX = x + 78 * scale;
+    // Realce amarelo só atrás do texto da linha reduzida, como marca-texto sobre a impressão.
+    if (item.reduced) { ctx.fillStyle = colors.reducedHighlight; ctx.fillRect(labelX - 3 * scale, rowY - 8 * scale, ctx.measureText(labelText).width + 6 * scale, 17 * scale); }
+    ctx.fillStyle = colors.ink; ctx.fillText(labelText, labelX, rowY + 5 * scale); rowY += 30 * scale;
   });
   if (strings.length) {
     ctx.fillStyle = colors.ink; ctx.font = `700 ${12 * scale}px Arial`; ctx.fillText('REGIÕES DE DESMONTE DE ROCHAS:', x + 18 * scale, rowY + 7 * scale); rowY += 26 * scale;
