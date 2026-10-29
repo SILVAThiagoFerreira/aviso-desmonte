@@ -196,3 +196,31 @@ export function settleBlockingPointColor({ palette, currentColor, otherColors = 
   if (adequateNow && (!choice.adequate || others.includes(choice.color.toLowerCase()))) return { color: currentColor, adequate: true, measured: true, changed: false };
   return { color: choice.color, adequate: choice.adequate, measured: true, changed: choice.color !== currentColor };
 }
+
+// Cores vivas e distintas para as alternativas de disparo; o valor é salvo no projeto.
+const FIRING_COLORS = ['#e40022', '#0077d4', '#9b28d0', '#ff8c00', '#00a78b', '#e800a0', '#4655e8', '#926000', '#00a0c8', '#c73563', '#5e8200', '#7542a6'];
+export function assignFiringPointIdentity(points, random = Math.random) {
+  const usedColors = new Set(points.map(point => String(point.color || '').toLowerCase()).filter(Boolean));
+  const usedNumbers = new Set(points.map(point => Number(point.optionNumber)).filter(number => Number.isInteger(number) && number > 0));
+  points.forEach(point => {
+    if (!Number.isInteger(point.optionNumber) || point.optionNumber < 1) {
+      let number = 1; while (usedNumbers.has(number)) number += 1;
+      point.optionNumber = number; usedNumbers.add(number);
+    }
+    if (!isHexColor(point.color)) {
+      const available = FIRING_COLORS.filter(color => !usedColors.has(color));
+      let color = available.length ? available[Math.floor(random() * available.length) % available.length] : null;
+      // Espaço RGB adicional para projetos com mais pontos do que a paleta.
+      let candidate = 0;
+      while (!color || usedColors.has(color.toLowerCase())) {
+        // Mantém saturação e luminosidade altas mesmo após esgotar a paleta.
+        const hue = ((candidate++ * 137.508) % 360) / 60;
+        const chroma = 0.8, x = chroma * (1 - Math.abs(hue % 2 - 1));
+        const channels = hue < 1 ? [chroma, x, 0] : hue < 2 ? [x, chroma, 0] : hue < 3 ? [0, chroma, x] : hue < 4 ? [0, x, chroma] : hue < 5 ? [x, 0, chroma] : [chroma, 0, x];
+        color = `#${channels.map(channel => Math.round((channel + 0.1) * 255).toString(16).padStart(2, '0')).join('')}`;
+      }
+      point.color = color; usedColors.add(color.toLowerCase());
+    }
+  });
+  return points;
+}

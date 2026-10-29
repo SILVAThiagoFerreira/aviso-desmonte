@@ -133,6 +133,29 @@ function drawScale(ctx, box, transform, bounds) {
   ctx.fillStyle = '#ffffff'; ctx.fillRect(x - 12, y - 26, width + 24, 48); ctx.fillStyle = '#111111'; ctx.fillRect(x, y, width / 2, 14); ctx.fillStyle = '#ffffff'; ctx.fillRect(x + width / 2, y, width / 2, 14); ctx.strokeStyle = '#111111'; ctx.lineWidth = 2; ctx.strokeRect(x, y, width, 14); ctx.fillStyle = '#111111'; ctx.font = '14px Arial'; ctx.textAlign = 'center'; ctx.fillText(`${formatNumber(displayedDistance, 0)} m`, x + width / 2, y - 6);
 }
 
+// Preserve a arte do equipamento e substitua apenas a região vermelha do símbolo.
+const firingIconCache = new WeakMap();
+function coloredFiringIcon(image, color) {
+  if (!image || !/^#[0-9a-f]{6}$/i.test(color || '')) return image;
+  let variants = firingIconCache.get(image);
+  if (!variants) { variants = new Map(); firingIconCache.set(image, variants); }
+  if (variants.has(color)) return variants.get(color);
+  const canvas = document.createElement('canvas'); canvas.width = image.width; canvas.height = image.height;
+  const context = canvas.getContext('2d'); context.drawImage(image, 0, 0);
+  const pixels = context.getImageData(0, 0, canvas.width, canvas.height);
+  const rgb = [1, 3, 5].map(offset => parseInt(color.slice(offset, offset + 2), 16));
+  for (let i = 0; i < pixels.data.length; i += 4) {
+    const r = pixels.data[i], g = pixels.data[i + 1], b = pixels.data[i + 2];
+    if (r > 120 && r > g * 1.6 && r > b * 1.6) {
+      const strength = Math.max(0, Math.min(1, (r - Math.max(g, b)) / 200));
+      pixels.data[i] = r * (1 - strength) + rgb[0] * strength;
+      pixels.data[i + 1] = g * (1 - strength) + rgb[1] * strength;
+      pixels.data[i + 2] = b * (1 - strength) + rgb[2] * strength;
+    }
+  }
+  context.putImageData(pixels, 0, 0); variants.set(color, canvas); return canvas;
+}
+
 function drawLegendIcon(ctx, image, x, y, size, fallback) {
   if (image) {
     const ratio = Math.min(size / image.width, size / image.height);
@@ -446,7 +469,7 @@ function chooseLegendPlacement(ctx, model, box, width, height, transform, settin
 function drawLegend(ctx, model, box, colors, transform, stringFillOpacity = DEFAULT_STRING_FILL_OPACITY) {
   const strings = sortedStrings(model.strings || []);
   const statusAreas = model.statusAreas || model.areas || [];
-  const radiusRows = (model.radiusContours || []).map((contour) => { const isPeople = contour.kind ? contour.kind === 'people' : Number(contour.radius) === Number(model.radii?.people); return { color: isPeople ? colors.cyan : colors.greenLight, dashed: false, label: `Cx(r)=${formatNumber(contour.radius, 0)} m · RAIO DE SEGURANÇA · ${isPeople ? 'PESSOAS' : 'MÁQUINAS E EQUIPAMENTOS'}` }; });
+  const radiusRows = (model.radiusContours || []).flatMap((contour) => { const sameGeneratedRadius = !contour.kind && Number(model.radii?.people) === Number(model.radii?.machine) && Number(contour.radius) === Number(model.radii?.people); const kinds = sameGeneratedRadius ? ['people', 'machine'] : [contour.kind || (Number(contour.radius) === Number(model.radii?.people) ? 'people' : 'machine')]; return kinds.map((kind) => { const isPeople = kind === 'people'; const reduced = Boolean(model.reducedRadii?.[kind]); return { color: isPeople ? colors.cyan : colors.greenLight, dashed: false, reduced, label: `Cx(r)=${formatNumber(contour.radius, 0)} m · RAIO ${reduced ? 'REDUZIDO' : 'DE SEGURANÇA'} · ${isPeople ? 'PESSOAS' : 'MÁQUINAS E EQUIPAMENTOS'}` }; }); });
   const rows = [...radiusRows];
   if (strings.length) rows.push({ color: colors.ink, label: 'POLIGONAIS / STRINGS DE DESMONTE' });
   if (statusAreas.some((area) => area.status === 'evacuar')) rows.push({ swatch: 'evacuar', label: 'EVACUAR' });
@@ -455,11 +478,11 @@ function drawLegend(ctx, model, box, colors, transform, stringFillOpacity = DEFA
   // Com pontos inseridos, o PDE usa o rótulo derivado da estrutura e cada
   // ponto de bloqueio ganha a sua linha numerada na cor do cavalete.
   const legendSettings = model.legendSettings || {};
-  if (model.firingPoints?.length) (model.firingPointLegendLabels?.length ? model.firingPointLegendLabels : [legendSettings.firingPointDefaultLabel]).forEach((label) => rows.push({ icon: 'firing', label }));
-  else rows.push({ icon: 'firing', label: legendSettings.firingPointDefaultLabel });
+  if (model.firingPoints?.length) model.firingPoints.forEach((point, index) => rows.push({ icon: 'firing', color: point.color, label: `${model.firingPointLegendLabels?.[index] || legendSettings.firingPointDefaultLabel} · OPÇÃO #${point.optionNumber || index + 1}` }));
+  else if (!model.pointCounts?.firing) rows.push({ icon: 'firing', label: legendSettings.firingPointDefaultLabel });
   if (model.blockingPoints?.length) (model.blockingPoints).forEach((point, index) => rows.push({ icon: 'blocking', color: point.color, label: blockingPointLegendLabel(legendSettings.blockingPointLabel, index + 1) }));
-  else rows.push({ icon: 'blocking', color: colors.ink, label: legendSettings.blockingPointDefaultLabel });
-  rows.push({ icon: 'card', label: legendSettings.cardPointLabel });
+  else if (!model.pointCounts?.blocking) rows.push({ icon: 'blocking', color: colors.ink, label: legendSettings.blockingPointDefaultLabel });
+  if (model.cardPoints?.length || !model.pointCounts?.card) rows.push({ icon: 'card', label: legendSettings.cardPointLabel });
   const shown = strings.slice(0, 24); const nameRows = strings.length ? Math.ceil(shown.length / 2) : 0; const overflow = Math.max(strings.length - shown.length, 0);
   const settings = legendSettings;
   const baseWidth = strings.length ? 470 : 430;
@@ -483,10 +506,11 @@ function drawLegend(ctx, model, box, colors, transform, stringFillOpacity = DEFA
   ctx.fillStyle = colors.ink; ctx.font = `700 ${18 * scale}px Arial`; ctx.textAlign = 'left'; ctx.fillText('LEGENDA:', x + 18 * scale, y + 31 * scale);
   let rowY = y + 57 * scale;
   rows.forEach((item) => {
+    if (item.reduced) { ctx.fillStyle = '#ffe36b'; ctx.fillRect(x + 12 * scale, rowY - 12 * scale, width - 24 * scale, 23 * scale); }
     const iconY = rowY - 7 * scale;
     if (item.swatch === 'evacuar') drawHatchSwatch(ctx, x + 18 * scale, iconY, 44 * scale, 16 * scale, colors.redHatch, colors.redSoft);
     else if (item.swatch === 'liberado') drawHatchSwatch(ctx, x + 18 * scale, iconY, 44 * scale, 16 * scale, colors.blueHatch, colors.blueSoft);
-    else if (item.icon === 'firing') drawLegendIcon(ctx, model.firingIcon, x + 18 * scale, rowY - 13 * scale, 26 * scale, (canvas, cx, cy, size) => { canvas.fillStyle = colors.orange; canvas.strokeStyle = colors.ink; canvas.lineWidth = 2 * scale; canvas.beginPath(); canvas.arc(cx, cy, size * .27, 0, Math.PI * 2); canvas.fill(); canvas.stroke(); });
+    else if (item.icon === 'firing') drawLegendIcon(ctx, coloredFiringIcon(model.firingIcon, item.color), x + 18 * scale, rowY - 13 * scale, 26 * scale, (canvas, cx, cy, size) => { canvas.fillStyle = colors.orange; canvas.strokeStyle = colors.ink; canvas.lineWidth = 2 * scale; canvas.beginPath(); canvas.arc(cx, cy, size * .27, 0, Math.PI * 2); canvas.fill(); canvas.stroke(); });
     else if (item.icon === 'blocking') drawCavaleteIcon(ctx, x + 31 * scale, rowY, 26 * scale, item.color, model.blockingIconStyle);
     else if (item.icon === 'card') drawLegendIcon(ctx, model.cardIcon, x + 18 * scale, rowY - 13 * scale, 26 * scale, (canvas, cx, cy, size) => { canvas.strokeStyle = colors.red; canvas.lineWidth = 2 * scale; canvas.strokeRect(cx - size * .3, cy - size * .2, size * .6, size * .4); canvas.fillStyle = colors.red; canvas.fillRect(cx - size * .22, cy - size * .05, size * .44, size * .08); });
     else { ctx.strokeStyle = item.color; ctx.lineWidth = 3 * scale; ctx.setLineDash(item.dashed ? [10 * scale, 7 * scale] : []); ctx.beginPath(); ctx.moveTo(x + 18 * scale, rowY); ctx.lineTo(x + 62 * scale, rowY); ctx.stroke(); ctx.setLineDash([]); }
@@ -506,7 +530,7 @@ function drawLegend(ctx, model, box, colors, transform, stringFillOpacity = DEFA
 function drawPointMarker(ctx, point, transform, image, colors, kind, iconSizes = {}) {
   const x = transform.x(point); const y = transform.y(point); const size = Number(iconSizes[kind]) || 48;
   ctx.save(); ctx.globalAlpha = kind === 'firing' ? .82 : 1;
-  drawLegendIcon(ctx, image, x - size / 2, y - size / 2, size, (canvas, cx, cy, markerSize) => {
+  drawLegendIcon(ctx, kind === 'firing' ? coloredFiringIcon(image, point.color) : image, x - size / 2, y - size / 2, size, (canvas, cx, cy, markerSize) => {
     if (kind === 'card') { canvas.fillStyle = '#ffffff'; canvas.strokeStyle = colors.red; canvas.lineWidth = 3; canvas.fillRect(cx - markerSize * .3, cy - markerSize * .2, markerSize * .6, markerSize * .4); canvas.strokeRect(cx - markerSize * .3, cy - markerSize * .2, markerSize * .6, markerSize * .4); return; }
     canvas.fillStyle = colors.orange; canvas.strokeStyle = colors.ink; canvas.lineWidth = 2; canvas.beginPath(); canvas.arc(cx, cy, markerSize * .27, 0, Math.PI * 2); canvas.fill(); canvas.stroke();
   });
@@ -583,18 +607,14 @@ function structureAtPoint(point, model, transform) {
 }
 
 function firingPointLegendLabels(model, settings, transform) {
-  const labels = new Set();
-  let unassociatedPoint = false;
   const tags = settings?.firingPointStructureTags || [];
-  (model.firingPoints || []).forEach((point) => {
+  return (model.firingPoints || []).map((point) => {
     const structureName = structureAtPoint(point, model, transform);
-    if (!structureName) { unassociatedPoint = true; return; }
+    if (!structureName) return settings.firingPointDefaultLabel;
     const normalizedName = normalizedStructureText(structureName);
     const alias = tags.find((item) => item?.match && normalizedName.includes(normalizedStructureText(item.match)));
-    labels.add(`PONTO DE DISPARO (${String(alias?.tag || structureName).toUpperCase()})`);
+    return `PONTO DE DISPARO (${String(alias?.tag || structureName).toUpperCase()})`;
   });
-  if (unassociatedPoint) labels.add(settings.firingPointDefaultLabel);
-  return [...labels];
 }
 
 function structureInsideAffectedArea(point, model, contours) {
