@@ -445,8 +445,42 @@ function parseManualBounds() { const values = ['minX', 'minY', 'maxX', 'maxY'].m
 async function loadReference() { const image = await loadImageBlob(await fetch('assets/referencia-base.jpg').then((response) => { if (!response.ok) throw new Error('A imagem de referência não está disponível.'); return response.blob(); })); state.baseImage = { image, bounds: null, name: 'referencia-base.jpg' }; state.orthoLayers = []; state.baseImages = [state.baseImage]; $('backgroundState').textContent = 'Mapa de referência carregado, sem georreferenciamento.'; render(); notify('Mapa de referência carregado.'); }
 function clearAll() { state.baseImage = null; state.baseImages = []; state.orthoLayers = []; state.strings = []; state.areas = []; state.structures = state.publishedStructures.length ? state.publishedStructures.map(runtimeStructure) : []; state.structuresDirty = false; state.structureCatalog = null; state.firingPoints = []; state.blockingPoints = []; state.cardPoints = []; state.placementMode = null; state.pointPlacementSessionPoints = []; state.draggingPoint = null; resetStringDrawingUi(); state.radiusContours = []; state.importedRadiusContours = { people: null, machine: null }; state.contourKey = ''; state.boundsMode = 'auto'; state.manualBounds = null; $('reportForm').reset(); setReducedRadii(); $('company').value = DEFAULT_COMPANY; $('date').value = DEFAULT_DATE; $('blastNumber').value = ''; populateOrthoCatalog(); $('autoExtent').checked = true; $('manualBounds').hidden = true; $('basemapState').textContent = 'Pronto · sem chave'; $('basemapState').className = 'status-pill muted'; $('backgroundState').textContent = 'Sem imagem de fundo. A prancha usará o fundo técnico.'; $('peopleRadiusFileState').textContent = 'Usando o raio calculado a partir das strings.'; $('machineRadiusFileState').textContent = 'Usando o raio calculado a partir das strings.'; $('reportCanvas').classList.remove('placing-point', 'dragging-point'); renderStringList(); renderAreaList(); renderPointList(); updateStructureSaveState(); render(); notify('Formulário limpo.'); }
 function resetPresetFields() { const preset = state.config?.defaultPreset || {}; $('peopleRadius').value = preset.peopleRadius ?? ''; $('machineRadius').value = preset.machineRadius ?? ''; $('observation').value = preset.observation || DEFAULT_OBSERVATION; $('firingPointSize').value = preset.pointIconSizes?.firing || 48; $('blockingPointSize').value = preset.pointIconSizes?.blocking || 25; $('cardPointSize').value = preset.pointIconSizes?.card || 30; $('areaNumberSize').value = preset.areaNumberSize || 10; }
+// Zoom is a view-only CSS size; the canvas bitmap and map model remain unchanged.
+function setupPreviewZoom() {
+  const stage = $('previewStage');
+  const canvas = $('reportCanvas');
+  let zoom = 1;
+  const update = (next, clientX, clientY) => {
+    next = Math.max(1, Math.min(4, next));
+    const rect = canvas.getBoundingClientRect();
+    const x = clientX ?? stage.getBoundingClientRect().left + stage.clientWidth / 2;
+    const y = clientY ?? stage.getBoundingClientRect().top + stage.clientHeight / 2;
+    const relativeX = (x - rect.left) / rect.width;
+    const relativeY = (y - rect.top) / rect.height;
+    zoom = next;
+    canvas.style.width = `${zoom * 100}%`;
+    const resized = canvas.getBoundingClientRect();
+    stage.scrollLeft += resized.left + relativeX * resized.width - x;
+    stage.scrollTop += resized.top + relativeY * resized.height - y;
+    $('previewZoomLevel').textContent = `${Math.round(zoom * 100)}%`;
+    $('previewZoomOut').disabled = zoom <= 1;
+    $('previewZoomIn').disabled = zoom >= 4;
+    $('previewZoomReset').disabled = zoom === 1;
+  };
+  stage.addEventListener('wheel', (event) => {
+    if (event.ctrlKey || event.metaKey || !event.deltaY) return;
+    event.preventDefault();
+    const delta = event.deltaMode === 1 ? event.deltaY * 16 : event.deltaMode === 2 ? event.deltaY * stage.clientHeight : event.deltaY;
+    update(zoom * Math.exp(-delta * 0.0015), event.clientX, event.clientY);
+  }, { passive: false });
+  $('previewZoomIn').addEventListener('click', () => update(zoom * 1.25));
+  $('previewZoomOut').addEventListener('click', () => update(zoom / 1.25));
+  $('previewZoomReset').addEventListener('click', () => update(1));
+  update(1);
+}
 function wire() {
   ensureRadiusControls();
+  setupPreviewZoom();
   $('loginForm').addEventListener('submit', logIn);
   $('logoutButton').addEventListener('click', logOut);
   $('addStructureButton').addEventListener('click', addStructure);
