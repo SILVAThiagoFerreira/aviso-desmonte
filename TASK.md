@@ -30,3 +30,4 @@
 - [x] Corrigir raio alterado ao adicionar a mesma poligonal duas vezes (duplicatas removidas antes da união).
 - [x] Trocar os botões verdes e amarelos por ícone de olho, caixa "Raio reduzido" ao lado de Importar DXF e realce da legenda só atrás do texto (`report.colors.reducedHighlight`).
 - [x] v1.20.22: rótulo do raio reduzido em negrito amarelo sem fundo (`report.colors.reducedHighlight` = #f2b600) e botões Usar distância do site e Mover em tom neutro.
+- [x] v1.20.23: zoom de visualização da prévia do croqui (roda do mouse centrada no cursor, arrastar e barras para navegar, botões − / + / Ajustar), com faixa e sensibilidade em `previewZoom` no `config.json`. Afeta apenas a exibição: pontos, coordenadas e exportações PNG/PDF não mudam.

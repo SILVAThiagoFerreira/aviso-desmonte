@@ -6,6 +6,7 @@ import { areaIntersectsContours, boundsOf, boundsOfContours, buildRadiusContours
 import { safeFileName } from '../src/pdf.js';
 import { assignFiringPointIdentity, assignMissingBlockingPointColors, blockingPointLegendLabel, chooseBlockingPointColor, hasAdequateContrast, hexToRgb, isHexColor, pickBlockingPointColor, rgbToLab, settleBlockingPointColor, validateBlockingPointConfig } from '../src/points.js';
 import { drawEntity, drawStringEntity, fitCanvasFontSize } from '../src/render.js';
+import { clampZoom, validatePreviewZoomConfig, wheelZoomFactor } from '../src/preview-zoom.js';
 
 const firingOptions = Array.from({ length: 20 }, () => ({}));
 assignFiringPointIdentity(firingOptions, () => 0);
@@ -67,9 +68,36 @@ const appHtml = await fs.readFile(new URL('../index.html', import.meta.url), 'ut
 const stylesSource = await fs.readFile(new URL('../styles.css', import.meta.url), 'utf8');
 const appSource = await fs.readFile(new URL('../app.js', import.meta.url), 'utf8');
 const renderSource = await fs.readFile(new URL('../src/render.js', import.meta.url), 'utf8');
+const previewZoomSource = await fs.readFile(new URL('../src/preview-zoom.js', import.meta.url), 'utf8');
 const onlineBackend = await fs.readFile(new URL('../backend/Code.gs', import.meta.url), 'utf8');
 assert.equal(appConfig.onlineCatalog.enabled, true, 'o catálogo online precisa estar habilitado');
-assert.equal(appConfig.app.version, '1.20.22');
+assert.equal(appConfig.app.version, '1.20.23');
+// Zoom de visualização: configuração, validação e cálculos puros. Não pode alterar o canvas exportado.
+const previewZoom = appConfig.previewZoom;
+validatePreviewZoomConfig(previewZoom);
+assert.equal(previewZoom.minZoom, 1, 'o zoom mínimo precisa ser o enquadramento ajustado (100%)');
+assert.ok(previewZoom.maxZoom > previewZoom.minZoom, 'o zoom máximo precisa ser maior que o mínimo');
+assert.throws(() => validatePreviewZoomConfig(undefined), /previewZoom precisa estar configurado/, 'sem configuração o zoom não pode iniciar');
+assert.throws(() => validatePreviewZoomConfig({ ...previewZoom, minZoom: 0.5 }), /minZoom/, 'zoom mínimo abaixo de 100% deixaria o croqui menor que a moldura');
+assert.throws(() => validatePreviewZoomConfig({ ...previewZoom, maxZoom: 1 }), /maxZoom/, 'zoom máximo precisa ser maior que o mínimo');
+assert.throws(() => validatePreviewZoomConfig({ ...previewZoom, buttonStep: 1 }), /buttonStep/, 'o passo dos botões precisa alterar o zoom');
+assert.throws(() => validatePreviewZoomConfig({ ...previewZoom, wheelSensitivity: 0 }), /wheelSensitivity/, 'a sensibilidade da roda precisa ser positiva');
+assert.throws(() => validatePreviewZoomConfig({ ...previewZoom, dragThresholdPx: -1 }), /dragThresholdPx/, 'o limiar do arraste não pode ser negativo');
+assert.equal(clampZoom(0.2, previewZoom), previewZoom.minZoom, 'zoom abaixo do mínimo deve ser limitado');
+assert.equal(clampZoom(99, previewZoom), previewZoom.maxZoom, 'zoom acima do máximo deve ser limitado');
+assert.equal(clampZoom(2, previewZoom), 2, 'zoom dentro da faixa deve ser mantido');
+const wheelIn = wheelZoomFactor({ deltaY: -100, deltaMode: 0 }, 800, previewZoom);
+const wheelOut = wheelZoomFactor({ deltaY: 100, deltaMode: 0 }, 800, previewZoom);
+assert.ok(wheelIn > 1 && wheelOut < 1 && Math.abs(wheelIn * wheelOut - 1) < 1e-12, 'a roda para cima amplia e para baixo reduz, com fatores simétricos');
+assert.ok(Math.abs(wheelZoomFactor({ deltaY: 3, deltaMode: 1 }, 800, previewZoom) - wheelZoomFactor({ deltaY: 48, deltaMode: 0 }, 800, previewZoom)) < 1e-12, 'uma linha da roda equivale a 16 px');
+assert.doesNotMatch(previewZoomSource, /drawReport|canvas\.width\s*=|canvas\.height\s*=|toDataURL/, 'o zoom de visualização não pode redesenhar nem alterar o bitmap do canvas');
+assert.match(appHtml, /<div class="preview-stage" id="previewStage" role="region" tabindex="0"[^>]*><canvas id="reportCanvas"/, 'o canvas precisa ficar dentro da moldura rolável da prévia');
+for (const id of ['previewZoomOut', 'previewZoomLevel', 'previewZoomIn', 'previewZoomReset']) assert.match(appHtml, new RegExp(`id="${id}"`), `o controle ${id} precisa existir`);
+assert.match(appSource, /setupPreviewZoom\(\{ stage: \$\('previewStage'\), canvas: \$\('reportCanvas'\)/, 'o zoom precisa ser ligado à moldura e ao canvas da prévia');
+assert.match(stylesSource, /\.preview-stage \{ width: min\(100%, 1200px\); overflow: auto;/, 'a moldura da prévia precisa rolar quando ampliada');
+assert.match(stylesSource, /\.preview-stage\.is-zoomed \{ max-height: /, 'a prévia ampliada precisa de altura limitada à janela');
+assert.match(stylesSource, /\.preview-stage #reportCanvas \{ max-width: none;/, 'o canvas ampliado não pode ser limitado pelo max-width');
+assert.match(appSource, /function canvasPixelPoint\(event\) \{[^\n]*canvas\.getBoundingClientRect\(\)/, 'as coordenadas do clique precisam usar a caixa CSS atual do canvas, que acompanha o zoom');
 assert.equal(appConfig.report.colors.reducedHighlight, '#f2b600', 'o realce do raio reduzido na legenda precisa vir do config.json');
 assert.equal(appConfig.defaultPreset.observation, 'Setor Técnico de Operações - Enaex Brasil.');
 assert.equal(appConfig.defaultPreset.peopleRadius, 500);

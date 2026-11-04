@@ -31,6 +31,8 @@
 - Na importação de um projeto, pontos de bloqueio sem cor recebem cor e todos os pontos são revalidados contra o fundo atual; o usuário é avisado das trocas e dos pontos que continuam com pouco contraste. Uma cor com formato inválido interrompe a importação antes de qualquer alteração na tela.
 - A importação do projeto informa visualmente as etapas de leitura, validação, aplicação e atualização da prancha, inclusive em caso de erro.
 
+- A prévia do croqui tem zoom de visualização (`previewZoom` no `config.json`: `minZoom` ≥ 1, `maxZoom` > `minZoom`, `buttonStep` > 1, `wheelSensitivity` > 0, `dragThresholdPx` ≥ 0; configuração inválida interrompe o carregamento). O zoom altera somente o tamanho exibido e a rolagem da moldura: o bitmap do croqui, as coordenadas dos pontos (lidas da caixa CSS atual do canvas), a exportação PNG e o PDF são os mesmos em qualquer nível. Um arraste acima de `dragThresholdPx` é navegação e não insere nem move ponto.
+
 ## Não faz
 
 - Não infere sistema de coordenadas, datum, posicionamento do ortomosaico ou nomes de áreas a partir de dados ausentes.

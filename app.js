@@ -6,6 +6,7 @@ import { drawBlockingBackground, drawNoticeTable, drawReport, geoToCanvasPositio
 import { assignFiringPointIdentity, assignMissingBlockingPointColors, rgbToLab, settleBlockingPointColor, validateBlockingPointConfig } from './src/points.js?v=1.20.22';
 import { downloadReportPdf, safeFileName } from './src/pdf.js';
 import { getOrthoOverride, listOrthoOverrides, removeOrthoOverride, saveOrthoOverride } from './src/ortho-store.js';
+import { setupPreviewZoom } from './src/preview-zoom.js';
 
 const state = { config: null, structureCatalog: null, publishedStructures: [], structures: [], isAdmin: false, structuresDirty: false, structuresSavePending: false, onlineCatalogStatus: 'unknown', onlineRevision: null, baseImage: null, baseImages: [], orthoLayers: [], logoImage: null, enaexLogo: null, firingIcon: null, cardIcon: null, strings: [], areas: [], firingPoints: [], blockingPoints: [], cardPoints: [], placementMode: null, pointPlacementSessionPoints: [], stringDrawing: null, draggingPoint: null, lastRender: null, radiusContours: [], importedRadiusContours: { people: null, machine: null }, contourKey: '', boundsMode: 'auto', manualBounds: null, orthoOverrides: new Map(), savedOverrideIds: new Set() };
 const DEFAULT_DATE = '2026-08-04';
@@ -447,6 +448,7 @@ function clearAll() { state.baseImage = null; state.baseImages = []; state.ortho
 function resetPresetFields() { const preset = state.config?.defaultPreset || {}; $('peopleRadius').value = preset.peopleRadius ?? ''; $('machineRadius').value = preset.machineRadius ?? ''; $('observation').value = preset.observation || DEFAULT_OBSERVATION; $('firingPointSize').value = preset.pointIconSizes?.firing || 48; $('blockingPointSize').value = preset.pointIconSizes?.blocking || 25; $('cardPointSize').value = preset.pointIconSizes?.card || 30; $('areaNumberSize').value = preset.areaNumberSize || 10; }
 function wire() {
   ensureRadiusControls();
+  setupPreviewZoom({ stage: $('previewStage'), canvas: $('reportCanvas'), zoomInButton: $('previewZoomIn'), zoomOutButton: $('previewZoomOut'), resetButton: $('previewZoomReset'), levelOutput: $('previewZoomLevel'), config: state.config.previewZoom });
   $('loginForm').addEventListener('submit', logIn);
   $('logoutButton').addEventListener('click', logOut);
   $('addStructureButton').addEventListener('click', addStructure);

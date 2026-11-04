@@ -2,7 +2,7 @@
   "app": {
     "name": "Aviso de Desmonte",
     "eyebrow": "AVISO DE DESMONTE",
-    "version": "1.20.22"
+    "version": "1.20.23"
   },
   "defaultPreset": {
     "loadAllOrthomosaics": true,
@@ -116,6 +116,13 @@
       "grid": "rgba(31,47,53,0.14)",
       "reducedHighlight": "#f2b600"
     }
+  },
+  "previewZoom": {
+    "minZoom": 1,
+    "maxZoom": 4,
+    "buttonStep": 1.25,
+    "wheelSensitivity": 0.0015,
+    "dragThresholdPx": 4
   },
   "dxf": {
     "acceptedEntities": ["LINE", "LWPOLYLINE", "POLYLINE", "POINT", "CIRCLE", "SPLINE"],

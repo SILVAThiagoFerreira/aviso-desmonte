@@ -1,6 +1,6 @@
 # Pipeline
 
-1. `app.js` carrega `config.json`, valida a paleta, o rótulo e a geometria do cavalete de bloqueio e conecta os controles. `src/points.js` concentra essas regras (validação, sorteio de cor, numeração e cor de projetos antigos) sem acesso ao DOM.
+1. `app.js` carrega `config.json`, valida a paleta, o rótulo e a geometria do cavalete de bloqueio e conecta os controles. `src/points.js` concentra essas regras (validação, sorteio de cor, numeração e cor de projetos antigos) sem acesso ao DOM. `src/preview-zoom.js` valida `previewZoom` e controla o zoom de visualização da prévia apenas por tamanho CSS e rolagem, sem tocar no bitmap usado na exportação.
 2. `src/dxf.js` lê os pares de códigos DXF ou GeoJSON e valida entidades suportadas.
 3. `src/geotiff.js` decodifica GeoTIFF RGBA e extrai o bounding box geográfico para posicionamento espacial.
 4. `src/geometry.js` identifica extensão, coleta todas as strings, cria buffers planares contínuos, une as sobreposições e testa a interseção das áreas.
@@ -12,5 +12,5 @@
    - Cada ponto de bloqueio desenha o cavalete em vetor (`drawCavaleteIcon`) na própria cor, com a geometria de `report.blockingIcon`, e a legenda tem uma linha por ponto, numerada pela ordem de inserção.
    - A cor de cada ponto de bloqueio é escolhida pelo fundo que o ícone cobre: `drawBlockingBackground` desenha o croqui sem pontos de bloqueio, `sampleBlockingFootprint` amostra a área do ícone e `chooseBlockingPointColor` (em `src/points.js`) mede o ΔE CIELAB e sorteia entre as cores adequadas. O aplicativo revalida as cores ao inserir, ao mover um ponto e ao importar projeto; a decisão vem de `settleBlockingPointColor`, que mantém a cor atual enquanto ela se destaca e não se repete.
 5. `src/pdf.js` transforma a mesma prancha em um PDF local.
-7. `tests/validate.mjs` valida o DXF de referência, a união dos raios, as extremidades, o GeoJSON, a interseção e o nome do arquivo.
+7. `tests/validate.mjs` valida o DXF de referência, a união dos raios, as extremidades, o GeoJSON, a interseção, o nome do arquivo e a faixa de zoom da prévia.
 7. Antes da publicação, executar testes, `node --check` nos módulos, `git diff --check`, smoke test em navegador e verificação do HTML/JS/CSS servidos.
