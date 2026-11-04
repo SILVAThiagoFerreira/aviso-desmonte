@@ -69,7 +69,7 @@ const appSource = await fs.readFile(new URL('../app.js', import.meta.url), 'utf8
 const renderSource = await fs.readFile(new URL('../src/render.js', import.meta.url), 'utf8');
 const onlineBackend = await fs.readFile(new URL('../backend/Code.gs', import.meta.url), 'utf8');
 assert.equal(appConfig.onlineCatalog.enabled, true, 'o catálogo online precisa estar habilitado');
-assert.equal(appConfig.app.version, '1.20.22');
+assert.equal(appConfig.app.version, '1.20.23');
 assert.equal(appConfig.report.colors.reducedHighlight, '#f2b600', 'o realce do raio reduzido na legenda precisa vir do config.json');
 assert.equal(appConfig.defaultPreset.observation, 'Setor Técnico de Operações - Enaex Brasil.');
 assert.equal(appConfig.defaultPreset.peopleRadius, 500);
