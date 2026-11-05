@@ -224,11 +224,38 @@ export function buildRadiusContours(entities = [], radii = []) {
   const uniqueEntities = dedupeEntities(entities);
   const values = [...new Set(radii.map(Number).filter((value) => Number.isFinite(value) && value > 0))].sort((a, b) => b - a);
   if (!values.length || !entities.length || !globalThis.polygonClipping?.union) return [];
-  return values.map((radius) => {
-    const pieces = bufferPieces(uniqueEntities, radius);
-    if (!pieces.length) return { radius, polygons: [] };
+  // Coordenadas UTM (~8.9e6) somadas a vértices quase coincidentes estouram a
+  // precisão do polygon-clipping ("Unable to find segment") e o cerco caía no
+  // retângulo de segurança. Calcula em coordenadas locais, arredondadas, com
+  // vértices simplificados (diferença desprezível frente ao raio).
+  const bounds = boundsOf(uniqueEntities);
+  const ox = bounds ? Math.round(bounds.minX) : 0; const oy = bounds ? Math.round(bounds.minY) : 0;
+  const round = (value) => Math.round(value * 100) / 100;
+  const attempt = (radius, tolerance) => {
+    const localEntities = uniqueEntities.map((entity) => {
+      const points = [];
+      (entity.points || []).forEach((point, index, all) => {
+        const local = { x: round(point.x - ox), y: round(point.y - oy) };
+        const last = points[points.length - 1];
+        const isEnd = index === all.length - 1;
+        if (last && !isEnd && Math.hypot(local.x - last.x, local.y - last.y) < tolerance) return;
+        if (last && isEnd && points.length > 1 && Math.hypot(local.x - last.x, local.y - last.y) < tolerance) points.pop();
+        points.push(local);
+      });
+      return { ...entity, points };
+    });
+    const pieces = bufferPieces(localEntities, radius).map((polygon) => polygon.map((ring) => ring.map(([x, y]) => [round(x), round(y)])));
+    if (!pieces.length) return [];
     let polygons = [];
     try { polygons = pieces.length > 120 ? unionContourPolygons(unionInBatches(pieces)) : unionContourPolygons(pieces); } catch { polygons = []; }
+    return polygons.map((polygon) => polygon.map((ring) => ring.map(([x, y]) => [x + ox, y + oy])));
+  };
+  return values.map((radius) => {
+    let polygons = [];
+    for (const divisor of [100, 40, 15, 6]) {
+      polygons = attempt(radius, Math.max(radius / divisor, 0.5));
+      if (polygons.length === 1) break;
+    }
     // Um cerco operacional precisa ser um único limite. Nunca exponha as
     // cápsulas de cada segmento quando uma união DXF não for possível: além de
     // confundir a leitura, elas quebram as operações de interseção das áreas.

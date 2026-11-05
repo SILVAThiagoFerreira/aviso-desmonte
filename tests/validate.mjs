@@ -71,7 +71,7 @@ const renderSource = await fs.readFile(new URL('../src/render.js', import.meta.u
 const previewZoomSource = await fs.readFile(new URL('../src/preview-zoom.js', import.meta.url), 'utf8');
 const onlineBackend = await fs.readFile(new URL('../backend/Code.gs', import.meta.url), 'utf8');
 assert.equal(appConfig.onlineCatalog.enabled, true, 'o catálogo online precisa estar habilitado');
-assert.equal(appConfig.app.version, '1.20.24');
+assert.equal(appConfig.app.version, '1.20.25');
 // Zoom de visualização: configuração, validação e cálculos puros. Não pode alterar o canvas exportado.
 const previewZoom = appConfig.previewZoom;
 validatePreviewZoomConfig(previewZoom);
