@@ -222,7 +222,7 @@ function drawCavaleteIcon(ctx, cx, cy, size, color, icon) {
 function drawBlockingMarker(ctx, point, transform, icon, iconSizes) {
   const size = Number(iconSizes?.blocking);
   if (!(size > 0)) throw new Error('Tamanho do cavalete de bloqueio inválido.');
-  drawCavaleteIcon(ctx, transform.x(point), transform.y(point), size, point.color, icon);
+  drawPointIcon(ctx, 'blocking', point, transform.x(point), transform.y(point), size, { blockingIcon: icon });
 }
 
 // Lê uma grade de cores [r, g, b] ao redor de (x, y), em pixels do canvas, para
@@ -527,14 +527,22 @@ function drawLegend(ctx, model, box, colors, transform, stringFillOpacity = DEFA
   ctx.restore(); return placement;
 }
 
-function drawPointMarker(ctx, point, transform, image, colors, kind, iconSizes = {}) {
-  const x = transform.x(point); const y = transform.y(point); const size = Number(iconSizes[kind]) || 48;
+// Ícone de um ponto operacional centrado em (cx, cy), com `size` px. É o único desenho do ponto: o croqui e a
+// lista de pontos chamam esta função, então mostram a mesma arte e as mesmas cores. Em options: image (ícone
+// de disparo ou de cartões), blockingIcon (geometria do cavalete, já validada) e colors (cores do croqui).
+export function drawPointIcon(ctx, kind, point, cx, cy, size, { image = null, blockingIcon = null, colors = {} } = {}) {
+  if (kind === 'blocking') { drawCavaleteIcon(ctx, cx, cy, size, point.color, blockingIcon); return; }
   ctx.save(); ctx.globalAlpha = kind === 'firing' ? .82 : 1;
-  drawLegendIcon(ctx, kind === 'firing' ? coloredFiringIcon(image, point.color) : image, x - size / 2, y - size / 2, size, (canvas, cx, cy, markerSize) => {
-    if (kind === 'card') { canvas.fillStyle = '#ffffff'; canvas.strokeStyle = colors.red; canvas.lineWidth = 3; canvas.fillRect(cx - markerSize * .3, cy - markerSize * .2, markerSize * .6, markerSize * .4); canvas.strokeRect(cx - markerSize * .3, cy - markerSize * .2, markerSize * .6, markerSize * .4); return; }
-    canvas.fillStyle = colors.orange; canvas.strokeStyle = colors.ink; canvas.lineWidth = 2; canvas.beginPath(); canvas.arc(cx, cy, markerSize * .27, 0, Math.PI * 2); canvas.fill(); canvas.stroke();
+  drawLegendIcon(ctx, kind === 'firing' ? coloredFiringIcon(image, point.color) : image, cx - size / 2, cy - size / 2, size, (canvas, centerX, centerY, markerSize) => {
+    if (kind === 'card') { canvas.fillStyle = '#ffffff'; canvas.strokeStyle = colors.red; canvas.lineWidth = 3; canvas.fillRect(centerX - markerSize * .3, centerY - markerSize * .2, markerSize * .6, markerSize * .4); canvas.strokeRect(centerX - markerSize * .3, centerY - markerSize * .2, markerSize * .6, markerSize * .4); return; }
+    canvas.fillStyle = colors.orange; canvas.strokeStyle = colors.ink; canvas.lineWidth = 2; canvas.beginPath(); canvas.arc(centerX, centerY, markerSize * .27, 0, Math.PI * 2); canvas.fill(); canvas.stroke();
   });
   ctx.restore();
+}
+
+function drawPointMarker(ctx, point, transform, image, colors, kind, iconSizes = {}) {
+  const size = Number(iconSizes[kind]) || 48;
+  drawPointIcon(ctx, kind, point, transform.x(point), transform.y(point), size, { image, colors });
 }
 
 function projectStructurePoint(structure, bounds, pageMap = {}, transform, mapBox) {

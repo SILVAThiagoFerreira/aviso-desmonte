@@ -28,7 +28,7 @@ export function wheelZoomFactor(event, viewportHeight, config) {
   return Math.exp(-event.deltaY * unit * config.wheelSensitivity);
 }
 
-export function setupPreviewZoom({ stage, canvas, zoomInButton, zoomOutButton, resetButton, levelOutput, config }) {
+export function setupPreviewZoom({ stage, canvas, zoomInButton, zoomOutButton, resetButton, levelOutput, config, onViewChange = null }) {
   validatePreviewZoomConfig(config);
   let zoom = config.minZoom;
   let pan = null;
@@ -63,6 +63,7 @@ export function setupPreviewZoom({ stage, canvas, zoomInButton, zoomOutButton, r
     stage.scrollLeft += after.left + fractionX * after.width - x;
     stage.scrollTop += after.top + fractionY * after.height - y;
     updateControls();
+    onViewChange?.();
   }
 
   // Em 100% com rolagem para baixo a roda não é capturada e a página continua rolando; nos demais casos a roda controla o zoom.
@@ -76,7 +77,7 @@ export function setupPreviewZoom({ stage, canvas, zoomInButton, zoomOutButton, r
 
   zoomInButton.addEventListener('click', () => setZoom(zoom * config.buttonStep));
   zoomOutButton.addEventListener('click', () => setZoom(zoom / config.buttonStep));
-  resetButton.addEventListener('click', () => { setZoom(config.minZoom); stage.scrollTo(0, 0); });
+  resetButton.addEventListener('click', () => { setZoom(config.minZoom); stage.scrollTo(0, 0); onViewChange?.(); });
 
   // Arrastar navega quando a prévia tem rolagem, com botão esquerdo (e toque), central ou direito. Um gesto de ponto
   // (já tratado pelo canvas) não entra aqui. Botões central e direito não passam pelo clique de inserção do croqui,
@@ -93,7 +94,7 @@ export function setupPreviewZoom({ stage, canvas, zoomInButton, zoomOutButton, r
     const dy = event.clientY - pan.y;
     if (!pan.moved) {
       if (Math.hypot(dx, dy) < config.dragThresholdPx) return;
-      pan.moved = true;
+      pan.moved = true; onViewChange?.();
       stage.classList.add('is-panning');
     }
     stage.scrollLeft = pan.left - dx;

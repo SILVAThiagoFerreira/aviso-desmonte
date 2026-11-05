@@ -5,9 +5,10 @@ import { parseDxf, parseGeoJson } from '../src/dxf.js';
 import { areaIntersectsContours, boundsOf, boundsOfContours, buildRadiusContours, dedupeEntities, differenceEntityWithContours, fitBoundsToAspect, flattenStringEntities, getStringEndpoints, intersectEntityWithContours, paddedBounds, pointIntersectsContours, stringsOverlap, unionContourPolygons } from '../src/geometry.js';
 import { safeFileName } from '../src/pdf.js';
 import { assignFiringPointIdentity, assignMissingBlockingPointColors, blockingPointLegendLabel, chooseBlockingPointColor, hasAdequateContrast, hexToRgb, isHexColor, pickBlockingPointColor, rgbToLab, settleBlockingPointColor, validateBlockingPointConfig } from '../src/points.js';
-import { drawEntity, drawStringEntity, fitCanvasFontSize } from '../src/render.js';
+import { drawEntity, drawPointIcon, drawStringEntity, fitCanvasFontSize } from '../src/render.js';
 import { clampZoom, validatePreviewZoomConfig, wheelZoomFactor } from '../src/preview-zoom.js';
 import { layoutStringThumbnail, stringThumbnailSvg } from '../src/string-thumbnail.js';
+import { placePopover } from '../src/point-popover.js';
 
 const firingOptions = Array.from({ length: 20 }, () => ({}));
 assignFiringPointIdentity(firingOptions, () => 0);
@@ -72,7 +73,7 @@ const renderSource = await fs.readFile(new URL('../src/render.js', import.meta.u
 const previewZoomSource = await fs.readFile(new URL('../src/preview-zoom.js', import.meta.url), 'utf8');
 const onlineBackend = await fs.readFile(new URL('../backend/Code.gs', import.meta.url), 'utf8');
 assert.equal(appConfig.onlineCatalog.enabled, true, 'o catálogo online precisa estar habilitado');
-assert.equal(appConfig.app.version, '1.20.28');
+assert.equal(appConfig.app.version, '1.20.29');
 // Zoom de visualização: configuração, validação e cálculos puros. Não pode alterar o canvas exportado.
 const previewZoom = appConfig.previewZoom;
 validatePreviewZoomConfig(previewZoom);
@@ -337,7 +338,7 @@ assert.match(appSource, /ensureContours\(\); annotateStructurePolygons\(\); retu
 assert.match(renderSource, /if \(halo\) \{[\s\S]*?paint\(halo\.color/,'o halo precisa desenhar uma camada por fora do contorno');
 assert.match(appSource, /validateBlockingPointConfig\(state\.config\.report\)/, 'a paleta precisa ser validada ao carregar a configuração');
 assert.match(appSource, /assignMissingBlockingPointColors\(/, 'projetos antigos precisam receber cores ao importar');
-assert.match(stylesSource, /\.point-swatch\.blocking \{[^}]*var\(--point-color/, 'a lista de pontos precisa mostrar a cor de cada ponto de bloqueio');
+assert.match(stylesSource, /\.point-icon canvas \{ display: block;/, 'a lista de pontos mostra o ícone real do croqui, em canvas, e não um marcador genérico');
 // Distinção visual: ΔE CIE76 entre as cores dos pontos e contra as cores fixas que o croqui já usa.
 const labOf = (hex) => {
   const lin = (c) => { const v = c / 255; return v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; };
@@ -425,7 +426,7 @@ assert.ok(!stringThumbnailSvg({ entities: parsed.entities }, { color: '"><script
 assert.match(appSource, /import \{ stringThumbnailSvg \} from '\.\/src\/string-thumbnail\.js\?v=1\.20\.28'/, 'a miniatura precisa ser importada com o cache-busting da versão atual');
 assert.match(appSource, /select\.addEventListener\('change', \(\) => \{ item\.blastType = select\.value; paintStringThumb\(thumb, item\); render\(\); \}\)/, 'trocar o tipo precisa atualizar a cor da miniatura');
 assert.match(appSource, /row\.append\(thumb, copy, visibility, remove\)/, 'a miniatura fica à esquerda do bloco de nome, sem alterar select, olho e remover');
-assert.match(appHtml, /app\.js\?v=1\.20\.28/, 'o index precisa carregar o app.js da versão atual');
+assert.match(appHtml, /app\.js\?v=1\.20\.29/, 'o index precisa carregar o app.js da versão atual');
 assert.match(stylesSource, /\.string-thumb \{ display: grid;/, 'a miniatura precisa de estilo próprio');
 // Interface enxuta: textos redundantes saem da página (dicas úteis ficam em title), barras sem filete vermelho grosso.
 for (const removed of ['Role o mouse sobre o croqui', 'Selecione um tipo para começar', 'Prancha atualizada em', 'O ano do aviso é preenchido', 'DXF disponíveis na pasta local', 'Sem limite prático', 'Preencha os dados, carregue as geometrias', 'A prancha do croqui permanece independente', 'IMAGEM INDEPENDENTE', 'VISUALIZAÇÃO DO MAPA', 'EDIÇÃO DO CROQUI', 'CONFIGURAÇÃO DO AVISO', 'Base operacional: PDFs', 'Não exige Google Maps']) assert.ok(!appHtml.includes(removed) && !appSource.includes(removed), `o texto "${removed}" deve sair da interface`);
@@ -443,4 +444,56 @@ assert.doesNotMatch(stylesSource, /border-radius: (?!0;|50%|inherit)/, 'cantos r
 assert.ok(!/\srx=/.test(stringThumbnailSvg({ entities: [] })), 'a miniatura sem geometria usa cantos retos');
 assert.match(stylesSource, /\.topbar-meta \{ justify-self: end; gap: 10px; color: #c4c7cb; font: 500 9px\/1/, 'o status da faixa superior precisa de fonte menor');
 assert.match(appHtml, /id="previewZoomReset"[^>]*title="Voltar ao enquadramento original"/, 'o botão Ajustar mantém a dica de uso');
+// Pontos e estruturas (v1.20.29): a lista usa o desenho do croqui, a miniatura da estrutura reaproveita as strings e o popover é único.
+const recordingContext = () => {
+  const fills = [];
+  const calls = [];
+  const values = {};
+  return new Proxy(values, {
+    get: (target, key) => {
+      if (key === 'fills') return fills;
+      if (key === 'calls') return calls;
+      if (key in target) return target[key];
+      return (...args) => { calls.push(String(key)); return undefined; };
+    },
+    set: (target, key, value) => { if (key === 'fillStyle') fills.push(value); target[key] = value; return true; },
+  });
+};
+const blockingRecorder = recordingContext();
+drawPointIcon(blockingRecorder, 'blocking', { color: '#e4007c' }, 14, 14, 28, { blockingIcon: appConfig.report.blockingIcon });
+assert.ok(blockingRecorder.fills.includes('#e4007c'), 'o cavalete precisa ser pintado com a cor do próprio ponto');
+assert.throws(() => drawPointIcon(recordingContext(), 'blocking', {}, 14, 14, 28, { blockingIcon: appConfig.report.blockingIcon }), /sem cor/, 'um ponto de bloqueio sem cor não pode ser desenhado');
+const cardRecorder = recordingContext();
+drawPointIcon(cardRecorder, 'card', {}, 14, 14, 28, { image: null, colors: appConfig.report.colors });
+assert.ok(cardRecorder.calls.includes('strokeRect'), 'sem imagem, o cartão usa o mesmo contorno de reserva do croqui');
+assert.match(renderSource, /drawPointIcon\(ctx, kind, point, transform\.x\(point\), transform\.y\(point\), size, \{ image, colors \}\)/, 'os pontos de disparo e de cartões do croqui precisam usar a função compartilhada');
+assert.match(renderSource, /drawPointIcon\(ctx, 'blocking', point, transform\.x\(point\), transform\.y\(point\), size, \{ blockingIcon: icon \}\)/, 'os pontos de bloqueio do croqui precisam usar a função compartilhada');
+assert.match(appSource, /import \{[^}]*drawPointIcon[^}]*\} from '\.\/src\/render\.js\?v=1\.20\.29'/, 'o croqui e a lista precisam compartilhar o desenho do ponto, com o cache-busting atual');
+assert.match(appSource, /function paintPointIcon\(element, kind, point\) \{[\s\S]*drawPointIcon\(ctx, kind, point, center, center/, 'a lista de pontos precisa desenhar o ícone real do croqui');
+assert.doesNotMatch(appSource, /point-swatch/, 'o marcador genérico da lista de pontos foi substituído pelo ícone real');
+assert.match(appSource, /function structureThumbColor\(structure\) \{[\s\S]{0,120}colors\.red : colors\.blue/, 'a miniatura da estrutura usa o vermelho de EVACUAR e o azul de LIBERADO do croqui');
+assert.match(appSource, /stringThumbnailSvg\(\{ entities \}, \{ color \}\)/, 'a miniatura da estrutura reaproveita o desenho das strings');
+assert.match(appSource, /row\.append\(thumb, copy, badge, actions\)/, 'a miniatura da estrutura fica à esquerda do nome, e as ações numa linha abaixo');
+assert.match(appSource, /function updateStatusBadges\(\) \{ paintStructureThumbs\(\);/, 'a cor da miniatura acompanha a classificação calculada a cada redesenho');
+assert.match(stylesSource, /\.structure-item > \.structure-thumb \{ grid-column: 1;/, 'a miniatura da estrutura ocupa a coluna da esquerda');
+assert.match(stylesSource, /\.structure-actions \{ grid-column: 2 \/ span 2;/, 'select, Mover e × ficam numa linha própria, sob o nome');
+const popoverSource = await fs.readFile(new URL('../src/point-popover.js', import.meta.url), 'utf8');
+assert.doesNotMatch(popoverSource, /\b(?:window\.)?(?:confirm|alert)\(/, 'o popover não pode abrir janelas modais');
+assert.match(popoverSource, /Confirmar exclusão/, 'excluir pede confirmação dentro do popover antes de apagar');
+const popoverBox = { boxWidth: 600, boxHeight: 400, popoverWidth: 200, popoverHeight: 40, iconRadius: 10 };
+assert.deepEqual(placePopover({ ...popoverBox, iconX: 100, iconY: 200 }), { left: 118, top: 180, side: 'right' }, 'o popover fica à direita do ícone, centralizado na vertical');
+assert.equal(placePopover({ ...popoverBox, iconX: 580, iconY: 200 }).side, 'left', 'perto da borda direita o popover passa para a esquerda do ícone');
+assert.equal(placePopover({ ...popoverBox, iconX: 580, iconY: 200 }).left, 362, 'do lado esquerdo, o popover fica à distância do ícone');
+assert.equal(placePopover({ ...popoverBox, iconX: 100, iconY: 2 }).top, 4, 'o popover não sai pela borda superior da caixa');
+assert.equal(placePopover({ ...popoverBox, iconX: 100, iconY: 399 }).top, 356, 'o popover não sai pela borda inferior da caixa');
+assert.match(appSource, /function handleCanvasPointerDown\(event\) \{[\s\S]{0,160}event\.button !== 0/, 'só o botão esquerdo age sobre um ponto; o direito e o central seguem para a navegação da prévia');
+assert.match(appSource, /Math\.hypot\(event\.clientX - gesture\.startX, event\.clientY - gesture\.startY\) < pointDragThreshold\(\)/, 'o arraste só começa depois do limiar em pixels da configuração');
+assert.match(appSource, /function pointDragThreshold\(\) \{ return Number\(state\.config\?\.previewZoom\?\.dragThresholdPx\)/, 'o limiar de arraste vem de previewZoom.dragThresholdPx');
+assert.match(appSource, /onViewChange: closePointPopover/, 'zoom e navegação precisam fechar o popover');
+assert.match(appSource, /addEventListener\('scroll', closePointPopover\)/, 'a rolagem da prévia também fecha o popover');
+assert.match(previewZoomSource, /onViewChange\?\.\(\)/, 'o zoom de visualização precisa avisar a mudança de visão');
+assert.match(previewZoomSource, /pan\.moved = true; onViewChange\?\.\(\);/, 'a navegação precisa avisar ao começar a arrastar');
+assert.match(appSource, /function commitPointMove\(\{ kind, point \}\) \{[\s\S]{0,200}refreshBlockingColor\(point\)/, 'soltar o arraste segue o fluxo do Mover e revalida a cor do bloqueio');
+assert.match(appSource, /function cancelPointGesture\(\) \{/, 'Esc precisa poder cancelar um arraste em andamento');
+assert.match(appSource, /function scheduleCanvasRender\(\) \{ if \(canvasRenderFrame\) return;/, 'o arraste redesenha no máximo uma vez por quadro');
 console.log(`PASS: DXF ${parsed.entities.length} entidades, ${getStringEndpoints(parsed.entities).length} extremidades, GeoJSON e nome de arquivo validados.`);
