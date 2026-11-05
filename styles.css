@@ -89,7 +89,6 @@ button { cursor: pointer; }
 .admin-actions .text-button { margin-top: 0; }
 .source-note { margin: 9px 0 0; color: var(--muted); font: 9px/1.45 'IBM Plex Mono', monospace; }
 .area-list, .string-list { display: grid; gap: 8px; margin-top: 11px; }
-.area-list { max-height: 560px; overflow: auto; padding-right: 3px; }
 .structure-summary { padding: 8px 10px; border-radius: 6px; color: var(--muted); background: #f4f7f6; font: 9px 'IBM Plex Mono', monospace; }
 .structure-item strong { display: block; color: var(--ink); font-size: 11px; line-height: 1.2; }
 .empty-state { padding: 13px; border-radius: 7px; color: var(--muted); background: #f4f7f6; font-size: 11px; }
@@ -156,7 +155,7 @@ button { cursor: pointer; }
 .button-primary { flex: 1; color: #fff; background: var(--ink); box-shadow: 0 10px 22px rgba(23,39,46,.18); }
 .button-primary:hover { background: var(--green); box-shadow: 0 10px 22px rgba(20,122,89,.22); }
 .button span { margin-left: 8px; font-size: 16px; line-height: 0; }
-.preview-panel { position: sticky; top: 16px; align-self: start; min-width: 0; max-height: calc(100vh - 32px); overflow-y: auto; scrollbar-width: thin; scrollbar-color: #c9d1d6 transparent; }
+.preview-panel { align-self: start; min-width: 0; }
 .preview-toolbar { display: flex; justify-content: space-between; align-items: end; min-height: 64px; padding: 5px 3px 14px; }
 .preview-toolbar-actions { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 10px; }
 .preview-toolbar p { margin: 8px 0 0; color: var(--muted); font-size: 12px; }
@@ -185,7 +184,7 @@ button { cursor: pointer; }
 .toast { position: fixed; right: 24px; bottom: 24px; z-index: 10; max-width: 360px; transform: translateY(20px); opacity: 0; pointer-events: none; border: 1px solid rgba(23,39,46,.18); border-radius: 8px; padding: 12px 15px; color: #fff; background: var(--ink); box-shadow: var(--shadow); font-size: 12px; transition: opacity .2s, transform .2s; }
 .toast.show { transform: translateY(0); opacity: 1; }
 .toast.error { background: #8d1820; }
-.point-placement-toolbar { position: sticky; top: 0; z-index: 3; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 7px; width: min(100%, 1200px); margin: 0 auto 7px; border: 1px solid var(--line); border-left: 3px solid var(--enaex-red); border-radius: 7px; padding: 5px 7px; background: #fff; box-shadow: 0 4px 12px rgba(38,51,63,.04); }
+.point-placement-toolbar { position: sticky; top: 58px; z-index: 3; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 7px; width: min(100%, 1200px); margin: 0 auto 7px; border: 1px solid var(--line); border-left: 3px solid var(--enaex-red); border-radius: 7px; padding: 5px 7px; background: #fff; box-shadow: 0 4px 12px rgba(38,51,63,.04); }
 .point-placement-heading { display: none; }
 .point-actions { display: flex; flex: 0 1 492px; gap: 6px; min-width: 0; margin: 0; }
 .point-action-button { display: flex; flex: 1 1 0; align-items: center; gap: 6px; min-width: 0; min-height: 36px; border: 1px solid #d9e0e4; border-left: 3px solid var(--enaex-red); border-radius: 6px; padding: 3px 8px; color: var(--ink); background: #fff; font: 600 10px/1.2 Manrope, Arial, sans-serif; text-align: left; white-space: nowrap; transition: border-color .16s, background .16s, box-shadow .16s; }
@@ -214,8 +213,8 @@ button { cursor: pointer; }
 #reportCanvas.placing-point, #reportCanvas.drawing-string { cursor: crosshair; outline: 3px solid rgba(237, 28, 36, .35); outline-offset: 4px; }
 #reportCanvas.drawing-string { outline-color: rgba(255, 122, 24, .5); }
 #reportCanvas.dragging-point { cursor: grabbing; }
-@media (max-width: 1100px) { .workspace { grid-template-columns: 1fr; gap: 16px; padding: 16px; } .control-panel { order: 2; padding: 18px; } .preview-panel { position: static; order: 1; max-height: none; overflow: visible; } #reportCanvas { width: 100%; max-height: none; } .preview-metrics { gap: 9px; } }
-@media (max-width: 840px) { .topbar { min-height: 76px; height: auto; flex-wrap: wrap; gap: 8px; padding: 12px 18px; } .brand-lockup { min-width: 0; flex: 1 1 auto; } .enaex-logo { width: 116px; } .topbar-meta { font-size: 0; } .version { font-size: 10px; } .workspace { grid-template-columns: 1fr; } .control-panel { order: 2; } .preview-panel { position: static; order: 1; max-height: none; overflow: visible; } #reportCanvas { width: 100%; max-height: none; } .preview-toolbar, .notice-output-heading { align-items: start; gap: 12px; flex-direction: column; } .preview-toolbar-actions { width: 100%; justify-content: space-between; } .preview-metrics { flex-wrap: wrap; text-align: left; } }
+@media (max-width: 1100px) { .workspace { grid-template-columns: 1fr; gap: 16px; padding: 16px; } .control-panel { order: 2; padding: 18px; } .preview-panel { order: 1; } #reportCanvas { width: 100%; max-height: none; } .preview-metrics { gap: 9px; } }
+@media (max-width: 840px) { .topbar { min-height: 76px; height: auto; flex-wrap: wrap; gap: 8px; padding: 12px 18px; } .brand-lockup { min-width: 0; flex: 1 1 auto; } .enaex-logo { width: 116px; } .topbar-meta { font-size: 0; } .version { font-size: 10px; } .workspace { grid-template-columns: 1fr; } .control-panel { order: 2; } .preview-panel { order: 1; } #reportCanvas { width: 100%; max-height: none; } .preview-toolbar, .notice-output-heading { align-items: start; gap: 12px; flex-direction: column; } .preview-toolbar-actions { width: 100%; justify-content: space-between; } .preview-metrics { flex-wrap: wrap; text-align: left; } }
 @media (max-width: 560px) { .point-placement-toolbar { gap: 5px; padding: 5px; } .point-actions { display: grid; flex: 1 1 100%; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; } .point-action-button { flex-direction: column; justify-content: center; gap: 3px; min-height: 52px; padding: 4px 3px; font-size: 9px; text-align: center; white-space: normal; } .point-action-icon { flex-basis: 20px; width: 20px; height: 20px; font-size: 14px; } .point-placement-footer { flex: 1 1 100%; justify-content: space-between; flex-direction: row; } .point-placement-footer p { flex: 1 1 170px; text-align: left; } }
 @media (max-width: 560px) { .brand-divider { display: none; } .blast-mark { width: 32px; height: 32px; flex-basis: 32px; border-radius: 8px; } .brand-lockup h1 { font-size: 20px; } .enaex-logo { width: 102px; } .catalog-row, .basemap-action-row { grid-template-columns: 1fr; } .catalog-button { width: 100%; } .area-item, .admin-active .structure-item { grid-template-columns: 1fr auto; } .area-status { grid-column: 1; justify-self: start; } .area-item .edit-button { grid-column: 1; justify-self: start; } .area-item .remove-button { grid-column: 2; grid-row: 1 / span 3; } .auth-card { padding: 24px; } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; } }
@@ -240,7 +239,7 @@ button { cursor: pointer; }
 .visibility-button:hover { border-color: var(--ink); color: var(--ink); }
 .point-item .edit-button:disabled { opacity: .4; cursor: not-allowed; }
 
-.radius-actions { display: flex; align-items: center; gap: 10px; }
+.radius-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
 .radius-actions .radius-file-button { padding: 5px 6px; white-space: nowrap; }
 .radius-reduced-toggle { display: inline-flex; align-items: center; gap: 5px; margin-top: 5px; color: var(--muted); font: 600 10px 'IBM Plex Mono', monospace; white-space: nowrap; cursor: pointer; }
 .radius-reduced-toggle input[type="checkbox"] { width: 13px; height: 13px; min-width: 0; min-height: 0; margin: 0; padding: 0; border: 0; background: none; box-shadow: none; accent-color: var(--ink); cursor: pointer; }

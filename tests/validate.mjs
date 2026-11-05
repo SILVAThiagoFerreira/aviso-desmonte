@@ -71,7 +71,7 @@ const renderSource = await fs.readFile(new URL('../src/render.js', import.meta.u
 const previewZoomSource = await fs.readFile(new URL('../src/preview-zoom.js', import.meta.url), 'utf8');
 const onlineBackend = await fs.readFile(new URL('../backend/Code.gs', import.meta.url), 'utf8');
 assert.equal(appConfig.onlineCatalog.enabled, true, 'o catálogo online precisa estar habilitado');
-assert.equal(appConfig.app.version, '1.20.25');
+assert.equal(appConfig.app.version, '1.20.26');
 // Zoom de visualização: configuração, validação e cálculos puros. Não pode alterar o canvas exportado.
 const previewZoom = appConfig.previewZoom;
 validatePreviewZoomConfig(previewZoom);
@@ -102,6 +102,8 @@ assert.match(previewZoomSource, /style\.setProperty\('transition', 'none', 'impo
 assert.match(stylesSource, /\.preview-stage \{ width: min\(100%, 1200px\); overflow: auto;/, 'a moldura da prévia precisa rolar quando ampliada');
 assert.match(stylesSource, /\.preview-stage\.is-zoomed \{ max-height: /, 'a prévia ampliada precisa de altura limitada à janela');
 assert.match(stylesSource, /\.preview-stage #reportCanvas \{ max-width: none;/, 'o canvas ampliado não pode ser limitado pelo max-width');
+assert.doesNotMatch(stylesSource, /^\.preview-panel \{[^\n]*(position: sticky|max-height|overflow)/m, 'a prévia precisa rolar junto com a página, sem sticky, altura máxima ou rolagem própria');
+assert.doesNotMatch(stylesSource, /\.area-list \{[^}]*overflow/, 'a lista de estruturas não pode ter rolagem própria dentro do formulário');
 assert.match(appSource, /function canvasPixelPoint\(event\) \{[^\n]*canvas\.getBoundingClientRect\(\)/, 'as coordenadas do clique precisam usar a caixa CSS atual do canvas, que acompanha o zoom');
 assert.equal(appConfig.report.colors.reducedHighlight, '#f2b600', 'o realce do raio reduzido na legenda precisa vir do config.json');
 assert.equal(appConfig.defaultPreset.observation, 'Setor Técnico de Operações - Enaex Brasil.');
