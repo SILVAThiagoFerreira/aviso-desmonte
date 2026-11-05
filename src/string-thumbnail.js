@@ -92,7 +92,7 @@ export function stringThumbnailSvg(item, { color, size = THUMBNAIL_SIZE, padding
     const inset = size * 0.22;
     const side = size - inset * 2;
     const dash = `fill="none" stroke="currentColor" stroke-opacity="${PLACEHOLDER_OPACITY}" stroke-width="${STROKE_WIDTH}"`;
-    return `${open('empty')}<rect x="${formatNumber(inset)}" y="${formatNumber(inset)}" width="${formatNumber(side)}" height="${formatNumber(side)}" rx="${formatNumber(size * 0.08)}" stroke-dasharray="3 3" ${dash}/><path d="M${formatNumber(size * 0.36)} ${formatNumber(size / 2)}H${formatNumber(size * 0.64)}" stroke-linecap="round" ${dash}/></svg>`;
+    return `${open('empty')}<rect x="${formatNumber(inset)}" y="${formatNumber(inset)}" width="${formatNumber(side)}" height="${formatNumber(side)}" stroke-dasharray="3 3" ${dash}/><path d="M${formatNumber(size * 0.36)} ${formatNumber(size / 2)}H${formatNumber(size * 0.64)}" stroke-linecap="round" ${dash}/></svg>`;
   }
   return `${open('geometry')}${layout.shapes.map((shape) => shapeMarkup(shape, paint)).join('')}</svg>`;
 }

@@ -7,7 +7,7 @@ import { assignFiringPointIdentity, assignMissingBlockingPointColors, rgbToLab, 
 import { downloadReportPdf, safeFileName } from './src/pdf.js';
 import { getOrthoOverride, listOrthoOverrides, removeOrthoOverride, saveOrthoOverride } from './src/ortho-store.js';
 import { setupPreviewZoom } from './src/preview-zoom.js';
-import { stringThumbnailSvg } from './src/string-thumbnail.js?v=1.20.27';
+import { stringThumbnailSvg } from './src/string-thumbnail.js?v=1.20.28';
 
 const state = { config: null, structureCatalog: null, publishedStructures: [], structures: [], isAdmin: false, structuresDirty: false, structuresSavePending: false, onlineCatalogStatus: 'unknown', onlineRevision: null, baseImage: null, baseImages: [], orthoLayers: [], logoImage: null, enaexLogo: null, firingIcon: null, cardIcon: null, strings: [], areas: [], firingPoints: [], blockingPoints: [], cardPoints: [], placementMode: null, pointPlacementSessionPoints: [], stringDrawing: null, draggingPoint: null, lastRender: null, radiusContours: [], importedRadiusContours: { people: null, machine: null }, contourKey: '', boundsMode: 'auto', manualBounds: null, orthoOverrides: new Map(), savedOverrideIds: new Set() };
 const DEFAULT_DATE = '2026-08-04';

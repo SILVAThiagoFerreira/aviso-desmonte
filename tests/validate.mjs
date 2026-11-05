@@ -72,7 +72,7 @@ const renderSource = await fs.readFile(new URL('../src/render.js', import.meta.u
 const previewZoomSource = await fs.readFile(new URL('../src/preview-zoom.js', import.meta.url), 'utf8');
 const onlineBackend = await fs.readFile(new URL('../backend/Code.gs', import.meta.url), 'utf8');
 assert.equal(appConfig.onlineCatalog.enabled, true, 'o catálogo online precisa estar habilitado');
-assert.equal(appConfig.app.version, '1.20.27');
+assert.equal(appConfig.app.version, '1.20.28');
 // Zoom de visualização: configuração, validação e cálculos puros. Não pode alterar o canvas exportado.
 const previewZoom = appConfig.previewZoom;
 validatePreviewZoomConfig(previewZoom);
@@ -422,15 +422,25 @@ const thumbDxf = stringThumbnailSvg({ entities: parsed.entities }, { color: '#ff
 assert.match(thumbDxf, /data-thumb="geometry"/);
 assert.ok(!/NaN|Infinity/.test(thumbDxf), 'a miniatura do DXF não pode conter coordenadas inválidas');
 assert.ok(!stringThumbnailSvg({ entities: parsed.entities }, { color: '"><script>' }).includes('<script>'), 'a cor vinda da configuração precisa ser escapada');
-assert.match(appSource, /import \{ stringThumbnailSvg \} from '\.\/src\/string-thumbnail\.js\?v=1\.20\.27'/, 'a miniatura precisa ser importada com o cache-busting da versão atual');
+assert.match(appSource, /import \{ stringThumbnailSvg \} from '\.\/src\/string-thumbnail\.js\?v=1\.20\.28'/, 'a miniatura precisa ser importada com o cache-busting da versão atual');
 assert.match(appSource, /select\.addEventListener\('change', \(\) => \{ item\.blastType = select\.value; paintStringThumb\(thumb, item\); render\(\); \}\)/, 'trocar o tipo precisa atualizar a cor da miniatura');
 assert.match(appSource, /row\.append\(thumb, copy, visibility, remove\)/, 'a miniatura fica à esquerda do bloco de nome, sem alterar select, olho e remover');
-assert.match(appHtml, /app\.js\?v=1\.20\.27/, 'o index precisa carregar o app.js da versão atual');
+assert.match(appHtml, /app\.js\?v=1\.20\.28/, 'o index precisa carregar o app.js da versão atual');
 assert.match(stylesSource, /\.string-thumb \{ display: grid;/, 'a miniatura precisa de estilo próprio');
 // Interface enxuta: textos redundantes saem da página (dicas úteis ficam em title), barras sem filete vermelho grosso.
 for (const removed of ['Role o mouse sobre o croqui', 'Selecione um tipo para começar', 'Prancha atualizada em', 'O ano do aviso é preenchido', 'DXF disponíveis na pasta local', 'Sem limite prático', 'Preencha os dados, carregue as geometrias', 'A prancha do croqui permanece independente', 'IMAGEM INDEPENDENTE', 'VISUALIZAÇÃO DO MAPA', 'EDIÇÃO DO CROQUI', 'CONFIGURAÇÃO DO AVISO', 'Base operacional: PDFs', 'Não exige Google Maps']) assert.ok(!appHtml.includes(removed) && !appSource.includes(removed), `o texto "${removed}" deve sair da interface`);
 assert.ok(!appHtml.includes('previewCaption') && !appSource.includes('previewCaption'), 'a legenda "Prancha atualizada" foi removida, inclusive do JavaScript');
-assert.doesNotMatch(stylesSource, /border-left: 3px solid var\(--enaex-red\)|border-top: 3px solid var\(--enaex-red\)/, 'painéis e botões das barras do croqui não podem ter filetes vermelhos grossos');
+// Vermelho restaurado (v1.20.28): topo dos painéis, numeração, rótulos e filetes das barras do croqui.
+assert.match(stylesSource, /\.control-panel \{ min-width: 0; padding: 22px 22px 26px; border: 1px solid var\(--line\); border-top: 3px solid var\(--enaex-red\);/, 'o topo vermelho dos painéis precisa voltar');
+assert.match(stylesSource, /\.section-heading > span \{ color: var\(--enaex-red\)/, 'a numeração das seções volta em vermelho');
+assert.match(stylesSource, /\.eyebrow, \.section-kicker \{ margin: 0; color: var\(--enaex-red\)/, 'os rótulos de seção voltam em vermelho');
+assert.match(stylesSource, /\.point-placement-toolbar \{[^}]*border-left: 3px solid var\(--enaex-red\)/, 'a barra de inserção de pontos precisa do filete vermelho à esquerda');
+assert.match(stylesSource, /\.point-action-button \{[^}]*border-left: 3px solid var\(--enaex-red\)/, 'os botões de tipo de ponto precisam do filete vermelho à esquerda');
+assert.match(stylesSource, /\.export-image-button \{[^}]*border-left: 3px solid var\(--enaex-red\)/, 'o botão Exportar croqui PNG precisa do filete vermelho à esquerda');
+assert.match(stylesSource, /\.preview-zoom-toolbar \{[^}]*border-left: 3px solid var\(--ink\)/, 'a barra de zoom volta ao filete escuro de antes');
+// Cantos retos (v1.20.28): só círculos (50%) e herança são aceitos; a miniatura sem geometria também não usa rx.
+assert.doesNotMatch(stylesSource, /border-radius: (?!0;|50%|inherit)/, 'cantos retos: nenhum border-radius além de 0, de círculos (50%) e de herança');
+assert.ok(!/\srx=/.test(stringThumbnailSvg({ entities: [] })), 'a miniatura sem geometria usa cantos retos');
 assert.match(stylesSource, /\.topbar-meta \{ justify-self: end; gap: 10px; color: #c4c7cb; font: 500 9px\/1/, 'o status da faixa superior precisa de fonte menor');
 assert.match(appHtml, /id="previewZoomReset"[^>]*title="Voltar ao enquadramento original"/, 'o botão Ajustar mantém a dica de uso');
 console.log(`PASS: DXF ${parsed.entities.length} entidades, ${getStringEndpoints(parsed.entities).length} extremidades, GeoJSON e nome de arquivo validados.`);
