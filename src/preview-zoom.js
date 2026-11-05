@@ -33,6 +33,9 @@ export function setupPreviewZoom({ stage, canvas, zoomInButton, zoomOutButton, r
   let zoom = config.minZoom;
   let pan = null;
   let suppressClick = false;
+  // A redução de movimento do CSS dá ao canvas uma transição quase instantânea na largura. Sem desligá-la, a medida
+  // logo após mudar o zoom ainda mostra a largura anterior e a âncora do cursor sai do lugar.
+  canvas.style.setProperty('transition', 'none', 'important');
 
   const isScrollable = () => stage.scrollWidth > stage.clientWidth || stage.scrollHeight > stage.clientHeight;
 
@@ -75,10 +78,13 @@ export function setupPreviewZoom({ stage, canvas, zoomInButton, zoomOutButton, r
   zoomOutButton.addEventListener('click', () => setZoom(zoom / config.buttonStep));
   resetButton.addEventListener('click', () => { setZoom(config.minZoom); stage.scrollTo(0, 0); });
 
-  // Arrastar navega quando a prévia tem rolagem. Um gesto de ponto (já tratado pelo canvas) não entra aqui.
+  // Arrastar navega quando a prévia tem rolagem, com botão esquerdo (e toque), central ou direito. Um gesto de ponto
+  // (já tratado pelo canvas) não entra aqui. Botões central e direito não passam pelo clique de inserção do croqui,
+  // então capturam o ponteiro; o esquerdo segue sem captura para não alterar o clique do canvas.
   stage.addEventListener('pointerdown', (event) => {
     suppressClick = false;
-    if (event.defaultPrevented || event.button !== 0 || !isScrollable()) return;
+    if (event.defaultPrevented || ![0, 1, 2].includes(event.button) || !isScrollable()) return;
+    if (event.button !== 0) stage.setPointerCapture(event.pointerId);
     pan = { id: event.pointerId, x: event.clientX, y: event.clientY, left: stage.scrollLeft, top: stage.scrollTop, moved: false };
   });
   window.addEventListener('pointermove', (event) => {
@@ -108,6 +114,10 @@ export function setupPreviewZoom({ stage, canvas, zoomInButton, zoomOutButton, r
     event.stopPropagation();
     event.preventDefault();
   }, true);
+  // Botão direito não abre o menu de contexto sobre a prévia; botão central não inicia a rolagem automática do navegador.
+  stage.addEventListener('contextmenu', (event) => event.preventDefault());
+  stage.addEventListener('mousedown', (event) => { if (event.button === 1) event.preventDefault(); });
+  stage.addEventListener('auxclick', (event) => { if (event.button === 1) event.preventDefault(); });
 
   updateControls();
 }

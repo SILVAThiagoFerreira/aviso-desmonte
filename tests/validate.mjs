@@ -71,7 +71,7 @@ const renderSource = await fs.readFile(new URL('../src/render.js', import.meta.u
 const previewZoomSource = await fs.readFile(new URL('../src/preview-zoom.js', import.meta.url), 'utf8');
 const onlineBackend = await fs.readFile(new URL('../backend/Code.gs', import.meta.url), 'utf8');
 assert.equal(appConfig.onlineCatalog.enabled, true, 'o catálogo online precisa estar habilitado');
-assert.equal(appConfig.app.version, '1.20.23');
+assert.equal(appConfig.app.version, '1.20.24');
 // Zoom de visualização: configuração, validação e cálculos puros. Não pode alterar o canvas exportado.
 const previewZoom = appConfig.previewZoom;
 validatePreviewZoomConfig(previewZoom);
@@ -94,6 +94,11 @@ assert.doesNotMatch(previewZoomSource, /drawReport|canvas\.width\s*=|canvas\.hei
 assert.match(appHtml, /<div class="preview-stage" id="previewStage" role="region" tabindex="0"[^>]*><canvas id="reportCanvas"/, 'o canvas precisa ficar dentro da moldura rolável da prévia');
 for (const id of ['previewZoomOut', 'previewZoomLevel', 'previewZoomIn', 'previewZoomReset']) assert.match(appHtml, new RegExp(`id="${id}"`), `o controle ${id} precisa existir`);
 assert.match(appSource, /setupPreviewZoom\(\{ stage: \$\('previewStage'\), canvas: \$\('reportCanvas'\)/, 'o zoom precisa ser ligado à moldura e ao canvas da prévia');
+assert.match(previewZoomSource, /setPointerCapture/, 'arrastar com botão central ou direito precisa capturar o ponteiro');
+assert.match(previewZoomSource, /!\[0, 1, 2\]\.includes\(event\.button\)/, 'arrastar precisa aceitar botão esquerdo, central e direito');
+assert.match(previewZoomSource, /addEventListener\('contextmenu', \(event\) => event\.preventDefault\(\)\)/, 'o menu de contexto não pode abrir sobre a prévia');
+assert.match(previewZoomSource, /addEventListener\('auxclick', \(event\) => \{ if \(event\.button === 1\) event\.preventDefault\(\); \}\)/, 'o botão central não pode disparar a rolagem automática do navegador');
+assert.match(previewZoomSource, /style\.setProperty\('transition', 'none', 'important'\)/, 'a largura do canvas precisa mudar sem transição, senão a âncora do cursor fica defasada');
 assert.match(stylesSource, /\.preview-stage \{ width: min\(100%, 1200px\); overflow: auto;/, 'a moldura da prévia precisa rolar quando ampliada');
 assert.match(stylesSource, /\.preview-stage\.is-zoomed \{ max-height: /, 'a prévia ampliada precisa de altura limitada à janela');
 assert.match(stylesSource, /\.preview-stage #reportCanvas \{ max-width: none;/, 'o canvas ampliado não pode ser limitado pelo max-width');
