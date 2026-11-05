@@ -1,5 +1,5 @@
 import { parseDxf, parseGeoJson } from './src/dxf.js';
-import { boundsOfContours, buildRadiusContours, boundsOf, dedupeEntities, fitBoundsToAspect, flattenStringEntities, mergeBounds, paddedBounds, unionContourPolygons } from './src/geometry.js?v=1.20.2';
+import { boundsOfContours, buildRadiusContours, boundsOf, dedupeEntities, fitBoundsToAspect, flattenStringEntities, mergeBounds, paddedBounds, unionContourPolygons } from './src/geometry.js?v=1.20.26';
 import { decodeGeoTiff } from './src/geotiff.js';
 import { PROJECT_CRS } from './src/crs.js';
 import { drawBlockingBackground, drawNoticeTable, drawReport, geoToCanvasPosition, sampleBlockingFootprint } from './src/render.js?v=1.20.22';
