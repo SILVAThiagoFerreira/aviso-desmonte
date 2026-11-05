@@ -7,6 +7,7 @@ import { safeFileName } from '../src/pdf.js';
 import { assignFiringPointIdentity, assignMissingBlockingPointColors, blockingPointLegendLabel, chooseBlockingPointColor, hasAdequateContrast, hexToRgb, isHexColor, pickBlockingPointColor, rgbToLab, settleBlockingPointColor, validateBlockingPointConfig } from '../src/points.js';
 import { drawEntity, drawStringEntity, fitCanvasFontSize } from '../src/render.js';
 import { clampZoom, validatePreviewZoomConfig, wheelZoomFactor } from '../src/preview-zoom.js';
+import { layoutStringThumbnail, stringThumbnailSvg } from '../src/string-thumbnail.js';
 
 const firingOptions = Array.from({ length: 20 }, () => ({}));
 assignFiringPointIdentity(firingOptions, () => 0);
@@ -71,7 +72,7 @@ const renderSource = await fs.readFile(new URL('../src/render.js', import.meta.u
 const previewZoomSource = await fs.readFile(new URL('../src/preview-zoom.js', import.meta.url), 'utf8');
 const onlineBackend = await fs.readFile(new URL('../backend/Code.gs', import.meta.url), 'utf8');
 assert.equal(appConfig.onlineCatalog.enabled, true, 'o catálogo online precisa estar habilitado');
-assert.equal(appConfig.app.version, '1.20.26');
+assert.equal(appConfig.app.version, '1.20.27');
 // Zoom de visualização: configuração, validação e cálculos puros. Não pode alterar o canvas exportado.
 const previewZoom = appConfig.previewZoom;
 validatePreviewZoomConfig(previewZoom);
@@ -402,4 +403,34 @@ assert.equal(unmeasuredKept.measured, false, 'a decisão sem amostras precisa di
 const unmeasuredNew = settleBlockingPointColor({ palette: blockingPalette, otherColors: [], backgroundLabs: [], contrast: contrastRule, random: () => 0 });
 assert.ok(blockingPalette.includes(unmeasuredNew.color), 'um ponto novo sem amostras recebe uma cor da paleta');
 assert.equal(unmeasuredNew.measured, false);
+// Miniaturas das strings (seção 03): proporção preservada, norte para cima, círculo, marcador sem geometria e escape da cor.
+const nearly = (actual, expected, message) => assert.ok(Math.abs(actual - expected) < 1e-6, `${message}: ${actual} != ${expected}`);
+const thumbLine = layoutStringThumbnail({ entities: [{ type: 'polyline', points: [{ x: 0, y: 0 }, { x: 100, y: 50 }], closed: false }] }, { size: 48, padding: 4 });
+assert.equal(thumbLine.shapes[0].kind, 'path');
+nearly(thumbLine.shapes[0].points[0].x, 4, 'a miniatura deve manter a margem à esquerda');
+nearly(thumbLine.shapes[0].points[0].y, 34, 'o vértice mais ao sul deve ficar embaixo (Y invertido)');
+nearly(thumbLine.shapes[0].points[1].x, 44, 'a proporção 2:1 deve preencher a largura interna');
+nearly(thumbLine.shapes[0].points[1].y, 14, 'o vértice mais ao norte deve ficar em cima');
+const thumbCircle = layoutStringThumbnail({ entities: [{ type: 'circle', points: [{ x: 50, y: 50 }], radius: 10 }] }, { size: 48, padding: 4 }).shapes[0];
+assert.equal(thumbCircle.kind, 'circle');
+nearly(thumbCircle.cx, 24, 'o círculo deve ficar centralizado');
+nearly(thumbCircle.r, 20, 'o raio do círculo deve acompanhar a escala da miniatura');
+assert.equal(layoutStringThumbnail({ entities: [] }), null, 'string sem geometria não gera miniatura de geometria');
+assert.match(stringThumbnailSvg({ entities: [] }), /data-thumb="empty"/, 'string sem geometria mostra o marcador tracejado');
+assert.match(stringThumbnailSvg({ sourceType: 'site', entities: [{ type: 'polyline', points: [{ x: 1, y: 1 }, { x: 5, y: 9 }], closed: false }] }, { color: '#08df00' }), /data-thumb="geometry"[\s\S]*stroke="#08df00"/, 'strings desenhadas no croqui precisam de miniatura na cor do tipo');
+const thumbDxf = stringThumbnailSvg({ entities: parsed.entities }, { color: '#ff1111' });
+assert.match(thumbDxf, /data-thumb="geometry"/);
+assert.ok(!/NaN|Infinity/.test(thumbDxf), 'a miniatura do DXF não pode conter coordenadas inválidas');
+assert.ok(!stringThumbnailSvg({ entities: parsed.entities }, { color: '"><script>' }).includes('<script>'), 'a cor vinda da configuração precisa ser escapada');
+assert.match(appSource, /import \{ stringThumbnailSvg \} from '\.\/src\/string-thumbnail\.js\?v=1\.20\.27'/, 'a miniatura precisa ser importada com o cache-busting da versão atual');
+assert.match(appSource, /select\.addEventListener\('change', \(\) => \{ item\.blastType = select\.value; paintStringThumb\(thumb, item\); render\(\); \}\)/, 'trocar o tipo precisa atualizar a cor da miniatura');
+assert.match(appSource, /row\.append\(thumb, copy, visibility, remove\)/, 'a miniatura fica à esquerda do bloco de nome, sem alterar select, olho e remover');
+assert.match(appHtml, /app\.js\?v=1\.20\.27/, 'o index precisa carregar o app.js da versão atual');
+assert.match(stylesSource, /\.string-thumb \{ display: grid;/, 'a miniatura precisa de estilo próprio');
+// Interface enxuta: textos redundantes saem da página (dicas úteis ficam em title), barras sem filete vermelho grosso.
+for (const removed of ['Role o mouse sobre o croqui', 'Selecione um tipo para começar', 'Prancha atualizada em', 'O ano do aviso é preenchido', 'DXF disponíveis na pasta local', 'Sem limite prático', 'Preencha os dados, carregue as geometrias', 'A prancha do croqui permanece independente', 'IMAGEM INDEPENDENTE', 'VISUALIZAÇÃO DO MAPA', 'EDIÇÃO DO CROQUI', 'CONFIGURAÇÃO DO AVISO', 'Base operacional: PDFs', 'Não exige Google Maps']) assert.ok(!appHtml.includes(removed) && !appSource.includes(removed), `o texto "${removed}" deve sair da interface`);
+assert.ok(!appHtml.includes('previewCaption') && !appSource.includes('previewCaption'), 'a legenda "Prancha atualizada" foi removida, inclusive do JavaScript');
+assert.doesNotMatch(stylesSource, /border-left: 3px solid var\(--enaex-red\)|border-top: 3px solid var\(--enaex-red\)/, 'painéis e botões das barras do croqui não podem ter filetes vermelhos grossos');
+assert.match(stylesSource, /\.topbar-meta \{ justify-self: end; gap: 10px; color: #c4c7cb; font: 500 9px\/1/, 'o status da faixa superior precisa de fonte menor');
+assert.match(appHtml, /id="previewZoomReset"[^>]*title="Voltar ao enquadramento original"/, 'o botão Ajustar mantém a dica de uso');
 console.log(`PASS: DXF ${parsed.entities.length} entidades, ${getStringEndpoints(parsed.entities).length} extremidades, GeoJSON e nome de arquivo validados.`);
