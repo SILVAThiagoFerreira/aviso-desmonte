@@ -567,6 +567,36 @@ function drawPointMarker(ctx, point, transform, image, colors, kind, iconSizes =
   drawPointIcon(ctx, kind, point, transform.x(point), transform.y(point), size, { image, colors });
 }
 
+// Seta que aponta para o canto superior esquerdo do ícone de entrega de cartões, para destacá-lo no croqui.
+// Proporções vêm de report.cardArrow e acompanham o tamanho do ícone (pointIconSizes.card). Sem configuração
+// válida, o desenho falha em vez de usar valores improvisados.
+export function drawCardArrow(ctx, point, transform, iconSizes = {}, arrow, colors) {
+  const numericKeys = ['lengthFactor', 'gapFactor', 'headLengthFactor', 'headWidthFactor', 'shaftWidthFactor', 'haloWidth'];
+  numericKeys.forEach((key) => { if (!Number.isFinite(Number(arrow?.[key]))) throw new Error(`report.cardArrow.${key} precisa ser um número.`); });
+  if (typeof arrow.haloColor !== 'string' || !arrow.haloColor) throw new Error('report.cardArrow.haloColor precisa ser uma cor.');
+  const size = Number(iconSizes.card) || 48;
+  const cx = transform.x(point); const cy = transform.y(point);
+  const corner = { x: cx - size / 2, y: cy - size / 2 };
+  const dir = { x: Math.SQRT1_2, y: Math.SQRT1_2 };
+  const perp = { x: -dir.y, y: dir.x };
+  const offset = (p, v, k) => ({ x: p.x + v.x * k, y: p.y + v.y * k });
+  const tip = offset(corner, dir, -size * arrow.gapFactor);
+  const length = size * arrow.lengthFactor; const headLength = size * arrow.headLengthFactor;
+  const halfHead = size * arrow.headWidthFactor / 2; const halfShaft = size * arrow.shaftWidthFactor / 2;
+  const tail = offset(tip, dir, -length);
+  const shaftEnd = offset(tip, dir, -headLength);
+  const outline = [
+    offset(tail, perp, halfShaft), offset(shaftEnd, perp, halfShaft), offset(shaftEnd, perp, halfHead),
+    tip,
+    offset(shaftEnd, perp, -halfHead), offset(shaftEnd, perp, -halfShaft), offset(tail, perp, -halfShaft),
+  ];
+  ctx.save(); ctx.lineJoin = 'round';
+  ctx.beginPath(); outline.forEach((p, index) => (index ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y))); ctx.closePath();
+  ctx.strokeStyle = arrow.haloColor; ctx.lineWidth = arrow.haloWidth * 2; ctx.stroke();
+  ctx.fillStyle = colors.red; ctx.fill();
+  ctx.restore();
+}
+
 function projectStructurePoint(structure, bounds, pageMap = {}, transform, mapBox) {
   const map = { x: 61, y: 68, width: 1205, height: 1385, ...pageMap };
   if (structure.worldX !== null && structure.worldX !== undefined && structure.worldY !== null && structure.worldY !== undefined && Number.isFinite(Number(structure.worldX)) && Number.isFinite(Number(structure.worldY))) return { x: Number(structure.worldX), y: Number(structure.worldY) };
@@ -814,6 +844,7 @@ export function drawReport(canvas, model, config, options = {}) {
     (model.firingPoints || []).forEach((point) => drawPointMarker(ctx, point, transform, model.firingIcon, colors, 'firing', model.pointIconSizes));
     (model.blockingPoints || []).forEach((point) => drawBlockingMarker(ctx, point, transform, config.report.blockingIcon, model.pointIconSizes));
     (model.cardPoints || []).forEach((point) => drawPointMarker(ctx, point, transform, model.cardIcon, colors, 'card', model.pointIconSizes));
+    (model.cardPoints || []).forEach((point) => drawCardArrow(ctx, point, transform, model.pointIconSizes, config.report.cardArrow, colors));
     drawStringDraft(ctx, model.stringDrawing, transform, colors);
     // Os números das áreas são a camada de identificação mais importante:
     // desenhe-os por último para permanecerem legíveis sobre strings,
