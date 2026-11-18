@@ -5,7 +5,7 @@ import { parseDxf, parseGeoJson } from '../src/dxf.js';
 import { areaIntersectsContours, boundsOf, boundsOfContours, buildRadiusContours, dedupeEntities, differenceEntityWithContours, fitBoundsToAspect, flattenStringEntities, getStringEndpoints, intersectEntityWithContours, paddedBounds, pointIntersectsContours, stringsOverlap, unionContourPolygons } from '../src/geometry.js';
 import { safeFileName } from '../src/pdf.js';
 import { assignFiringPointIdentity, assignMissingBlockingPointColors, blockingPointLegendLabel, chooseBlockingPointColor, hasAdequateContrast, hexToRgb, isHexColor, pickBlockingPointColor, rgbToLab, settleBlockingPointColor, validateBlockingPointConfig } from '../src/points.js';
-import { drawCardArrow, drawEntity, drawPointIcon, drawStringEntity, fitCanvasFontSize } from '../src/render.js';
+import { drawCardArrow, drawEntity, drawPointIcon, drawProhibitedIcon, drawStringEntity, fitCanvasFontSize } from '../src/render.js';
 import { clampZoom, validatePreviewZoomConfig, wheelZoomFactor } from '../src/preview-zoom.js';
 import { layoutStringThumbnail, stringThumbnailSvg } from '../src/string-thumbnail.js';
 import { placePopover } from '../src/point-popover.js';
@@ -74,7 +74,7 @@ const renderSource = await fs.readFile(new URL('../src/render.js', import.meta.u
 const previewZoomSource = await fs.readFile(new URL('../src/preview-zoom.js', import.meta.url), 'utf8');
 const onlineBackend = await fs.readFile(new URL('../backend/Code.gs', import.meta.url), 'utf8');
 assert.equal(appConfig.onlineCatalog.enabled, true, 'o catálogo online precisa estar habilitado');
-assert.equal(appConfig.app.version, '1.20.33');
+assert.equal(appConfig.app.version, '1.20.34');
 // Zoom de visualização: configuração, validação e cálculos puros. Não pode alterar o canvas exportado.
 const previewZoom = appConfig.previewZoom;
 validatePreviewZoomConfig(previewZoom);
@@ -429,7 +429,7 @@ assert.ok(!stringThumbnailSvg({ entities: parsed.entities }, { color: '"><script
 assert.match(appSource, /import \{ stringThumbnailSvg \} from '\.\/src\/string-thumbnail\.js\?v=1\.20\.28'/, 'a miniatura precisa ser importada com o cache-busting da versão atual');
 assert.match(appSource, /select\.addEventListener\('change', \(\) => \{ item\.blastType = select\.value; paintStringThumb\(thumb, item\); render\(\); \}\)/, 'trocar o tipo precisa atualizar a cor da miniatura');
 assert.match(appSource, /row\.append\(thumb, copy, visibility, remove\)/, 'a miniatura fica à esquerda do bloco de nome, sem alterar select, olho e remover');
-assert.match(appHtml, /app\.js\?v=1\.20\.33/, 'o index precisa carregar o app.js da versão atual');
+assert.match(appHtml, /app\.js\?v=1\.20\.34/, 'o index precisa carregar o app.js da versão atual');
 assert.match(stylesSource, /\.string-thumb \{ display: grid;/, 'a miniatura precisa de estilo próprio');
 // Interface enxuta: textos redundantes saem da página (dicas úteis ficam em title), barras sem filete vermelho grosso.
 for (const removed of ['Role o mouse sobre o croqui', 'Selecione um tipo para começar', 'Prancha atualizada em', 'O ano do aviso é preenchido', 'DXF disponíveis na pasta local', 'Sem limite prático', 'Preencha os dados, carregue as geometrias', 'A prancha do croqui permanece independente', 'IMAGEM INDEPENDENTE', 'VISUALIZAÇÃO DO MAPA', 'EDIÇÃO DO CROQUI', 'CONFIGURAÇÃO DO AVISO', 'Base operacional: PDFs', 'Não exige Google Maps']) assert.ok(!appHtml.includes(removed) && !appSource.includes(removed), `o texto "${removed}" deve sair da interface`);
@@ -471,7 +471,7 @@ drawPointIcon(cardRecorder, 'card', {}, 14, 14, 28, { image: null, colors: appCo
 assert.ok(cardRecorder.calls.includes('strokeRect'), 'sem imagem, o cartão usa o mesmo contorno de reserva do croqui');
 assert.match(renderSource, /drawPointIcon\(ctx, kind, point, transform\.x\(point\), transform\.y\(point\), size, \{ image, colors \}\)/, 'os pontos de disparo e de cartões do croqui precisam usar a função compartilhada');
 assert.match(renderSource, /drawPointIcon\(ctx, 'blocking', point, transform\.x\(point\), transform\.y\(point\), size, \{ blockingIcon: icon \}\)/, 'os pontos de bloqueio do croqui precisam usar a função compartilhada');
-assert.match(appSource, /import \{[^}]*drawPointIcon[^}]*\} from '\.\/src\/render\.js\?v=1\.20\.33'/, 'o croqui e a lista precisam compartilhar o desenho do ponto, com o cache-busting atual');
+assert.match(appSource, /import \{[^}]*drawPointIcon[^}]*\} from '\.\/src\/render\.js\?v=1\.20\.34'/, 'o croqui e a lista precisam compartilhar o desenho do ponto, com o cache-busting atual');
 assert.match(appSource, /function paintPointIcon\(element, kind, point\) \{[\s\S]*drawPointIcon\(ctx, kind, point, center, center/, 'a lista de pontos precisa desenhar o ícone real do croqui');
 assert.doesNotMatch(appSource, /point-swatch/, 'o marcador genérico da lista de pontos foi substituído pelo ícone real');
 assert.match(appSource, /function structureThumbColor\(structure\) \{[\s\S]{0,120}colors\.red : colors\.blue/, 'a miniatura da estrutura usa o vermelho de EVACUAR e o azul de LIBERADO do croqui');
@@ -730,6 +730,28 @@ assert.match(appSource, /function scheduleCanvasRender\(\) \{ if \(canvasRenderF
   assert.equal(fakeCtx.fillStyle, colors.red, 'a seta precisa usar a cor vermelha de produção do croqui');
   assert.throws(() => drawCardArrow(fakeCtx, { x: 1, y: 1 }, { x: (p) => p.x, y: (p) => p.y }, { card: 30 }, { ...arrowConfig, haloWidth: undefined }, colors), /haloWidth/, 'configuração ausente da seta precisa falhar, sem valores improvisados');
   assert.match(renderSource, /drawCardArrow\(ctx, point, transform, model\.pointIconSizes, config\.report\.cardArrow, colors\)/, 'a seta precisa ser desenhada em cada ponto de entrega de cartões');
+}
+
+// Proibido Trafegar (v1.20.34): tipo de ponto com a mesma inserção do bloqueio, ícone vetorial próprio e legenda numerada.
+{
+  const icon = appConfig.report.prohibitedIcon;
+  assert.match(icon.ringColor, /^#[0-9a-f]{6}$/i, 'o anel do sinal de proibido precisa de cor hexadecimal');
+  assert.match(appConfig.report.legend.prohibitedPointLabel, /\{number\}/, 'o rótulo numerado do proibido precisa do marcador {number}');
+  assert.equal(appConfig.report.legend.prohibitedPointDefaultLabel, 'PROIBIDO TRAFEGAR', 'a legenda sem pontos proibidos precisa do rótulo padrão');
+  const calls = [];
+  const stub = { fillStyle: null, strokeStyle: null, lineWidth: 0, lineCap: '', save() {}, restore() {}, beginPath() {}, closePath() {}, moveTo() {}, lineTo() {}, arc() { calls.push('arc'); }, clip() { calls.push('clip'); }, fill() { calls.push(`fill:${this.fillStyle}`); }, stroke() { calls.push(`stroke:${this.strokeStyle}`); } };
+  drawProhibitedIcon(stub, 100, 100, 40, icon);
+  assert.equal(calls[0], 'arc', 'o sinal começa pelo anel');
+  assert.equal(calls[1], `fill:${icon.ringColor}`, 'o anel precisa usar a cor configurada');
+  assert.ok(calls.includes(`fill:${icon.truckColor}`), 'o caminhão precisa usar a cor configurada');
+  assert.ok(calls.indexOf('clip') > -1 && calls.indexOf('clip') < calls.indexOf(`stroke:${icon.slashColor}`), 'a barra diagonal precisa ser recortada pelo círculo, depois do caminhão');
+  assert.throws(() => drawProhibitedIcon(stub, 1, 1, 10, { ...icon, truckScale: undefined }), /truckScale/, 'configuração ausente do ícone precisa falhar, sem valores improvisados');
+  assert.ok(appSource.includes("['firing', 'blocking', 'prohibited', 'card']"), 'todas as listas de tipos de ponto precisam aceitar o Proibido Trafegar');
+  assert.match(appHtml, /id="addProhibitedPointButton" data-point-type="prohibited"/, 'a barra de pontos precisa ter o botão Proibido trafegar');
+  assert.match(appSource, /\$\('addProhibitedPointButton'\)\.addEventListener\('click', \(\) => togglePointPlacement\('prohibited'\)\)/, 'o botão precisa ativar a inserção do tipo prohibited');
+  assert.match(appSource, /prohibitedPoints: state\.prohibitedPoints/, 'o projeto salvo precisa incluir os pontos proibidos');
+  assert.match(renderSource, /rows\.push\(\{ icon: 'prohibited'/, 'a legenda precisa listar os pontos proibidos');
+  assert.match(renderSource, /drawProhibitedMarker\(ctx, point, transform, config\.report\.prohibitedIcon, model\.pointIconSizes\)/, 'os pontos proibidos precisam ser desenhados no croqui com o tamanho do bloqueio');
 }
 
 console.log(`PASS: DXF ${parsed.entities.length} entidades, ${getStringEndpoints(parsed.entities).length} extremidades, GeoJSON e nome de arquivo validados.`);

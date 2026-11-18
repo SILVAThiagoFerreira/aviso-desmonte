@@ -505,6 +505,8 @@ function drawLegend(ctx, model, box, colors, transform, stringFillOpacity = DEFA
   if (model.blockingPoints?.length) (model.blockingPoints).forEach((point, index) => rows.push({ icon: 'blocking', color: point.color, label: blockingPointLegendLabel(legendSettings.blockingPointLabel, index + 1) }));
   else if (!model.pointCounts?.blocking) rows.push({ icon: 'blocking', color: colors.ink, label: legendSettings.blockingPointDefaultLabel });
   if (model.cardPoints?.length || !model.pointCounts?.card) rows.push({ icon: 'card', label: legendSettings.cardPointLabel });
+  if (model.prohibitedPoints?.length) model.prohibitedPoints.forEach((point, index) => rows.push({ icon: 'prohibited', label: blockingPointLegendLabel(legendSettings.prohibitedPointLabel, index + 1) }));
+  else if (!model.pointCounts?.prohibited) rows.push({ icon: 'prohibited', label: legendSettings.prohibitedPointDefaultLabel });
   const shown = strings.slice(0, 24); const nameRows = strings.length ? Math.ceil(shown.length / 2) : 0; const overflow = Math.max(strings.length - shown.length, 0);
   const settings = legendSettings;
   const baseWidth = strings.length ? 470 : 430;
@@ -533,6 +535,7 @@ function drawLegend(ctx, model, box, colors, transform, stringFillOpacity = DEFA
     else if (item.swatch === 'liberado') drawHatchSwatch(ctx, x + 18 * scale, iconY, 44 * scale, 16 * scale, colors.blueHatch, colors.blueSoft);
     else if (item.icon === 'firing') drawLegendIcon(ctx, coloredFiringIcon(model.firingIcon, item.color), x + 18 * scale, rowY - 13 * scale, 26 * scale, (canvas, cx, cy, size) => { canvas.fillStyle = colors.orange; canvas.strokeStyle = colors.ink; canvas.lineWidth = 2 * scale; canvas.beginPath(); canvas.arc(cx, cy, size * .27, 0, Math.PI * 2); canvas.fill(); canvas.stroke(); });
     else if (item.icon === 'blocking') drawCavaleteIcon(ctx, x + 31 * scale, rowY, 26 * scale, item.color, model.blockingIconStyle);
+    else if (item.icon === 'prohibited') drawProhibitedIcon(ctx, x + 31 * scale, rowY, 26 * scale, model.prohibitedIconStyle);
     else if (item.icon === 'card') drawLegendIcon(ctx, model.cardIcon, x + 18 * scale, rowY - 13 * scale, 26 * scale, (canvas, cx, cy, size) => { canvas.strokeStyle = colors.red; canvas.lineWidth = 2 * scale; canvas.strokeRect(cx - size * .3, cy - size * .2, size * .6, size * .4); canvas.fillStyle = colors.red; canvas.fillRect(cx - size * .22, cy - size * .05, size * .44, size * .08); });
     else { ctx.strokeStyle = item.color; ctx.lineWidth = 3 * scale; ctx.setLineDash(item.dashed ? [10 * scale, 7 * scale] : []); ctx.beginPath(); ctx.moveTo(x + 18 * scale, rowY); ctx.lineTo(x + 62 * scale, rowY); ctx.stroke(); ctx.setLineDash([]); }
     const labelWidth = width - 98 * scale;
@@ -552,8 +555,9 @@ function drawLegend(ctx, model, box, colors, transform, stringFillOpacity = DEFA
 // Ícone de um ponto operacional centrado em (cx, cy), com `size` px. É o único desenho do ponto: o croqui e a
 // lista de pontos chamam esta função, então mostram a mesma arte e as mesmas cores. Em options: image (ícone
 // de disparo ou de cartões), blockingIcon (geometria do cavalete, já validada) e colors (cores do croqui).
-export function drawPointIcon(ctx, kind, point, cx, cy, size, { image = null, blockingIcon = null, colors = {} } = {}) {
+export function drawPointIcon(ctx, kind, point, cx, cy, size, { image = null, blockingIcon = null, prohibitedIcon = null, colors = {} } = {}) {
   if (kind === 'blocking') { drawCavaleteIcon(ctx, cx, cy, size, point.color, blockingIcon); return; }
+  if (kind === 'prohibited') { drawProhibitedIcon(ctx, cx, cy, size, prohibitedIcon); return; }
   ctx.save(); ctx.globalAlpha = kind === 'firing' ? .82 : 1;
   drawLegendIcon(ctx, kind === 'firing' ? coloredFiringIcon(image, point.color) : image, cx - size / 2, cy - size / 2, size, (canvas, centerX, centerY, markerSize) => {
     if (kind === 'card') { canvas.fillStyle = '#ffffff'; canvas.strokeStyle = colors.red; canvas.lineWidth = 3; canvas.fillRect(centerX - markerSize * .3, centerY - markerSize * .2, markerSize * .6, markerSize * .4); canvas.strokeRect(centerX - markerSize * .3, centerY - markerSize * .2, markerSize * .6, markerSize * .4); return; }
@@ -565,6 +569,41 @@ export function drawPointIcon(ctx, kind, point, cx, cy, size, { image = null, bl
 function drawPointMarker(ctx, point, transform, image, colors, kind, iconSizes = {}) {
   const size = Number(iconSizes[kind]) || 48;
   drawPointIcon(ctx, kind, point, transform.x(point), transform.y(point), size, { image, colors });
+}
+
+// Ícone "Proibido Trafegar", desenhado em vetor: anel vermelho, disco claro, caminhão fora de estrada escuro
+// (cabine, caçamba basculada, chassi e rodas grandes) e barra vermelha diagonal que corta o disco.
+// Cores e proporções vêm de report.prohibitedIcon; configuração inválida interrompe o desenho.
+export function drawProhibitedIcon(ctx, cx, cy, size, icon) {
+  ['ringWidth', 'slashWidth', 'truckScale'].forEach((key) => { if (!Number.isFinite(Number(icon?.[key]))) throw new Error(`report.prohibitedIcon.${key} precisa ser um número.`); });
+  ['ringColor', 'discColor', 'truckColor', 'slashColor'].forEach((key) => { if (typeof icon[key] !== 'string' || !icon[key]) throw new Error(`report.prohibitedIcon.${key} precisa ser uma cor.`); });
+  const radius = size / 2;
+  const scale = radius * icon.truckScale / 45;
+  const at = (x, y) => [cx + (x - 51) * scale, cy + (y - 46) * scale];
+  const polygon = (points) => { ctx.beginPath(); points.forEach(([x, y], index) => { const [px, py] = at(x, y); if (index) ctx.lineTo(px, py); else ctx.moveTo(px, py); }); ctx.closePath(); ctx.fill(); };
+  const wheel = (x, y, r) => { const [px, py] = at(x, y); ctx.beginPath(); ctx.arc(px, py, r * scale, 0, Math.PI * 2); ctx.fill(); };
+  ctx.save();
+  ctx.fillStyle = icon.ringColor; ctx.beginPath(); ctx.arc(cx, cy, radius, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = icon.discColor; ctx.beginPath(); ctx.arc(cx, cy, radius * (1 - icon.ringWidth), 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = icon.truckColor;
+  polygon([[14, 36], [24, 30], [34, 30], [36, 50], [14, 50]]);
+  polygon([[38, 50], [40, 34], [84, 20], [88, 32], [88, 50]]);
+  polygon([[14, 50], [88, 50], [88, 58], [14, 58]]);
+  wheel(24, 64, 9); wheel(74, 64, 9);
+  ctx.fillStyle = icon.discColor;
+  polygon([[19, 38], [25, 34], [32, 34], [33, 46], [19, 46]]);
+  wheel(24, 64, 3.5); wheel(74, 64, 3.5);
+  ctx.beginPath(); ctx.arc(cx, cy, radius, 0, Math.PI * 2); ctx.clip();
+  const diagonal = Math.SQRT1_2; const reach = radius * 1.3;
+  ctx.strokeStyle = icon.slashColor; ctx.lineWidth = icon.slashWidth * size; ctx.lineCap = 'butt';
+  ctx.beginPath(); ctx.moveTo(cx - diagonal * reach, cy - diagonal * reach); ctx.lineTo(cx + diagonal * reach, cy + diagonal * reach); ctx.stroke();
+  ctx.restore();
+}
+
+// Marcador de "Proibido Trafegar": usa o mesmo tamanho dos pontos de bloqueio (pointIconSizes.blocking).
+function drawProhibitedMarker(ctx, point, transform, icon, iconSizes = {}) {
+  const size = Number(iconSizes.blocking) || 25;
+  drawProhibitedIcon(ctx, transform.x(point), transform.y(point), size, icon);
 }
 
 // Seta que aponta para o canto superior esquerdo do ícone de entrega de cartões, para destacá-lo no croqui.
@@ -845,6 +884,7 @@ export function drawReport(canvas, model, config, options = {}) {
     (model.blockingPoints || []).forEach((point) => drawBlockingMarker(ctx, point, transform, config.report.blockingIcon, model.pointIconSizes));
     (model.cardPoints || []).forEach((point) => drawPointMarker(ctx, point, transform, model.cardIcon, colors, 'card', model.pointIconSizes));
     (model.cardPoints || []).forEach((point) => drawCardArrow(ctx, point, transform, model.pointIconSizes, config.report.cardArrow, colors));
+    (model.prohibitedPoints || []).forEach((point) => drawProhibitedMarker(ctx, point, transform, config.report.prohibitedIcon, model.pointIconSizes));
     drawStringDraft(ctx, model.stringDrawing, transform, colors);
     // Os números das áreas são a camada de identificação mais importante:
     // desenhe-os por último para permanecerem legíveis sobre strings,
@@ -852,7 +892,7 @@ export function drawReport(canvas, model, config, options = {}) {
     structurePoints.forEach((structure) => structure.points.forEach((point) => drawStructurePositionLabel(ctx, structure, point, transform, model.areaNumberSize)));
     ctx.restore();
   }
-  drawNorth(ctx, map, config.report.northArrow); drawScale(ctx, map, transform, bounds); const legend = transform ? drawLegend(ctx, { ...model, areas: model.areas, statusAreas: model.structures?.length ? model.structures : model.areas, legendSettings: config.report.legend, blockingIconStyle: config.report.blockingIcon, firingPointLegendLabels: firingPointLegendLabels(model, config.report.legend, transform) }, map, colors, transform, stringFillOpacity) : null; drawPanel(ctx, { ...model, meta: { ...model.meta, dateLabel: model.meta.date ? new Date(`${model.meta.date}T12:00:00`).toLocaleDateString('pt-BR') : 'DATA NÃO INFORMADA' } }, panel, colors);
+  drawNorth(ctx, map, config.report.northArrow); drawScale(ctx, map, transform, bounds); const legend = transform ? drawLegend(ctx, { ...model, areas: model.areas, statusAreas: model.structures?.length ? model.structures : model.areas, legendSettings: config.report.legend, blockingIconStyle: config.report.blockingIcon, prohibitedIconStyle: config.report.prohibitedIcon, firingPointLegendLabels: firingPointLegendLabels(model, config.report.legend, transform) }, map, colors, transform, stringFillOpacity) : null; drawPanel(ctx, { ...model, meta: { ...model.meta, dateLabel: model.meta.date ? new Date(`${model.meta.date}T12:00:00`).toLocaleDateString('pt-BR') : 'DATA NÃO INFORMADA' } }, panel, colors);
   ctx.fillStyle = colors.ink; ctx.font = '14px Arial'; ctx.textAlign = 'left'; const footerConfig = config.report.footer; const footerLocation = model.meta.location ? `${footerConfig.locationLabel} ${model.meta.location}` : `${footerConfig.locationLabel} ${footerConfig.missingLocationText}`; ctx.fillText(footerLocation, map.x + 8, height - 34); ctx.textAlign = 'right'; ctx.fillText(model.meta.observation || 'Valide os dados operacionais antes da emissão', width - 24, height - 34);
   return { bounds, map: { x: map.x * outputScale, y: map.y * outputScale, width: map.width * outputScale, height: map.height * outputScale }, transform, extentSource, legend, endpointCount: getStringEndpoints(stringEntities).length, areaStatuses: model.areas.map((area) => ({ id: area.id, status: area.status })) };
 }
