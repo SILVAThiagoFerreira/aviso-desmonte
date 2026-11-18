@@ -334,7 +334,8 @@ function outsideProductionPieces(item, items, colors) {
 function fillPolygonPieces(ctx, polygons, transform, color, fillOpacity) {
   if (!polygons.length) return;
   ctx.save(); ctx.globalAlpha = fillOpacity; ctx.fillStyle = color; ctx.beginPath();
-  polygons.forEach((polygon) => polygon.forEach((ring) => ring.forEach((point, index) => { const x = transform.x(point); const y = transform.y(point); if (index === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y); })));
+  // O clipping devolve pontos como pares [x, y]; o transform espera { x, y } em coordenadas do projeto.
+  polygons.forEach((polygon) => polygon.forEach((ring) => ring.forEach((pair, index) => { const point = { x: pair[0], y: pair[1] }; const x = transform.x(point); const y = transform.y(point); if (index === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y); })));
   ctx.closePath(); ctx.fill(); ctx.restore();
 }
 

@@ -74,7 +74,7 @@ const renderSource = await fs.readFile(new URL('../src/render.js', import.meta.u
 const previewZoomSource = await fs.readFile(new URL('../src/preview-zoom.js', import.meta.url), 'utf8');
 const onlineBackend = await fs.readFile(new URL('../backend/Code.gs', import.meta.url), 'utf8');
 assert.equal(appConfig.onlineCatalog.enabled, true, 'o catálogo online precisa estar habilitado');
-assert.equal(appConfig.app.version, '1.20.31');
+assert.equal(appConfig.app.version, '1.20.32');
 // Zoom de visualização: configuração, validação e cálculos puros. Não pode alterar o canvas exportado.
 const previewZoom = appConfig.previewZoom;
 validatePreviewZoomConfig(previewZoom);
@@ -429,7 +429,7 @@ assert.ok(!stringThumbnailSvg({ entities: parsed.entities }, { color: '"><script
 assert.match(appSource, /import \{ stringThumbnailSvg \} from '\.\/src\/string-thumbnail\.js\?v=1\.20\.28'/, 'a miniatura precisa ser importada com o cache-busting da versão atual');
 assert.match(appSource, /select\.addEventListener\('change', \(\) => \{ item\.blastType = select\.value; paintStringThumb\(thumb, item\); render\(\); \}\)/, 'trocar o tipo precisa atualizar a cor da miniatura');
 assert.match(appSource, /row\.append\(thumb, copy, visibility, remove\)/, 'a miniatura fica à esquerda do bloco de nome, sem alterar select, olho e remover');
-assert.match(appHtml, /app\.js\?v=1\.20\.31/, 'o index precisa carregar o app.js da versão atual');
+assert.match(appHtml, /app\.js\?v=1\.20\.32/, 'o index precisa carregar o app.js da versão atual');
 assert.match(stylesSource, /\.string-thumb \{ display: grid;/, 'a miniatura precisa de estilo próprio');
 // Interface enxuta: textos redundantes saem da página (dicas úteis ficam em title), barras sem filete vermelho grosso.
 for (const removed of ['Role o mouse sobre o croqui', 'Selecione um tipo para começar', 'Prancha atualizada em', 'O ano do aviso é preenchido', 'DXF disponíveis na pasta local', 'Sem limite prático', 'Preencha os dados, carregue as geometrias', 'A prancha do croqui permanece independente', 'IMAGEM INDEPENDENTE', 'VISUALIZAÇÃO DO MAPA', 'EDIÇÃO DO CROQUI', 'CONFIGURAÇÃO DO AVISO', 'Base operacional: PDFs', 'Não exige Google Maps']) assert.ok(!appHtml.includes(removed) && !appSource.includes(removed), `o texto "${removed}" deve sair da interface`);
@@ -471,7 +471,7 @@ drawPointIcon(cardRecorder, 'card', {}, 14, 14, 28, { image: null, colors: appCo
 assert.ok(cardRecorder.calls.includes('strokeRect'), 'sem imagem, o cartão usa o mesmo contorno de reserva do croqui');
 assert.match(renderSource, /drawPointIcon\(ctx, kind, point, transform\.x\(point\), transform\.y\(point\), size, \{ image, colors \}\)/, 'os pontos de disparo e de cartões do croqui precisam usar a função compartilhada');
 assert.match(renderSource, /drawPointIcon\(ctx, 'blocking', point, transform\.x\(point\), transform\.y\(point\), size, \{ blockingIcon: icon \}\)/, 'os pontos de bloqueio do croqui precisam usar a função compartilhada');
-assert.match(appSource, /import \{[^}]*drawPointIcon[^}]*\} from '\.\/src\/render\.js\?v=1\.20\.31'/, 'o croqui e a lista precisam compartilhar o desenho do ponto, com o cache-busting atual');
+assert.match(appSource, /import \{[^}]*drawPointIcon[^}]*\} from '\.\/src\/render\.js\?v=1\.20\.32'/, 'o croqui e a lista precisam compartilhar o desenho do ponto, com o cache-busting atual');
 assert.match(appSource, /function paintPointIcon\(element, kind, point\) \{[\s\S]*drawPointIcon\(ctx, kind, point, center, center/, 'a lista de pontos precisa desenhar o ícone real do croqui');
 assert.doesNotMatch(appSource, /point-swatch/, 'o marcador genérico da lista de pontos foi substituído pelo ícone real');
 assert.match(appSource, /function structureThumbColor\(structure\) \{[\s\S]{0,120}colors\.red : colors\.blue/, 'a miniatura da estrutura usa o vermelho de EVACUAR e o azul de LIBERADO do croqui');

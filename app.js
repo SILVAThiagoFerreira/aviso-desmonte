@@ -2,7 +2,7 @@ import { parseDxf, parseGeoJson } from './src/dxf.js';
 import { boundsOfContours, buildRadiusContours, boundsOf, dedupeEntities, fitBoundsToAspect, flattenStringEntities, mergeBounds, paddedBounds, unionContourPolygons } from './src/geometry.js?v=1.20.27';
 import { decodeGeoTiff } from './src/geotiff.js';
 import { PROJECT_CRS } from './src/crs.js';
-import { drawBlockingBackground, drawNoticeTable, drawReport, geoToCanvasPosition, drawPointIcon, sampleBlockingFootprint } from './src/render.js?v=1.20.31';
+import { drawBlockingBackground, drawNoticeTable, drawReport, geoToCanvasPosition, drawPointIcon, sampleBlockingFootprint } from './src/render.js?v=1.20.32';
 import { assignFiringPointIdentity, assignMissingBlockingPointColors, rgbToLab, settleBlockingPointColor, validateBlockingPointConfig } from './src/points.js?v=1.20.22';
 import { downloadReportPdf, safeFileName } from './src/pdf.js';
 import { getOrthoOverride, listOrthoOverrides, removeOrthoOverride, saveOrthoOverride } from './src/ortho-store.js';
