@@ -26,6 +26,4 @@ O catálogo de estruturas em `data/structures.json` preserva os 54 códigos e no
 
 As áreas fechadas são desenhadas como diferença azul em relação à união dos raios e interseção vermelha com essa máscara. Assim, um mesmo sólido pode conter trecho azul fora do cerco e trecho vermelho dentro dele, sem alterar o contorno original.
 
-Os pontos "Proibido trafegar" são salvos como `{ x, y, label }` no array `prohibitedPoints` (sem cor), e a legenda os numera pela ordem do array com `report.legend.prohibitedPointLabel`.
-
 Os pontos de bloqueio são salvos como `{ x, y, label, color }`. O campo `color` é um hexadecimal `#rrggbb` escolhido de `report.blockingPointColors` no `config.json` entre as cores que se destacam do fundo sob o ícone (`report.blockingPointContrast`). Projetos anteriores sem o campo recebem cor ao serem importados, e todos os pontos são revalidados contra o fundo atual, com aviso ao usuário; uma cor com formato inválido interrompe a importação. A legenda numera os pontos de bloqueio pela ordem do array, usando `report.legend.blockingPointLabel` (`Ponto de Bloqueio #{number}`).

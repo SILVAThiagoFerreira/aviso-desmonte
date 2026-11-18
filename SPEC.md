@@ -38,7 +38,6 @@
 - A importação do projeto informa visualmente as etapas de leitura, validação, aplicação e atualização da prancha, inclusive em caso de erro.
 
 - A prévia do croqui tem zoom de visualização (`previewZoom` no `config.json`: `minZoom` ≥ 1, `maxZoom` > `minZoom`, `buttonStep` > 1, `wheelSensitivity` > 0, `dragThresholdPx` ≥ 0; configuração inválida interrompe o carregamento). O zoom altera somente o tamanho exibido e a rolagem da moldura: o bitmap do croqui, as coordenadas dos pontos (lidas da caixa CSS atual do canvas), a exportação PNG e o PDF são os mesmos em qualquer nível. Um arraste acima de `dragThresholdPx` com o botão esquerdo, o central ou o direito é navegação e não insere nem move ponto; sobre a prévia, o menu de contexto e a rolagem automática do botão central ficam suspensos.
-- O ponto "Proibido trafegar" (`prohibitedPoints`) é inserido, movido e removido como um ponto de bloqueio, mas não recebe cor da paleta: o sinal usa as cores fixas de `report.prohibitedIcon` (anel, disco, caminhão e barra). Cada ponto aparece na legenda como `Proibido Trafegar #1`, `#2`, na ordem de inserção, e sem pontos aparece a linha `PROIBIDO TRAFEGAR`. O desenho é vetorial e usa o tamanho de `pointIconSizes.blocking`.
 
 ## Não faz
 
