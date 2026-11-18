@@ -575,28 +575,30 @@ function drawPointMarker(ctx, point, transform, image, colors, kind, iconSizes =
 // (cabine, caçamba basculada, chassi e rodas grandes) e barra vermelha diagonal que corta o disco.
 // Cores e proporções vêm de report.prohibitedIcon; configuração inválida interrompe o desenho.
 export function drawProhibitedIcon(ctx, cx, cy, size, icon) {
-  ['ringWidth', 'slashWidth', 'truckScale'].forEach((key) => { if (!Number.isFinite(Number(icon?.[key]))) throw new Error(`report.prohibitedIcon.${key} precisa ser um número.`); });
-  ['ringColor', 'discColor', 'truckColor', 'slashColor'].forEach((key) => { if (typeof icon[key] !== 'string' || !icon[key]) throw new Error(`report.prohibitedIcon.${key} precisa ser uma cor.`); });
+  ['ringWidth', 'slashWidth', 'slashHaloWidth', 'truckScale'].forEach((key) => { if (!Number.isFinite(Number(icon?.[key]))) throw new Error(`report.prohibitedIcon.${key} precisa ser um número.`); });
+  ['ringColor', 'discColor', 'truckColor', 'slashColor', 'slashHaloColor'].forEach((key) => { if (typeof icon[key] !== 'string' || !icon[key]) throw new Error(`report.prohibitedIcon.${key} precisa ser uma cor.`); });
   const radius = size / 2;
-  const scale = radius * icon.truckScale / 45;
-  const at = (x, y) => [cx + (x - 51) * scale, cy + (y - 46) * scale];
-  const polygon = (points) => { ctx.beginPath(); points.forEach(([x, y], index) => { const [px, py] = at(x, y); if (index) ctx.lineTo(px, py); else ctx.moveTo(px, py); }); ctx.closePath(); ctx.fill(); };
-  const wheel = (x, y, r) => { const [px, py] = at(x, y); ctx.beginPath(); ctx.arc(px, py, r * scale, 0, Math.PI * 2); ctx.fill(); };
+  // Desenho em 100 unidades, centrado em (50, 50): o caminhão ocupa cerca de 80% do diâmetro interno.
+  const scale = radius * icon.truckScale / 50;
+  const at = (x, y) => [cx + (x - 50) * scale, cy + (y - 50) * scale];
+  const shape = (points, color) => { ctx.fillStyle = color; ctx.beginPath(); points.forEach(([x, y], index) => { const [px, py] = at(x, y); if (index) ctx.lineTo(px, py); else ctx.moveTo(px, py); }); ctx.closePath(); ctx.fill(); };
+  const disc = (x, y, r, color) => { const [px, py] = at(x, y); ctx.fillStyle = color; ctx.beginPath(); ctx.arc(px, py, r * scale, 0, Math.PI * 2); ctx.fill(); };
+  const bar = (color, width) => { const diagonal = Math.SQRT1_2; const reach = radius * 1.3; ctx.strokeStyle = color; ctx.lineWidth = width; ctx.lineCap = 'butt'; ctx.beginPath(); ctx.moveTo(cx - diagonal * reach, cy - diagonal * reach); ctx.lineTo(cx + diagonal * reach, cy + diagonal * reach); ctx.stroke(); };
   ctx.save();
   ctx.fillStyle = icon.ringColor; ctx.beginPath(); ctx.arc(cx, cy, radius, 0, Math.PI * 2); ctx.fill();
   ctx.fillStyle = icon.discColor; ctx.beginPath(); ctx.arc(cx, cy, radius * (1 - icon.ringWidth), 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = icon.truckColor;
-  polygon([[14, 36], [24, 30], [34, 30], [36, 50], [14, 50]]);
-  polygon([[38, 50], [40, 34], [84, 20], [88, 32], [88, 50]]);
-  polygon([[14, 50], [88, 50], [88, 58], [14, 58]]);
-  wheel(24, 64, 9); wheel(74, 64, 9);
-  ctx.fillStyle = icon.discColor;
-  polygon([[19, 38], [25, 34], [32, 34], [33, 46], [19, 46]]);
-  wheel(24, 64, 3.5); wheel(74, 64, 3.5);
+  // Caçamba basculada no traseiro (direita), cabine avançada (esquerda) e chassi longo entre os eixos.
+  shape([[40, 58], [40, 40], [86, 24], [90, 32], [90, 58]], icon.truckColor);
+  shape([[40, 40], [86, 24], [86, 27], [40, 43]], icon.discColor);
+  shape([[10, 58], [10, 42], [16, 36], [30, 34], [38, 42], [40, 58]], icon.truckColor);
+  shape([[16, 45], [19, 39], [29, 38], [34, 45]], icon.discColor);
+  shape([[10, 56], [90, 56], [90, 63], [10, 63]], icon.truckColor);
+  // Rodas grandes de fora de estrada: pneu escuro, aro claro e cubo escuro.
+  [[26, 68], [72, 68]].forEach(([x, y]) => { disc(x, y, 11, icon.truckColor); disc(x, y, 6.5, icon.discColor); disc(x, y, 3, icon.truckColor); });
+  // Barra diagonal recortada pelo círculo, com contorno claro para não se perder sobre o caminhão.
   ctx.beginPath(); ctx.arc(cx, cy, radius, 0, Math.PI * 2); ctx.clip();
-  const diagonal = Math.SQRT1_2; const reach = radius * 1.3;
-  ctx.strokeStyle = icon.slashColor; ctx.lineWidth = icon.slashWidth * size; ctx.lineCap = 'butt';
-  ctx.beginPath(); ctx.moveTo(cx - diagonal * reach, cy - diagonal * reach); ctx.lineTo(cx + diagonal * reach, cy + diagonal * reach); ctx.stroke();
+  bar(icon.slashHaloColor, (icon.slashWidth + 2 * icon.slashHaloWidth) * size);
+  bar(icon.slashColor, icon.slashWidth * size);
   ctx.restore();
 }
 

@@ -2,7 +2,7 @@
   "app": {
     "name": "Aviso de Desmonte",
     "eyebrow": "AVISO DE DESMONTE",
-    "version": "1.20.34"
+    "version": "1.20.36"
   },
   "defaultPreset": {
     "loadAllOrthomosaics": true,
@@ -56,7 +56,7 @@
     "radiusStroke": { "width": 4, "haloWidth": 7, "haloColor": "rgba(10,20,25,0.35)" },
     "northArrow": { "offsetX": 78, "offsetY": 100 },
     "cardArrow": { "lengthFactor": 0.9, "gapFactor": 0.12, "headLengthFactor": 0.36, "headWidthFactor": 0.34, "shaftWidthFactor": 0.12, "haloWidth": 2.5, "haloColor": "#ffffff" },
-    "prohibitedIcon": { "ringColor": "#d9261c", "discColor": "#f2f2f2", "truckColor": "#1f2f35", "slashColor": "#d9261c", "slashWidth": 0.17, "ringWidth": 0.13, "truckScale": 0.82 },
+    "prohibitedIcon": { "ringColor": "#d9261c", "discColor": "#f2f2f2", "truckColor": "#1f2f35", "slashColor": "#d9261c", "slashWidth": 0.15, "slashHaloWidth": 0.03, "slashHaloColor": "#ffffff", "ringWidth": 0.13, "truckScale": 0.88 },
     "blockingPointColors": ["#e4007c", "#3ddc84", "#00b0ff", "#8d5a2b", "#9c27b0", "#8bc200"],
     "blockingPointContrast": { "minimumDeltaE": 30, "requiredShare": 0.95, "footprintRatio": 0.5, "sampleStep": 2 },
     "blockingIcon": {

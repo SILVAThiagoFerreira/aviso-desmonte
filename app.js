@@ -2,7 +2,7 @@ import { parseDxf, parseGeoJson } from './src/dxf.js';
 import { boundsOfContours, buildRadiusContours, boundsOf, dedupeEntities, fitBoundsToAspect, flattenStringEntities, mergeBounds, paddedBounds, unionContourPolygons } from './src/geometry.js?v=1.20.27';
 import { decodeGeoTiff } from './src/geotiff.js';
 import { PROJECT_CRS } from './src/crs.js';
-import { drawBlockingBackground, drawNoticeTable, drawReport, geoToCanvasPosition, drawPointIcon, sampleBlockingFootprint } from './src/render.js?v=1.20.34';
+import { drawBlockingBackground, drawNoticeTable, drawProhibitedIcon, drawReport, geoToCanvasPosition, drawPointIcon, sampleBlockingFootprint } from './src/render.js?v=1.20.36';
 import { assignFiringPointIdentity, assignMissingBlockingPointColors, rgbToLab, settleBlockingPointColor, validateBlockingPointConfig } from './src/points.js?v=1.20.22';
 import { downloadReportPdf, safeFileName } from './src/pdf.js';
 import { getOrthoOverride, listOrthoOverrides, removeOrthoOverride, saveOrthoOverride } from './src/ortho-store.js';
@@ -368,6 +368,18 @@ function paintPointIcon(element, kind, point) {
   if (kind !== 'blocking' || point.color) drawPointIcon(ctx, kind, point, center, center, POINT_ICON_DRAW_PX, { image: kind === 'firing' ? state.firingIcon : kind === 'card' ? state.cardIcon : null, blockingIcon: state.config.report.blockingIcon, prohibitedIcon: state.config.report.prohibitedIcon, colors: state.config.report.colors });
   element.replaceChildren(canvas);
 }
+// O botão "Proibido trafegar" mostra o mesmo sinal desenhado no croqui, para o usuário reconhecer o ponto.
+function paintProhibitedButtonIcon() {
+  const holder = document.querySelector('#addProhibitedPointButton .point-action-icon');
+  if (!holder || !state.config?.report?.prohibitedIcon) return;
+  const ratio = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.round(20 * ratio); canvas.height = canvas.width;
+  canvas.style.width = '20px'; canvas.style.height = '20px';
+  const ctx = canvas.getContext('2d'); ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+  drawProhibitedIcon(ctx, 10, 10, 20, state.config.report.prohibitedIcon);
+  holder.replaceChildren(canvas);
+}
 function pointIconElement(kind, point) { const element = document.createElement('span'); element.className = `point-icon ${kind}`; element.setAttribute('aria-hidden', 'true'); paintPointIcon(element, kind, point); return element; }
 // Miniatura do polígono da estrutura (mesmo desenho das strings), na cor da classificação do croqui: vermelho em EVACUAR, azul em LIBERADO.
 function structurePolygonEntities(structure) { return (state.areas || []).flatMap((area) => area.entities || []).filter((entity) => entity.structureId === structure.id); }
@@ -618,5 +630,5 @@ function wire() {
   $('importProjectFile').addEventListener('change', async (event) => { await importProjectFile(event.target.files[0]); event.target.value = ''; });
 }
 
-async function start() { try { setLoadingProgress(8, 'Carregando a configuração do projeto…'); const response = await fetch('./config.json', { cache: 'no-store' }); if (!response.ok) throw new Error('Não foi possível carregar a configuração do projeto.'); state.config = await response.json(); validateBlockingPointConfig(state.config.report); validateHoleStringConfig(state.config.holeStrings); setLoadingProgress(18, 'Carregando recursos visuais…'); try { state.logoImage = await loadImageBlob(await fetch('assets/mvv-logo.png').then((asset) => asset.blob())); } catch { state.logoImage = null; } try { state.enaexLogo = await loadImageBlob(await fetch('assets/enaex-logo-white.png').then((asset) => asset.blob())); } catch { state.enaexLogo = null; } try { state.firingIcon = await loadTransparentIcon(await fetch('assets/ponto-disparo.png').then((asset) => asset.blob())); } catch { state.firingIcon = null; } try { state.cardIcon = await loadImageBlob(await fetch('assets/cartao-bloqueio.png').then((asset) => asset.blob())); } catch { state.cardIcon = null; } try { state.savedOverrideIds = new Set((await listOrthoOverrides()).map((item) => item.id)); } catch { state.savedOverrideIds = new Set(); } $('appName').textContent = state.config.app.name; $('appVersion').textContent = `v${state.config.app.version}`; updateReportPngButton(); populateOrthoCatalog(); wire(); renderStringList(); renderAreaList(); renderPointList(); render(); await applyDefaultPreset(); setAdminSession(sessionStorage.getItem('aviso-desmonte-admin') === '1'); if (!state.isAdmin) $('loginUsername').focus(); finishLoading(); } catch (error) { $('statusText').textContent = 'Erro de configuração'; notify(error.message, 'error'); const message = $('loadingMessage'); if (message) message.textContent = `Não foi possível iniciar: ${error.message}`; const gate = $('loadingGate'); if (gate) gate.classList.add('loading-error'); } }
+async function start() { try { setLoadingProgress(8, 'Carregando a configuração do projeto…'); const response = await fetch('./config.json', { cache: 'no-store' }); if (!response.ok) throw new Error('Não foi possível carregar a configuração do projeto.'); state.config = await response.json(); validateBlockingPointConfig(state.config.report); validateHoleStringConfig(state.config.holeStrings); setLoadingProgress(18, 'Carregando recursos visuais…'); try { state.logoImage = await loadImageBlob(await fetch('assets/mvv-logo.png').then((asset) => asset.blob())); } catch { state.logoImage = null; } try { state.enaexLogo = await loadImageBlob(await fetch('assets/enaex-logo-white.png').then((asset) => asset.blob())); } catch { state.enaexLogo = null; } try { state.firingIcon = await loadTransparentIcon(await fetch('assets/ponto-disparo.png').then((asset) => asset.blob())); } catch { state.firingIcon = null; } try { state.cardIcon = await loadImageBlob(await fetch('assets/cartao-bloqueio.png').then((asset) => asset.blob())); } catch { state.cardIcon = null; } try { state.savedOverrideIds = new Set((await listOrthoOverrides()).map((item) => item.id)); } catch { state.savedOverrideIds = new Set(); } $('appName').textContent = state.config.app.name; $('appVersion').textContent = `v${state.config.app.version}`; updateReportPngButton(); populateOrthoCatalog(); wire(); paintProhibitedButtonIcon(); renderStringList(); renderAreaList(); renderPointList(); render(); await applyDefaultPreset(); setAdminSession(sessionStorage.getItem('aviso-desmonte-admin') === '1'); if (!state.isAdmin) $('loginUsername').focus(); finishLoading(); } catch (error) { $('statusText').textContent = 'Erro de configuração'; notify(error.message, 'error'); const message = $('loadingMessage'); if (message) message.textContent = `Não foi possível iniciar: ${error.message}`; const gate = $('loadingGate'); if (gate) gate.classList.add('loading-error'); } }
 start();
