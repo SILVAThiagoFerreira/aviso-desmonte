@@ -309,12 +309,33 @@ function drawStringOutline(ctx, entity, transform, color) { drawEntity(ctx, enti
 const STRING_PRIORITY = { precut: 1, production: 2, regularization: 3 };
 function sortedStrings(strings = []) { return [...strings].sort((left, right) => (STRING_PRIORITY[left.blastType] || 2) - (STRING_PRIORITY[right.blastType] || 2) || String(left.label || left.name).localeCompare(String(right.label || right.name), 'pt-BR')); }
 
-// Strings que se sobrepõem a uma poligonal de produção: o preenchimento vira vermelho (produção) e o
-// contorno da classificação não-produção fica por cima, na sua cor.
+// Origem do item: arquivo importado (pelo nome) ou desenho feito no croqui (uma só origem).
+function stringSourceKey(item) { return item?.sourceType === 'site' ? 'desenho no croqui' : (item?.name || item?.id); }
+function isProductionString(item, colors) { return !colors[item?.blastType] || item.blastType === 'production'; }
+// Só há duas cores na mesma área quando itens de arquivos diferentes se sobrepõem. Nesse caso, apenas
+// a parte sobreposta à produção fica vermelha; o restante da classificação mantém a própria cor.
 function overlappingWithProduction(items, colors) {
-  const isProduction = (item) => !colors[item?.blastType] || item.blastType === 'production';
-  const production = items.filter(isProduction);
-  return new Set(items.filter((item) => !isProduction(item) && production.some((other) => stringsOverlap(other, item))));
+  const production = items.filter((item) => isProductionString(item, colors));
+  return new Set(items.filter((item) => !isProductionString(item, colors) && production.some((other) => stringSourceKey(other) !== stringSourceKey(item) && stringsOverlap(other, item))));
+}
+// Partes de cada polígono fechado da classificação que ficam fora da produção de outro arquivo.
+// Entidades abertas, círculos ou sem clipping disponível retornam null e seguem o desenho padrão.
+function outsideProductionPieces(item, items, colors) {
+  const clipping = globalThis.polygonClipping;
+  if (!clipping?.difference) return null;
+  const ringOf = (entity) => { const ring = entity.points.map((point) => [point.x, point.y]); if (ring[0][0] !== ring[ring.length - 1][0] || ring[0][1] !== ring[ring.length - 1][1]) ring.push(ring[0]); return ring; };
+  const isClosedArea = (entity) => entity.closed && entity.type !== 'circle' && (entity.points || []).length >= 3;
+  const mask = items.filter((other) => isProductionString(other, colors) && stringSourceKey(other) !== stringSourceKey(item)).flatMap((other) => (other.entities || []).filter(isClosedArea).map((entity) => [ringOf(entity)]));
+  if (!mask.length) return null;
+  const pieces = new Map();
+  (item.entities || []).forEach((entity) => { if (isClosedArea(entity)) pieces.set(entity, clipping.difference([[ringOf(entity)]], mask) || []); });
+  return pieces;
+}
+function fillPolygonPieces(ctx, polygons, transform, color, fillOpacity) {
+  if (!polygons.length) return;
+  ctx.save(); ctx.globalAlpha = fillOpacity; ctx.fillStyle = color; ctx.beginPath();
+  polygons.forEach((polygon) => polygon.forEach((ring) => ring.forEach((point, index) => { const x = transform.x(point); const y = transform.y(point); if (index === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y); })));
+  ctx.closePath(); ctx.fill(); ctx.restore();
 }
 
 function drawStringThumbnail(ctx, item, x, y, width, height, color, fillOpacity = DEFAULT_STRING_FILL_OPACITY) {
@@ -775,9 +796,16 @@ export function drawReport(canvas, model, config, options = {}) {
     // Primeiro aplica o preenchimento transparente de todas as strings; em uma
     // segunda passagem, redesenha todas as bordas para que nenhuma interseção
     // entre poligonais reduza a nitidez do contorno operacional.
-    // Strings sobrepostas a produção são preenchidas em vermelho; o contorno da classificação fica por cima.
+    // Sobreposição entre arquivos diferentes: a classificação preenche só a parte fora da produção; a
+    // interseção fica com o preenchimento vermelho da produção, desenhado por cima. O contorno vem por cima.
     const blastItems = sortedStrings(model.strings || []).reverse(); const overlapping = overlappingWithProduction(blastItems, colors);
-    blastItems.forEach((item) => (item.entities || []).forEach((entity) => drawStringEntity(ctx, entity, transform, overlapping.has(item) ? colors.production : stringColor(item, colors), stringFillOpacity)));
+    blastItems.forEach((item) => {
+      const outside = overlapping.has(item) ? outsideProductionPieces(item, blastItems, colors) : null;
+      (item.entities || []).forEach((entity) => {
+        if (outside?.has(entity)) fillPolygonPieces(ctx, outside.get(entity), transform, stringColor(item, colors), stringFillOpacity);
+        else drawStringEntity(ctx, entity, transform, stringColor(item, colors), stringFillOpacity);
+      });
+    });
     const outlineOrder = [...blastItems].sort((left, right) => Number(overlapping.has(left)) - Number(overlapping.has(right)));
     outlineOrder.forEach((item) => (item.entities || []).forEach((entity) => drawStringOutline(ctx, entity, transform, stringColor(item, colors))));
     // O buffer já representa a extensão completa da poligonal. Não desenhar

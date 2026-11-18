@@ -74,7 +74,7 @@ const renderSource = await fs.readFile(new URL('../src/render.js', import.meta.u
 const previewZoomSource = await fs.readFile(new URL('../src/preview-zoom.js', import.meta.url), 'utf8');
 const onlineBackend = await fs.readFile(new URL('../backend/Code.gs', import.meta.url), 'utf8');
 assert.equal(appConfig.onlineCatalog.enabled, true, 'o catálogo online precisa estar habilitado');
-assert.equal(appConfig.app.version, '1.20.30');
+assert.equal(appConfig.app.version, '1.20.31');
 // Zoom de visualização: configuração, validação e cálculos puros. Não pode alterar o canvas exportado.
 const previewZoom = appConfig.previewZoom;
 validatePreviewZoomConfig(previewZoom);
@@ -131,7 +131,8 @@ assert.match(renderSource, /colors\.redHatch/, 'a hachura vermelha deve usar a c
 assert.match(renderSource, /const DEFAULT_STRING_FILL_OPACITY = 0\.6/, 'as strings precisam ter uma opacidade de preenchimento calibrada');
 assert.match(renderSource, /function drawStringEntity/, 'as strings devem ter uma rotina de desenho própria');
 assert.match(renderSource, /if \(entity\.points\?\.length >= 3 && opacity && entityPath/,'poligonais com 3 ou mais vértices devem receber preenchimento, fechadas ou não');
-assert.match(renderSource, /drawStringEntity\(ctx, entity, transform, overlapping\.has\(item\) \? colors\.production : stringColor\(item, colors\), stringFillOpacity\)/, 'o preenchimento precisa usar a cor da string, ou vermelho de produção quando sobreposta');
+assert.match(renderSource, /drawStringEntity\(ctx, entity, transform, stringColor\(item, colors\), stringFillOpacity\)/, 'o preenchimento padrão precisa usar a cor da própria string');
+assert.match(renderSource, /outsideProductionPieces\(item, blastItems, colors\)/, 'a sobreposição precisa preencher só a parte fora da produção, não a string inteira');
 assert.match(renderSource, /drawStringOutline\(ctx, entity, transform, stringColor\(item, colors\)\)/, 'as bordas precisam ser redesenhadas depois dos preenchimentos');
 const overlapStrings = [
   { name: 'PP561026', blastType: 'production', entities: [{ type: 'polyline', closed: false, points: [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 5, y: 8 }, { x: 0, y: 0 }] }] },
@@ -145,7 +146,8 @@ assert.ok(!stringsOverlap(overlapStrings[0], overlapStrings[2]), 'strings distan
 assert.ok(stringsOverlap(overlapStrings[0], overlapStrings[3]), 'uma string dentro do preenchimento da outra deve ser sobreposta');
 assert.ok(stringsOverlap(overlapStrings[0], overlapStrings[4]), 'segmentos que se cruzam devem ser sobrepostos');
 assert.match(renderSource, /overlappingWithProduction\(blastItems, colors\)/, 'strings sobrepostas à produção precisam ser identificadas na prancha');
-assert.match(renderSource, /overlapping\.has\(item\) \? colors\.production : stringColor\(item, colors\)/, 'a região sobreposta deve ser preenchida em vermelho de produção');
+assert.match(renderSource, /if \(outside\?\.has\(entity\)\) fillPolygonPieces\(ctx, outside\.get\(entity\), transform, stringColor\(item, colors\), stringFillOpacity\)/, 'a parte fora da produção de outro arquivo precisa manter a cor da classificação');
+assert.match(renderSource, /production\.some\(\(other\) => stringSourceKey\(other\) !== stringSourceKey\(item\) && stringsOverlap\(other, item\)\)/, 'a sobreposição só vale entre arquivos diferentes');
 assert.doesNotMatch(renderSource, /lineDashOffset|SHARED_STRING_DASH|drawSharedString/, 'o contorno de sobreposição deve ser sólido, sem a rotina de divisão antiga');
 const duplicatedRadius = buildRadiusContours(flattenStringEntities([{ id: 'a', entities: parsed.entities }]), [700, 300]);
 const doubledRadius = buildRadiusContours(flattenStringEntities([{ id: 'a', entities: parsed.entities }, { id: 'b', entities: parsed.entities }]), [700, 300]);
@@ -427,7 +429,7 @@ assert.ok(!stringThumbnailSvg({ entities: parsed.entities }, { color: '"><script
 assert.match(appSource, /import \{ stringThumbnailSvg \} from '\.\/src\/string-thumbnail\.js\?v=1\.20\.28'/, 'a miniatura precisa ser importada com o cache-busting da versão atual');
 assert.match(appSource, /select\.addEventListener\('change', \(\) => \{ item\.blastType = select\.value; paintStringThumb\(thumb, item\); render\(\); \}\)/, 'trocar o tipo precisa atualizar a cor da miniatura');
 assert.match(appSource, /row\.append\(thumb, copy, visibility, remove\)/, 'a miniatura fica à esquerda do bloco de nome, sem alterar select, olho e remover');
-assert.match(appHtml, /app\.js\?v=1\.20\.30/, 'o index precisa carregar o app.js da versão atual');
+assert.match(appHtml, /app\.js\?v=1\.20\.31/, 'o index precisa carregar o app.js da versão atual');
 assert.match(stylesSource, /\.string-thumb \{ display: grid;/, 'a miniatura precisa de estilo próprio');
 // Interface enxuta: textos redundantes saem da página (dicas úteis ficam em title), barras sem filete vermelho grosso.
 for (const removed of ['Role o mouse sobre o croqui', 'Selecione um tipo para começar', 'Prancha atualizada em', 'O ano do aviso é preenchido', 'DXF disponíveis na pasta local', 'Sem limite prático', 'Preencha os dados, carregue as geometrias', 'A prancha do croqui permanece independente', 'IMAGEM INDEPENDENTE', 'VISUALIZAÇÃO DO MAPA', 'EDIÇÃO DO CROQUI', 'CONFIGURAÇÃO DO AVISO', 'Base operacional: PDFs', 'Não exige Google Maps']) assert.ok(!appHtml.includes(removed) && !appSource.includes(removed), `o texto "${removed}" deve sair da interface`);
@@ -469,7 +471,7 @@ drawPointIcon(cardRecorder, 'card', {}, 14, 14, 28, { image: null, colors: appCo
 assert.ok(cardRecorder.calls.includes('strokeRect'), 'sem imagem, o cartão usa o mesmo contorno de reserva do croqui');
 assert.match(renderSource, /drawPointIcon\(ctx, kind, point, transform\.x\(point\), transform\.y\(point\), size, \{ image, colors \}\)/, 'os pontos de disparo e de cartões do croqui precisam usar a função compartilhada');
 assert.match(renderSource, /drawPointIcon\(ctx, 'blocking', point, transform\.x\(point\), transform\.y\(point\), size, \{ blockingIcon: icon \}\)/, 'os pontos de bloqueio do croqui precisam usar a função compartilhada');
-assert.match(appSource, /import \{[^}]*drawPointIcon[^}]*\} from '\.\/src\/render\.js\?v=1\.20\.29'/, 'o croqui e a lista precisam compartilhar o desenho do ponto, com o cache-busting atual');
+assert.match(appSource, /import \{[^}]*drawPointIcon[^}]*\} from '\.\/src\/render\.js\?v=1\.20\.31'/, 'o croqui e a lista precisam compartilhar o desenho do ponto, com o cache-busting atual');
 assert.match(appSource, /function paintPointIcon\(element, kind, point\) \{[\s\S]*drawPointIcon\(ctx, kind, point, center, center/, 'a lista de pontos precisa desenhar o ícone real do croqui');
 assert.doesNotMatch(appSource, /point-swatch/, 'o marcador genérico da lista de pontos foi substituído pelo ícone real');
 assert.match(appSource, /function structureThumbColor\(structure\) \{[\s\S]{0,120}colors\.red : colors\.blue/, 'a miniatura da estrutura usa o vermelho de EVACUAR e o azul de LIBERADO do croqui');
