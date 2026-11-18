@@ -122,7 +122,9 @@ export function parseDxf(text) {
     const entity = readEntityPairs(pairs, cursor + 1);
     const layer = layerFrom(entity.values);
     if (type === 'LINE') {
-      const points = pointsFromPairs(entity.values).slice(0, 2);
+      const start = pointsFromPairs(entity.values, '10', '20')[0];
+      const end = pointsFromPairs(entity.values, '11', '21')[0];
+      const points = [start, end].filter(Boolean);
       if (points.length === 2) entities.push({ type: 'line', points, closed: false, layer });
     } else if (type === 'POINT') {
       const points = pointsFromPairs(entity.values).slice(0, 1);

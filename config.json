@@ -2,7 +2,7 @@
   "app": {
     "name": "Aviso de Desmonte",
     "eyebrow": "AVISO DE DESMONTE",
-    "version": "1.20.29"
+    "version": "1.20.30"
   },
   "defaultPreset": {
     "loadAllOrthomosaics": true,
@@ -128,6 +128,16 @@
     "acceptedEntities": ["LINE", "LWPOLYLINE", "POLYLINE", "POINT", "CIRCLE", "SPLINE"],
     "units": "m",
     "endpointRule": "primeiro e ultimo vertice de cada string; duplicatas removidas"
+  },
+  "holeStrings": {
+    "enabled": true,
+    "minHoles": 3,
+    "maxHoles": 5000,
+    "alphaFactor": 1.2,
+    "isolatedAttachFactor": 1,
+    "maxCircleRadius": 1,
+    "duplicateToleranceM": 0.001,
+    "zeroLengthToleranceM": 0.001
   },
   "validation": {
     "maxDxfBytes": 50000000,

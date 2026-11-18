@@ -14,6 +14,8 @@ Gerador de pranchas de área de influência para avisos de desmonte. O site rece
 8. Use a GeoTIFF do projeto ou carregue outra GeoTIFF georreferenciada. Com o ajuste automático ativo, a prancha enquadra toda a extensão dos ortomosaicos georreferenciados; os limites X/Y manuais continuam disponíveis para conferência.
 9. Em `Pontos operacionais`, escolha ponto de disparo, ponto de bloqueio ou entrega de cartões e clique no croqui para posicionar e nomear o símbolo. Depois, arraste qualquer símbolo já inserido ou use `Mover` na sua linha para reposicioná-lo sem excluir o registro. Cada ponto de bloqueio recebe uma cor da paleta `report.blockingPointColors` do `config.json`, escolhida entre as que se destacam da área que o ícone cobre no croqui (`report.blockingPointContrast`), preferindo cores que ainda não estejam em uso. O cavalete leva um halo branco e um contorno fino para continuar legível sobre o satélite. O cavalete ganha uma sombra discreta configurada em `report.blockingIcon.shadow` (cor, desfoque e deslocamento), que o destaca do satélite no croqui e na legenda. O cavalete é desenhado em vetor na cor do ponto, com a geometria de `report.blockingIcon`, e aparece na legenda como `Ponto de Bloqueio #1`, `#2` e assim por diante, na ordem de inserção. Projetos salvos antes dessa mudança recebem cores ao serem importados.
 10. Em `Strings de desmonte`, use `Desenhar string no croqui`, informe nome/tipo e clique para adicionar os vértices; finalize com duplo clique no último ponto ou `Concluir string`.
+
+   Arquivos DXF de furos do OPIT (POINT, CIRCLE pequeno ou LINE sem comprimento) enviados em `Adicionar poligonais DXF ou furos do OPIT` viram automaticamente um contorno fechado que passa pelo centro dos furos da extremidade; não é preciso desenhar a string à mão. Os textos do OPIT (número e comprimento) são ignorados e o restante do DXF segue como antes. O comportamento fica em `holeStrings` no `config.json`. `alphaFactor` (1,2 por padrão) controla o detalhe da fronteira: valor maior aproxima o contorno do envelope convexo e pode atravessar reentrâncias, unindo blocos próximos; valor menor segue a fronteira com mais detalhe, mas pode fragmentar um contorno irregular em mais de uma string. Se o contorno ficar fragmentado ou atravessar um entalhe, ajuste `alphaFactor` em pequenos passos. Os demais campos (`minHoles`, `maxHoles`, `isolatedAttachFactor`, `maxCircleRadius` etc.) estão descritos em `SPEC.md`; configuração inválida impede o início do app. A conversão vale só para o importador de strings.
 11. Confira a prancha e clique em `Gerar aviso em PDF`.
 
 Os dados e os arquivos ficam no navegador. Substituições de ortomosaicos persistem no IndexedDB desta máquina para permitir atualização entre sessões; o original publicado permanece intacto. O projeto não envia DXF, imagens ou informações operacionais para um servidor.
@@ -35,7 +37,7 @@ python -m http.server 8000
 node tests/validate.mjs
 ```
 
-O arquivo `app.js` orquestra a interface. A leitura/validação de DXF e GeoJSON está em `src/dxf.js`, a leitura de GeoTIFF em `src/geotiff.js`, as regras geométricas em `src/geometry.js`, a composição da prancha em `src/render.js` e a exportação em `src/pdf.js`.
+O arquivo `app.js` orquestra a interface. A leitura/validação de DXF e GeoJSON está em `src/dxf.js`, a conversão de furos do OPIT em contornos em `src/holes.js`, a leitura de GeoTIFF em `src/geotiff.js`, as regras geométricas em `src/geometry.js`, a composição da prancha em `src/render.js` e a exportação em `src/pdf.js`.
 
 ## Referência
 

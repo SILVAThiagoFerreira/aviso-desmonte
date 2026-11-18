@@ -9,6 +9,7 @@ import { drawEntity, drawPointIcon, drawStringEntity, fitCanvasFontSize } from '
 import { clampZoom, validatePreviewZoomConfig, wheelZoomFactor } from '../src/preview-zoom.js';
 import { layoutStringThumbnail, stringThumbnailSvg } from '../src/string-thumbnail.js';
 import { placePopover } from '../src/point-popover.js';
+import { convertHoleEntities, extractHoles, holeOutline, uniqueHoles, validateHoleStringConfig } from '../src/holes.js';
 
 const firingOptions = Array.from({ length: 20 }, () => ({}));
 assignFiringPointIdentity(firingOptions, () => 0);
@@ -73,7 +74,7 @@ const renderSource = await fs.readFile(new URL('../src/render.js', import.meta.u
 const previewZoomSource = await fs.readFile(new URL('../src/preview-zoom.js', import.meta.url), 'utf8');
 const onlineBackend = await fs.readFile(new URL('../backend/Code.gs', import.meta.url), 'utf8');
 assert.equal(appConfig.onlineCatalog.enabled, true, 'o catálogo online precisa estar habilitado');
-assert.equal(appConfig.app.version, '1.20.29');
+assert.equal(appConfig.app.version, '1.20.30');
 // Zoom de visualização: configuração, validação e cálculos puros. Não pode alterar o canvas exportado.
 const previewZoom = appConfig.previewZoom;
 validatePreviewZoomConfig(previewZoom);
@@ -426,7 +427,7 @@ assert.ok(!stringThumbnailSvg({ entities: parsed.entities }, { color: '"><script
 assert.match(appSource, /import \{ stringThumbnailSvg \} from '\.\/src\/string-thumbnail\.js\?v=1\.20\.28'/, 'a miniatura precisa ser importada com o cache-busting da versão atual');
 assert.match(appSource, /select\.addEventListener\('change', \(\) => \{ item\.blastType = select\.value; paintStringThumb\(thumb, item\); render\(\); \}\)/, 'trocar o tipo precisa atualizar a cor da miniatura');
 assert.match(appSource, /row\.append\(thumb, copy, visibility, remove\)/, 'a miniatura fica à esquerda do bloco de nome, sem alterar select, olho e remover');
-assert.match(appHtml, /app\.js\?v=1\.20\.29/, 'o index precisa carregar o app.js da versão atual');
+assert.match(appHtml, /app\.js\?v=1\.20\.30/, 'o index precisa carregar o app.js da versão atual');
 assert.match(stylesSource, /\.string-thumb \{ display: grid;/, 'a miniatura precisa de estilo próprio');
 // Interface enxuta: textos redundantes saem da página (dicas úteis ficam em title), barras sem filete vermelho grosso.
 for (const removed of ['Role o mouse sobre o croqui', 'Selecione um tipo para começar', 'Prancha atualizada em', 'O ano do aviso é preenchido', 'DXF disponíveis na pasta local', 'Sem limite prático', 'Preencha os dados, carregue as geometrias', 'A prancha do croqui permanece independente', 'IMAGEM INDEPENDENTE', 'VISUALIZAÇÃO DO MAPA', 'EDIÇÃO DO CROQUI', 'CONFIGURAÇÃO DO AVISO', 'Base operacional: PDFs', 'Não exige Google Maps']) assert.ok(!appHtml.includes(removed) && !appSource.includes(removed), `o texto "${removed}" deve sair da interface`);
@@ -496,4 +497,218 @@ assert.match(previewZoomSource, /pan\.moved = true; onViewChange\?\.\(\);/, 'a n
 assert.match(appSource, /function commitPointMove\(\{ kind, point \}\) \{[\s\S]{0,200}refreshBlockingColor\(point\)/, 'soltar o arraste segue o fluxo do Mover e revalida a cor do bloqueio');
 assert.match(appSource, /function cancelPointGesture\(\) \{/, 'Esc precisa poder cancelar um arraste em andamento');
 assert.match(appSource, /function scheduleCanvasRender\(\) \{ if \(canvasRenderFrame\) return;/, 'o arraste redesenha no máximo uma vez por quadro');
+// Furos OPIT (v1.20.30): validação da configuração, extração, deduplicação, contorno e integração com parseDxf.
+// Os DXF são gerados como texto dentro do próprio teste; nenhum arquivo real do usuário entra no repositório.
+{
+  const holeBase = appConfig.holeStrings;
+  const holeCfg = (overrides = {}) => validateHoleStringConfig({ ...holeBase, ...overrides });
+  const SPACING = 4.17;
+  const ROW_STEP = SPACING * Math.sqrt(3) / 2;
+  const LEVEL = 279.854;
+  const keyOf = (point) => `${point.x}|${point.y}`;
+  const dxfText = (pairs) => [
+    [0, 'SECTION'], [2, 'HEADER'], [9, '$ACADVER'], [1, 'AC1015'], [0, 'ENDSEC'],
+    [0, 'SECTION'], [2, 'ENTITIES'], ...pairs, [0, 'ENDSEC'], [0, 'EOF'],
+  ].flatMap(([code, value]) => [String(code), String(value)]).join('\n') + '\n';
+  const opitPoint = (x, y) => [[0, 'POINT'], [8, 'Hole'], [10, x], [20, y], [30, LEVEL]];
+  const opitLine = (x, y) => [[0, 'LINE'], [8, 'Theoretical Hole'], [10, x], [20, y], [30, LEVEL], [11, x], [21, y], [31, 269.854]];
+  const opitText = (x, y, number) => [[0, 'TEXT'], [8, 'Number'], [1, String(number)], [10, x], [20, y + 0.36], [30, LEVEL], [40, 0.3]];
+  const opitCircle = (x, y) => [[0, 'CIRCLE'], [8, 'Hole'], [10, x], [20, y], [30, 0], [40, 0.3175]];
+  const holePairs = (hole, number, style) => {
+    if (style === 'circle') return opitCircle(hole.x, hole.y);
+    if (style === 'point') return opitPoint(hole.x, hole.y);
+    return [...opitPoint(hole.x, hole.y), ...opitLine(hole.x, hole.y), ...opitText(hole.x, hole.y, number)];
+  };
+  const holesPairs = (holes, style = 'opit') => holes.flatMap((hole, index) => holePairs(hole, index + 1, style));
+  const holesDxf = (holes, style = 'opit') => dxfText(holesPairs(holes, style));
+  // Malha triangular: linhas pares sem deslocamento, linhas ímpares deslocadas em meio espaçamento.
+  const lattice = ({ cols = 12, rows = 9, originX = 0 } = {}) => {
+    const holes = [];
+    for (let row = 0; row < rows; row += 1) {
+      for (let col = 0; col < cols; col += 1) holes.push({ x: originX + col * SPACING + (row % 2) * SPACING / 2, y: row * ROW_STEP, row, col, cols, rows });
+    }
+    return holes;
+  };
+  const borderKeys = (holes) => new Set(holes.filter((h) => h.row === 0 || h.row === h.rows - 1 || h.col === 0 || h.col === h.cols - 1).map(keyOf));
+  const sameXY = (a, b) => a.x === b.x && a.y === b.y;
+  const ringOf = (points) => (points.length > 1 && sameXY(points[0], points.at(-1)) ? points.slice(0, -1) : points);
+  const orient = (p, q, r) => Math.sign((q.x - p.x) * (r.y - p.y) - (q.y - p.y) * (r.x - p.x));
+  const within = (p, q, r) => Math.min(p.x, q.x) <= r.x && r.x <= Math.max(p.x, q.x) && Math.min(p.y, q.y) <= r.y && r.y <= Math.max(p.y, q.y);
+  const segmentsMeet = (a, b, c, d) => {
+    const d1 = orient(c, d, a); const d2 = orient(c, d, b); const d3 = orient(a, b, c); const d4 = orient(a, b, d);
+    if (d1 * d2 < 0 && d3 * d4 < 0) return true;
+    return (d1 === 0 && within(c, d, a)) || (d2 === 0 && within(c, d, b)) || (d3 === 0 && within(a, b, c)) || (d4 === 0 && within(a, b, d));
+  };
+  const ringCrosses = (ring) => {
+    const n = ring.length;
+    for (let i = 0; i < n; i += 1) {
+      for (let j = i + 2; j < n; j += 1) {
+        if (i === 0 && j === n - 1) continue;
+        if (segmentsMeet(ring[i], ring[(i + 1) % n], ring[j], ring[(j + 1) % n])) return true;
+      }
+    }
+    return false;
+  };
+  const contourRing = (result, label) => {
+    assert.notEqual(result.holes, null, `${label}: deveria gerar um contorno de furos`);
+    const closed = result.entities.filter((entity) => entity.type === 'polyline' && entity.closed);
+    assert.equal(closed.length, 1, `${label}: deve sair exatamente 1 polilinha fechada`);
+    assert.equal(result.holes.contourVertices, closed[0].points.length, `${label}: contourVertices deve ser o comprimento do contorno`);
+    const ring = ringOf(closed[0].points);
+    assert.equal(ringCrosses(ring), false, `${label}: o contorno não pode ter cruzamento de arestas`);
+    return ring;
+  };
+  const assertPerimeter = (ring, border, label) => {
+    const ringKeys = new Set(ring.map(keyOf));
+    assert.ok([...ringKeys].every((k) => border.has(k)), `${label}: o contorno passa por furo do interior ou por ponto que não é furo`);
+    assert.ok([...border].every((k) => ringKeys.has(k)), `${label}: furo do perímetro externo fora do contorno`);
+  };
+
+  // Malha 12 x 9: perímetro = 12 + 12 + 7 + 7 = 38 furos.
+  const main = lattice();
+  const mainBorder = borderKeys(main);
+  assert.equal(mainBorder.size, 38, 'o perímetro da malha 12 x 9 deve ter 38 furos');
+  const mainResult = convertHoleEntities(parseDxf(holesDxf(main)), holeCfg());
+  assert.equal(mainResult.entities.length, 1, 'a malha com POINT, LINE e TEXT deve virar exatamente uma entidade');
+  assert.equal(mainResult.entities[0].type, 'polyline', 'a entidade de saída da malha precisa ser uma polyline');
+  assert.equal(mainResult.entities[0].closed, true, 'o contorno da malha precisa ser fechado');
+  assert.equal(mainResult.holes.count, main.length, 'POINT, LINE e TEXT do mesmo furo devem contar uma única vez');
+  assert.equal(mainResult.holes.contours, 1, 'a malha deve gerar um único contorno');
+  assertPerimeter(contourRing(mainResult, 'malha 12 x 9'), mainBorder, 'malha 12 x 9');
+  const outline = holeOutline(main.map((h) => ({ x: h.x, y: h.y })), { alphaFactor: 1.2, isolatedAttachFactor: 1 });
+  assert.equal(outline.contours.length, 1, 'holeOutline deve devolver um único polígono para a malha');
+  assertPerimeter(ringOf(outline.contours[0]), mainBorder, 'holeOutline da malha 12 x 9');
+  const circleResult = convertHoleEntities(parseDxf(holesDxf(main, 'circle')), holeCfg());
+  assert.equal(circleResult.holes.count, main.length, 'furos em CIRCLE de raio 0,3175 devem ser contados um a um');
+  assertPerimeter(contourRing(circleResult, 'círculos de raio 0,3175'), mainBorder, 'círculos de raio 0,3175');
+  const crlfResult = convertHoleEntities(parseDxf(holesDxf(main).replace(/\n/g, '\r\n')), holeCfg());
+  assertPerimeter(contourRing(crlfResult, 'DXF com CRLF'), mainBorder, 'DXF com quebras CRLF');
+  const integrationText = holesDxf(main);
+  assert.ok(integrationText.startsWith('0\nSECTION\n2\nHEADER\n') && integrationText.includes('0\nSECTION\n2\nENTITIES\n'), 'o DXF de teste precisa começar com HEADER e ter a seção ENTITIES');
+  assert.ok(integrationText.endsWith('0\nENDSEC\n0\nEOF\n'), 'o DXF de teste precisa terminar com EOF');
+  // Dois conjuntos separados por 42 m: dois contornos fechados, um por conjunto.
+  const groupB = lattice({ originX: 90 });
+  const twoResult = convertHoleEntities(parseDxf(holesDxf([...main, ...groupB])), holeCfg());
+  assert.equal(twoResult.holes.contours, 2, 'dois conjuntos separados devem gerar dois contornos');
+  const twoClosed = twoResult.entities.filter((entity) => entity.type === 'polyline' && entity.closed);
+  assert.equal(twoClosed.length, 2, 'dois conjuntos separados devem sair como duas polilinhas fechadas');
+  const groupARing = ringOf(twoClosed.find((entity) => ringOf(entity.points).every((p) => p.x < 60)).points);
+  const groupBRing = ringOf(twoClosed.find((entity) => ringOf(entity.points).every((p) => p.x >= 60)).points);
+  assertPerimeter(groupARing, mainBorder, 'conjunto A');
+  assertPerimeter(groupBRing, borderKeys(groupB), 'conjunto B');
+  assert.equal(ringCrosses(groupARing) || ringCrosses(groupBRing), false, 'nenhum dos contornos pode ter cruzamento');
+  // Entalhe de 3 furos na borda inferior: o furo do fundo (linha 1, coluna 5) precisa estar no contorno.
+  const notched = main.filter((h) => !(h.row === 0 && h.col >= 4 && h.col <= 6));
+  const notchResult = convertHoleEntities(parseDxf(holesDxf(notched, 'point')), holeCfg());
+  const notchKeys = new Set(contourRing(notchResult, 'entalhe').map(keyOf));
+  assert.ok(notchKeys.has(keyOf(main.find((h) => h.row === 1 && h.col === 5))), 'o furo do fundo do entalhe deve estar no contorno');
+  assert.ok(notched.filter((h) => h.row === 0).every((h) => notchKeys.has(keyOf(h))), 'os furos de borda ao lado do entalhe devem continuar no contorno');
+  // Duplicatas: POINT, LINE e TEXT do mesmo furo viram um único furo; entidades que não são furos ficam em entities.
+  const square = [[200, 200], [202, 200], [202, 202], [200, 202]];
+  const squarePairs = [
+    [0, 'POLYLINE'], [8, 'Area'], [66, 1], [70, 1], [10, 0], [20, 0], [30, 0],
+    ...square.flatMap(([x, y]) => [[0, 'VERTEX'], [8, 'Area'], [10, x], [20, y], [30, 0]]),
+    [0, 'SEQEND'], [8, 'Area'],
+  ];
+  const withSquare = convertHoleEntities(parseDxf(dxfText([...holesPairs(main), ...squarePairs])), holeCfg());
+  assert.equal(withSquare.entities.length, 2, 'a poligonal que não é furo deve permanecer junto ao contorno');
+  assert.ok(withSquare.entities.some((entity) => entity.type === 'polyline' && entity.points.some((p) => p.x === 200 && p.y === 200)), 'a poligonal de 4 vértices precisa continuar em entities');
+  assert.equal(withSquare.holes.count, main.length, 'a poligonal de 4 vértices não pode virar furos');
+  // Fileira colinear: não forma área fechada.
+  const colinear = Array.from({ length: 12 }, (_, i) => ({ x: i * SPACING, y: 0 }));
+  const colinearResult = convertHoleEntities(parseDxf(holesDxf(colinear, 'point')), holeCfg());
+  assert.equal(colinearResult.holes, null, 'uma fileira colinear não pode gerar furos de área');
+  assert.equal(colinearResult.entities.filter((entity) => entity.type === 'polyline' && entity.closed).length, 0, 'uma fileira colinear não pode gerar polilinha fechada');
+  assert.ok(colinearResult.notices.some((notice) => /área fechada/.test(notice)), 'a fileira colinear precisa avisar que não forma área fechada');
+  // Menos furos que o mínimo: os pontos continuam e o aviso diz o motivo.
+  const pair = [{ x: 0, y: 0 }, { x: SPACING, y: 0 }];
+  const minParsed = parseDxf(holesDxf(pair, 'point'));
+  const minResult = convertHoleEntities(minParsed, holeCfg());
+  assert.equal(minResult.holes, null, 'com 2 furos e mínimo 3 não deve haver contorno');
+  assert.deepEqual(minResult.entities, minParsed.entities, 'com menos furos que o mínimo, os pontos devem continuar em entities');
+  assert.equal(minResult.notices.length, 1, 'com menos furos que o mínimo, deve haver um único aviso');
+  assert.match(minResult.notices[0], /mínimo/, 'o aviso de mínimo de furos precisa dizer "mínimo"');
+  // Desligado: a entrada volta sem alteração.
+  const disabledParsed = parseDxf(holesDxf(main));
+  const disabledResult = convertHoleEntities(disabledParsed, holeCfg({ enabled: false }));
+  assert.equal(disabledResult.holes, null, 'com a função desligada não pode haver furos');
+  assert.equal(disabledResult.notices.length, 0, 'com a função desligada não pode haver avisos');
+  assert.deepEqual(disabledResult.entities, disabledParsed.entities, 'com a função desligada as entidades devem ser as de entrada');
+  // Limite de furos: 60 furos com limite 50 precisam ser recusados.
+  const tooMany = Array.from({ length: 60 }, (_, i) => ({ x: (i % 10) * SPACING, y: Math.floor(i / 10) * ROW_STEP }));
+  assert.throws(() => convertHoleEntities(parseDxf(holesDxf(tooMany, 'point')), holeCfg({ maxHoles: 50 })), /limite/, 'mais furos que maxHoles precisam lançar erro com "limite"');
+  // Furos isolados: um a 3 m da borda é incorporado; um a 15 m é isolado e avisado.
+  const nearStray = { x: -3, y: 2 * ROW_STEP };
+  const attachedResult = convertHoleEntities(parseDxf(holesDxf([...main, nearStray], 'point')), holeCfg());
+  assert.ok(attachedResult.holes.attached >= 1, 'um furo a menos de um espaçamento da borda deve ser incorporado');
+  assert.equal(attachedResult.holes.isolated, 0, 'um furo incorporado não pode contar como isolado');
+  const farStray = { x: -15, y: 4 * ROW_STEP };
+  const isolatedResult = convertHoleEntities(parseDxf(holesDxf([...main, farStray], 'point')), holeCfg());
+  assert.ok(isolatedResult.holes.isolated >= 1, 'um furo a mais de 3 espaçamentos da malha deve ser isolado');
+  assert.ok(isolatedResult.notices.some((notice) => /isolado/.test(notice)), 'o furo isolado precisa gerar aviso com "isolado"');
+  // Desempenho: malha de 2000 furos em menos de 4 s (somente a conversão é medida).
+  const bigParsed = parseDxf(holesDxf(lattice({ cols: 50, rows: 40 }), 'point'));
+  const bigStart = performance.now();
+  const bigResult = convertHoleEntities(bigParsed, holeCfg());
+  const bigElapsed = performance.now() - bigStart;
+  assert.equal(bigResult.holes.count, 2000, 'a malha de 2000 furos deve ser contada por completo');
+  assert.ok(bigElapsed < 4000, `a conversão de 2000 furos levou ${Math.round(bigElapsed)} ms (limite 4000 ms)`);
+  // uniqueHoles e extractHoles.
+  assert.equal(uniqueHoles([{ x: 0, y: 0 }, { x: 0, y: 0 }], 0.001).length, 1, 'o mesmo ponto duas vezes conta como um furo');
+  assert.equal(uniqueHoles([{ x: 0, y: 0 }, { x: 0.0004, y: 0 }], 0.001).length, 1, 'furos a 0,0004 m com tolerância 0,001 m são duplicatas');
+  assert.equal(uniqueHoles([{ x: 0, y: 0 }, { x: 0.002, y: 0 }], 0.001).length, 2, 'furos a 0,002 m com tolerância 0,001 m são distintos');
+  const cfgExtract = holeCfg();
+  const pointOnly = extractHoles([{ type: 'point', points: [{ x: 1, y: 2 }], layer: 'Hole' }], cfgExtract);
+  assert.equal(pointOnly.holes.length, 1, 'um POINT vira furo');
+  assert.equal(pointOnly.rest.length, 0, 'um POINT não pode ir para rest');
+  const boundaryCircle = extractHoles([{ type: 'circle', points: [{ x: 1, y: 2 }], radius: cfgExtract.maxCircleRadius, layer: 'Hole' }], cfgExtract);
+  assert.equal(boundaryCircle.holes.length, 1, 'um círculo com raio igual ao máximo deve virar furo');
+  const bigCircle = extractHoles([{ type: 'circle', points: [{ x: 1, y: 2 }], radius: 5, layer: 'Hole' }], cfgExtract);
+  assert.equal(bigCircle.holes.length, 0, 'um círculo de raio 5 não pode ser furo');
+  assert.equal(bigCircle.rest.length, 1, 'um círculo de raio 5 deve ir para rest');
+  const zeroLine = extractHoles([{ type: 'line', points: [{ x: 1, y: 2 }, { x: 1, y: 2 }], closed: false, layer: 'Theoretical Hole' }], cfgExtract);
+  assert.equal(zeroLine.holes.length, 1, 'uma LINE de comprimento zero em planta deve virar furo');
+  const realLine = extractHoles([{ type: 'line', points: [{ x: 0, y: 0 }, { x: 10, y: 0 }], closed: false, layer: 'Cut' }], cfgExtract);
+  assert.equal(realLine.holes.length, 0, 'uma LINE com comprimento real não pode ser furo');
+  assert.equal(realLine.rest.length, 1, 'uma LINE com comprimento real deve ir para rest');
+  const mixedParsed = parseDxf(dxfText([
+    ...opitPoint(1, 1),
+    ...opitCircle(2, 2),
+    [0, 'CIRCLE'], [8, 'Cut'], [10, 3], [20, 3], [30, 0], [40, 5],
+    ...opitLine(4, 4),
+    [0, 'LINE'], [8, 'Cut'], [10, 10], [20, 10], [30, 0], [11, 20], [21, 10], [31, 0],
+  ]));
+  const mixed = extractHoles(mixedParsed.entities, cfgExtract);
+  assert.deepEqual(mixed.holes.map(keyOf).sort(), ['1|1', '2|2', '4|4'], 'DXF lido: POINT, CIRCLE pequeno e LINE sem comprimento são os furos');
+  assert.deepEqual(mixed.rest.map((entity) => entity.type).sort(), ['circle', 'line'], 'DXF lido: CIRCLE grande e LINE real ficam em rest');
+  // Validação da configuração: valores inválidos precisam lançar erro.
+  assert.doesNotThrow(() => validateHoleStringConfig(holeBase), 'a configuração atual de holeStrings precisa ser válida');
+  assert.throws(() => validateHoleStringConfig({ ...holeBase, alphaFactor: 0.5 }), Error, 'alphaFactor abaixo do mínimo precisa ser recusado');
+  assert.throws(() => validateHoleStringConfig({ ...holeBase, alphaFactor: 11 }), Error, 'alphaFactor acima do máximo precisa ser recusado');
+  assert.throws(() => validateHoleStringConfig({ ...holeBase, minHoles: 2 }), Error, 'minHoles 2 precisa ser recusado');
+  assert.throws(() => validateHoleStringConfig({ ...holeBase, minHoles: 5, maxHoles: 4 }), Error, 'maxHoles menor que minHoles precisa ser recusado');
+  assert.throws(() => validateHoleStringConfig({ ...holeBase, maxHoles: 25000 }), Error, 'maxHoles 25000 precisa ser recusado');
+  assert.throws(() => validateHoleStringConfig({ ...holeBase, isolatedAttachFactor: -1 }), Error, 'isolatedAttachFactor negativo precisa ser recusado');
+  assert.throws(() => validateHoleStringConfig({ ...holeBase, enabled: 'sim' }), Error, 'enabled como texto precisa ser recusado');
+  assert.throws(() => validateHoleStringConfig({ ...holeBase, maxCircleRadius: 0 }), Error, 'maxCircleRadius zero precisa ser recusado');
+  assert.throws(() => validateHoleStringConfig({ ...holeBase, duplicateToleranceM: -0.1 }), Error, 'duplicateToleranceM negativa precisa ser recusada');
+  assert.throws(() => validateHoleStringConfig({ ...holeBase, zeroLengthToleranceM: NaN }), Error, 'zeroLengthToleranceM NaN precisa ser recusada');
+  assert.throws(() => validateHoleStringConfig(undefined), Error, 'sem configuração de holeStrings a validação precisa falhar');
+  // Integração do app: import, chamada em handleStrings, campo de entrada no index.html e flag no config.json.
+  assert.ok(appSource.includes("import { convertHoleEntities, validateHoleStringConfig } from './src/holes.js?v=1.20.30';"), 'o app.js precisa importar o módulo de furos com o cache-busting 1.20.30');
+  const handleStart = appSource.search(/(?:async\s+)?function\s+handleStrings\b/);
+  assert.ok(handleStart >= 0, 'a função handleStrings precisa existir no app.js');
+  const handleRest = appSource.slice(handleStart + 1);
+  const handleEnd = handleRest.search(/\n(?:async\s+)?function\s/);
+  const handleBody = appSource.slice(handleStart, handleEnd >= 0 ? handleStart + 1 + handleEnd : undefined);
+  assert.match(handleBody, /convertHoleEntities\(/, 'handleStrings precisa chamar convertHoleEntities');
+  const stringInputAt = appHtml.indexOf('id="stringFile"');
+  assert.ok(stringInputAt >= 0, 'o campo de strings precisa existir no index.html');
+  const stringLabelOpen = appHtml.slice(appHtml.lastIndexOf('<label', stringInputAt), appHtml.indexOf('>', appHtml.lastIndexOf('<label', stringInputAt)) + 1);
+  assert.match(stringLabelOpen, /title="[^"]*OPIT[^"]*"/, 'o título do campo de strings precisa mencionar OPIT');
+  const visibleText = appHtml.replace(/<script[\s\S]*?<\/script>/gi, '').replace(/<[^>]+>/g, ' ');
+  assert.match(visibleText, /furos do OPIT/, 'o texto visível do campo de strings precisa mencionar os furos do OPIT');
+  assert.equal(appConfig.holeStrings.enabled, true, 'holeStrings.enabled precisa estar true no config.json');
+}
+
 console.log(`PASS: DXF ${parsed.entities.length} entidades, ${getStringEndpoints(parsed.entities).length} extremidades, GeoJSON e nome de arquivo validados.`);

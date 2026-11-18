@@ -3,7 +3,7 @@
 ## Entrada
 
 - Metadados: empresa/operação, data, horário, local e observação de rodapé.
-- Uma string DXF contendo entidades lineares suportadas.
+- Uma string DXF contendo entidades lineares suportadas. O mesmo DXF pode trazer furos do OPIT (POINT em qualquer camada, CIRCLE com raio até `holeStrings.maxCircleRadius` ou LINE com comprimento zero em planta), que são convertidos em contorno.
 - Raios numéricos em metros para pessoas e máquinas; valor vazio significa que o raio não será desenhado.
 - Zero ou mais arquivos DXF/GeoJSON de área, cada um classificado como `evacuar` ou `liberado`.
 - Imagem de fundo opcional e, quando necessário, limites X/Y manuais.
@@ -12,6 +12,12 @@
 
 - O DXF é validado antes do desenho. Arquivo vazio, entidade sem coordenadas ou extensão inválida gera erro visível.
 - As extremidades são o primeiro e o último vértice de cada string linear; pontos duplicados são removidos.
+- Furos do OPIT (somente no importador de strings): são reconhecidos como furos um POINT em qualquer camada, um CIRCLE com raio até `holeStrings.maxCircleRadius` (1 m, vale o centro) e uma LINE de comprimento zero em planta (vale o primeiro ponto, pois repete o furo vertical). Furos iguais dentro de `holeStrings.duplicateToleranceM` (0,001 m) contam uma vez. TEXT, polilinhas, linhas com comprimento e círculos maiores não são furos e permanecem no item da string sem alteração.
+- Os furos reconhecidos formam um contorno fechado que passa pelo centro dos furos da extremidade, acompanhando reentrâncias. O algoritmo triangula os furos por Delaunay, calcula o circunraio de cada triângulo e descarta os que excedem alfa, definido como `holeStrings.alphaFactor` (1,2) × mediana dos circunraios; as arestas de fronteira dos triângulos mantidos formam laços. Laços de área positiva são contornos externos; laços de área negativa são vazios internos e são ignorados; laços com área menor que 1e-7 × (extensão)² são descartados, pois fileiras alinhadas não formam área.
+- Furo isolado, que não pertence a nenhum triângulo mantido: se estiver fora de todos os contornos, a uma distância do contorno de até `holeStrings.isolatedAttachFactor` (1,0) × mediana das arestas de Delaunay de um contorno, e se a inserção não cruzar outra aresta, é incorporado ao contorno. Caso contrário, fica de fora, é informado como "isolado(s) ficaram de fora" e não é desenhado. Furos dentro do contorno que não estão na fronteira são cobertos por ele e contados como interior.
+- Limites: `holeStrings.minHoles` (3) é o mínimo de furos para gerar contorno; abaixo disso, ou sem área fechada, o arquivo entra como antes e a notificação informa que os furos foram mantidos como pontos ou que nenhum contorno foi gerado. Acima de `holeStrings.maxHoles` (5000) o arquivo é recusado com erro visível pedindo para dividir o arquivo por desmonte. Configuração inválida em `holeStrings` impede o início do app com mensagem de erro.
+- A notificação de importação informa, por exemplo, `1.408 furos → 1 contorno com 162 vértices.`, acrescida de `; N furo(s) isolado(s) ficaram de fora.` quando houver. Na lista de strings, a linha de metadados mostra `N furos · 1 contorno · DXF` e o tooltip mostra o número de vértices do contorno.
+- Os furos do OPIT não alteram os DXF de áreas, os DXF de raio, a importação de poligonais já cadastradas nem os arquivos de projeto salvos, que já guardam os contornos.
 - Strings são preenchidas com a cor do seu tipo e `report.stringFillOpacity` (0,6, ou seja 40% de transparência) quando têm três ou mais vértices, fechadas ou não; o traço segue a forma original.
 - Uma string de Pré-Corte ou Regularização que se sobrepõe a uma poligonal de Produção (mesma geometria, cruzamento de segmentos ou vértice dentro do preenchimento) recebe preenchimento vermelho de Produção, na opacidade configurada, e contorno sólido na sua cor (verde ou amarelo) desenhado por cima. Strings sem sobreposição são desenhadas como antes. Pré-Corte e Regularização sobrepostas, sem Produção, mantêm as próprias cores. A legenda e o painel continuam listando cada string.
 - O raio é calculado sobre as geometrias sem duplicatas idênticas: a mesma string adicionada duas vezes produz o mesmo cerco de uma cópia.
